@@ -59,12 +59,12 @@ flowchart LR
 
 P1 and P2 can run in parallel once P0 is in.
 
-## Status summary (after PR #30)
+## Status summary (after the saved-state PR)
 
 | Area | Done | Partial | Todo | Blocked |
 |------|------|---------|------|---------|
 | Foundation (FND tasks) | 5 | 1 | 2 | 0 |
-| Navigation & UI | 7 | 1 | 0 | 1 |
+| Navigation & UI | 8 | 0 | 0 | 1 |
 | Settings (LI, AG) | 10 | 0 | 0 | 2 |
 | API Status (AS) | 6 | 0 | 1 | 0 |
 | Default hashtags (HT) | 17 | 0 | 0 | 0 |
@@ -72,7 +72,7 @@ P1 and P2 can run in parallel once P0 is in.
 | Content generation | 20 | 0 | 1 | 0 |
 | Post to LinkedIn (LP) | 7 | 0 | 0 | 0 |
 
-Counts are per requirement row in each file (per task for Foundation). What's left: NAV-4 (results survive process death); the optional rows waiting on Q-06, Q-22 and Q-23; Q-03 (LinkedIn sign-in) and Q-04 (model choice), which are still open; the release tasks (REL-*); and the manual validation (`-V`) checks, which need a device. Unit and Robolectric UI tests run in CI on every PR.
+Counts are per requirement row in each file (per task for Foundation). What's left: the optional rows waiting on Q-06, Q-22 and Q-23; Q-03 (LinkedIn sign-in) and Q-04 (model choice), which are still open; the release tasks (REL-*); and the manual validation (`-V`) checks, which need a device. Unit and Robolectric UI tests run in CI on every PR.
 
 ## Defects found in the current code
 

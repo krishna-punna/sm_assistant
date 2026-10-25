@@ -9,8 +9,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.smassistant.app.chat.ChatViewModel
+import com.smassistant.app.chat.VideoSaver
 import com.smassistant.app.generate.GenerateContentAndMediaUseCase
 import com.smassistant.app.generate.GeneratedVideo
 import com.smassistant.app.generate.appGenerateVideo
@@ -30,7 +32,7 @@ fun VideoScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToH
     val appContext = LocalContext.current.applicationContext
     val viewModel = viewModel {
         val useCase = appGenerateVideo(appContext)
-        ChatViewModel<GeneratedVideo> { prompt -> useCase(prompt) }
+        ChatViewModel(createSavedStateHandle(), VideoSaver) { prompt -> useCase(prompt) }
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val postViewModel = viewModel { PostViewModel(appPostToLinkedIn(appContext)) }

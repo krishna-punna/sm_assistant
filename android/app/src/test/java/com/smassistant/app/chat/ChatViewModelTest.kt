@@ -1,5 +1,6 @@
 package com.smassistant.app.chat
 
+import androidx.lifecycle.SavedStateHandle
 import com.smassistant.app.net.ApiError
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -131,5 +132,55 @@ class ChatViewModelTest {
         advanceUntilIdle()
         assertEquals("first… topic done", (vm.state.value.items.last() as ChatItem.Result<String>).value)
         assertEquals(2, vm.state.value.items.size)
+    }
+
+    @Test
+    fun `the input and conversation come back after process death`() = runTest(dispatcher) {
+        val handle = SavedStateHandle()
+        var calls = 0
+        val first = ChatViewModel(handle, TextSaver) { calls++; Outcome.Ok("Post about $it") }
+        first.onInputChange("caching")
+        first.submit()
+        advanceUntilIdle()
+        first.onInputChange("half typed")
+
+        // A new ViewModel on the same saved state is what Android builds after it kills the process.
+        val restored = ChatViewModel(handle, TextSaver) { calls++; Outcome.Ok("again") }
+        assertEquals(first.state.value, restored.state.value)
+        assertEquals("half typed", restored.state.value.input)
+        assertEquals(1, calls)
+
+        restored.submit()
+        advanceUntilIdle()
+        assertEquals(4, restored.state.value.items.map { it.id }.distinct().size)
+    }
+
+    @Test
+    fun `a generation that was running comes back as an error with Retry`() = runTest(dispatcher) {
+        val handle = SavedStateHandle()
+        val first = ChatViewModel(handle, TextSaver) { CompletableDeferred<Unit>().await(); Outcome.Ok(it) }
+        first.onInputChange("topic")
+        first.submit()
+
+        val restored = ChatViewModel(handle, TextSaver) { Outcome.Ok("done") }
+        val failure = restored.state.value.items[1] as ChatItem.Failure
+        assertEquals(STOPPED, failure.message)
+        assertFalse(restored.state.value.busy)
+
+        restored.retry(failure)
+        advanceUntilIdle()
+        assertEquals("done", (restored.state.value.items.last() as ChatItem.Result<String>).value)
+    }
+
+    @Test
+    fun `without a saver only the typed input comes back`() {
+        val handle = SavedStateHandle()
+        ChatViewModel<String>(handle) { Outcome.NoAgent }.apply {
+            onInputChange("topic")
+            submit()
+            onInputChange("draft")
+        }
+        val restored = ChatViewModel<String>(handle) { Outcome.NoAgent }
+        assertEquals(ChatUiState<String>(input = "draft"), restored.state.value)
     }
 }

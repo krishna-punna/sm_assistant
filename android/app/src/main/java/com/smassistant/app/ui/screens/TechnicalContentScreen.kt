@@ -7,8 +7,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.smassistant.app.chat.ChatViewModel
+import com.smassistant.app.chat.TextSaver
 import com.smassistant.app.generate.appGenerateTechnicalContent
 import com.smassistant.app.linkedin.PostState
 import com.smassistant.app.linkedin.PostViewModel
@@ -25,7 +27,7 @@ fun TechnicalContentScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit
     val appContext = LocalContext.current.applicationContext
     val viewModel = viewModel {
         val useCase = appGenerateTechnicalContent(appContext)
-        ChatViewModel<String> { prompt -> useCase(prompt) }
+        ChatViewModel(createSavedStateHandle(), TextSaver) { prompt -> useCase(prompt) }
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val postViewModel = viewModel { PostViewModel(appPostToLinkedIn(appContext)) }
