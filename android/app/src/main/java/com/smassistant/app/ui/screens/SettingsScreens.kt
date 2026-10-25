@@ -1,20 +1,30 @@
 package com.smassistant.app.ui.screens
 
 import android.widget.Toast
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.smassistant.app.agents.AgentPreferences
+import com.smassistant.app.agents.TEXT_AGENTS
 import com.smassistant.app.data.ApiService
 import com.smassistant.app.data.ApiSettingsStore
 import com.smassistant.app.navigation.AiAgent
@@ -39,7 +49,38 @@ fun AiAgentListScreen(onAgentSelected: (AiAgent) -> Unit, onBackToHome: () -> Un
         AiAgent.entries.forEach { agent ->
             MenuButton("${agent.displayName} AI Agent") { onAgentSelected(agent) }
         }
+        DefaultTextAgentPicker()
     }
+}
+
+/** Which agent text features use first (AGC-4, interim answer to Q-05). */
+@Composable
+private fun DefaultTextAgentPicker() {
+    val appContext = LocalContext.current.applicationContext
+    val preferences = remember { AgentPreferences(appContext) }
+    var selected by remember { mutableStateOf(preferences.defaultTextAgent ?: TEXT_AGENTS.first()) }
+    DefaultTextAgentChips(selected) {
+        preferences.defaultTextAgent = it
+        selected = it
+    }
+}
+
+@Composable
+fun DefaultTextAgentChips(selected: ApiService, onSelect: (ApiService) -> Unit) {
+    Text("Default agent for text", style = MaterialTheme.typography.titleSmall)
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        TEXT_AGENTS.forEach { service ->
+            FilterChip(
+                selected = service == selected,
+                onClick = { onSelect(service) },
+                label = { Text(service.displayName) },
+            )
+        }
+    }
+    Text(
+        "If it isn't set up, the next set-up agent is used.",
+        style = MaterialTheme.typography.bodySmall,
+    )
 }
 
 /** S4–S6 settings for one AI agent. */
