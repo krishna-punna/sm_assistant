@@ -2,8 +2,10 @@ package com.smassistant.app.media
 
 import android.content.Context
 import android.net.Uri
+import androidx.annotation.OptIn
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.effect.Presentation
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.EditedMediaItem
@@ -30,6 +32,7 @@ const val SECONDS_PER_SLIDE = 4
  * Encodes the slides on the device with Media3 Transformer: each image becomes a still
  * [SECONDS_PER_SLIDE] long, scaled to fit a [SIZE_PX] square, into an H.264 MP4 without audio.
  */
+@OptIn(UnstableApi::class) // Transformer, Composition and Presentation are all marked unstable in Media3 1.8.
 class Media3SlideshowMaker(private val context: Context) : SlideshowMaker {
     override suspend fun make(slides: List<File>, output: File): Result<File> = withContext(Dispatchers.Main) {
         // Transformer must be created and started on a thread with a Looper; its callbacks come back here.
