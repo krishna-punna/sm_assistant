@@ -8,13 +8,13 @@ Current code: `SettingsScreens.kt` (`ApiSettingsForm`), `data/ApiSettings.kt` (`
 | ID | Requirement | Status | Gap |
 |----|-------------|--------|-----|
 | LI-1 | Enter/edit LinkedIn API value and key | done | |
-| LI-2 | SAVE persists both values across restarts | partial | Validation done; key not encrypted yet (FND-4) |
+| LI-2 | SAVE persists both values across restarts | done | Validated; key encrypted |
 | LI-3 | Saved values pre-filled on reopen | done | |
 | LI-4 | Posting uses saved values | todo | No LinkedIn client yet (LP-1) |
-| LI-NFR | Key masked, secure storage, never logged | partial | Masked; storage FND-4; logging FND-6 |
+| LI-NFR | Key masked, secure storage, never logged | partial | Masked and encrypted; logging FND-6 |
 | LI-Q3 | Auth model: pasted token vs "Sign in with LinkedIn" OAuth | **blocked (Q-03)** | |
 | AG-1 | Open Claude, Gemini, Groq settings from the list | done | |
-| AG-2 | Enter/edit/save API value and key per agent | partial | Validation done; key not encrypted yet (FND-4) |
+| AG-2 | Enter/edit/save API value and key per agent | done | Validated; key encrypted |
 | AG-3 | Persist and pre-fill | done | |
 | AG-4 | Agents configured independently | done | Separate keys per service |
 | AG-5 | Generators use the configured agent(s) | todo | Agent clients AGC-*, selection blocked on Q-05 |
@@ -25,7 +25,7 @@ Current code: `SettingsScreens.kt` (`ApiSettingsForm`), `data/ApiSettings.kt` (`
 | ID | Task | Depends on | Status |
 |----|------|-----------|--------|
 | LI-2-I / AG-2-I | Settings ViewModel: validate on SAVE (API must be an `https://` URL; key non-empty), inline field errors, toast on success. Saving a blank API clears the override (falls back to `app.yml`) instead of storing `""`. | — | done — `ApiSettingsViewModel` |
-| LI-2-I2 / AG-2-I2 | Save through the secure store (FND-4). | FND-4 | todo |
+| LI-2-I2 / AG-2-I2 | Save through the secure store (FND-4). | FND-4 | done |
 | LI-4-I | `LinkedInClient` reads `ApiSettingsStore.load(LINKEDIN)` at call time (no caching), so a new key takes effect immediately. | LP-1-I | todo |
 | LI-Q3-I | **If Q-03 = OAuth:** replace the key field with "Sign in with LinkedIn" (Custom Tab + PKCE, redirect to app link), store access token + expiry, show "Signed in as …" and Sign out. Requires a LinkedIn developer app with `w_member_social` (and `openid profile` for Q-21). **If Q-03 = pasted token:** relabel fields as "Access token", show token-expiry hint. | Q-03, FND-4 | blocked |
 | AG-5-I | See AGC-1…4 in [06](06-content-generation.md). | | |

@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.smassistant.app.data.ApiService
 import com.smassistant.app.data.ApiSettingsStore
+import com.smassistant.app.data.FakeCipher
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -16,7 +17,7 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class ApiSettingsViewModelTest {
     private val context: Context = ApplicationProvider.getApplicationContext()
-    private val store get() = ApiSettingsStore(context)
+    private val store get() = ApiSettingsStore(context, FakeCipher())
 
     @Before
     fun clear() {
