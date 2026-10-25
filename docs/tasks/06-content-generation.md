@@ -9,7 +9,7 @@ Current code: one placeholder `FeatureScreen` shared by all six hub features; Su
 |----|------|-----------|--------|
 | AGC-1 | `TextAgent` interface `generate(system, user): Result<String>` with implementations: Claude (`POST /v1/messages`, `x-api-key`, `anthropic-version`), Gemini (`POST /v1beta/models/{model}:generateContent`), Groq (`POST /openai/v1/chat/completions`). Model from settings/`app.yml`. | FND-5, FND-6 | done — `agents/TextAgent.kt` (JSON via kotlinx-serialization-json, no compiler plugin) |
 | AGC-2 | `ImageAgent` interface `generateImages(prompt, count): Result<List<ImageBytes>>`, Gemini implementation (Imagen / Gemini image model). Save results to app cache files; return URIs. | FND-5, FND-6 | done — `GeminiImageAgent` (`gemini-2.5-flash-image` from `image_model` in `app.yml`, one call per image in parallel; keeps the ones that worked) |
-| AGC-3 | `VideoAgent` interface, implementation per Q-08 answer (e.g. Veo long-running operation with polling). | **Q-08** | blocked (P6) |
+| AGC-3 | `VideoAgent` interface, implementation per Q-08 answer (e.g. Veo long-running operation with polling). | Q-08 | done — Q-08 = slideshow, so no video API: `GenerateVideoUseCase` uses the image agent and `Media3SlideshowMaker` |
 | AGC-4 | Agent selection: a "Default text agent" setting (on the AI Agent list screen) used by PP/TC/CI/CV text; image always Gemini; if none configured → GEN-1. Interim answer to Q-05. | Q-05 (interim), AGC-1 | done — `AgentSelector`, picker on the AI Agent list |
 | AGC-V1 | Each text agent returns a reply for a short prompt with a real key; wrong key shows Invalid key error in the chat. | AGC-1 | todo |
 | AGC-T1 | unit: MockWebServer per provider — request path, headers, JSON body (model, system, messages), response parsing, error mapping (401, 429 rate limit, 500, timeout). | AGC-1 | done (`TextAgentTest`) |
@@ -20,7 +20,7 @@ Current code: one placeholder `FeatureScreen` shared by all six hub features; Su
 
 | ID | Requirement | Status |
 |----|-------------|--------|
-| GEN-1 | Use configured agent(s); prompt to set one up if none | partial — set-up card done; each generator wires it |
+| GEN-1 | Use configured agent(s); prompt to set one up if none | done — every generator shows the set-up card |
 | GEN-2 | Prompt cards support copy and expand | done |
 | GEN-3 | Results scroll; header, input and footer fixed | done |
 | GEN-4 | Progress while generating; clear error with Retry (Q-09) | done — spinner + Cancel, error card + Retry |

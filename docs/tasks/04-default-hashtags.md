@@ -20,7 +20,7 @@ Fully local, so it can be built and tested in parallel with P1. The appending lo
 | HT-9 | Turning off keeps the list | done | |
 | HT-10 | Append after one blank line, space-separated, when on and non-empty | done | |
 | HT-11 | Skip tags already in the text (case-insensitive) | done | |
-| HT-12 | Applies to all five posting features; media-only posts get tags as the text | partial | Text and image posts done (image-only posts get the tags as text); video with Q-08 |
+| HT-12 | Applies to all five posting features; media-only posts get tags as the text | done | Image-only and video-only posts get the tags as text |
 | HT-13 | Applied at posting time, not stored in content | done | |
 | HT-14 | Counts towards ~3,000 chars; keep tags, ask user to shorten body | done | |
 | HT-15 | Preview/confirmation shows the tags (Q-12) | done | |

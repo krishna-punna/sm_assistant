@@ -7,13 +7,13 @@ Nothing is built yet. The auth model (**Q-03**) decides how the token is obtaine
 
 | ID | Requirement | Status | Gap |
 |----|-------------|--------|-----|
-| LP-1 | Post current result using saved LinkedIn settings | done (pasted token, Q-03 interim) | Technical Content; other features as they're built |
-| LP-2 | Text-only → text post; media → text as commentary with media attached | partial | Text and image posts done; video waits for Q-08 |
+| LP-1 | Post current result using saved LinkedIn settings | done (pasted token, Q-03 interim) | All five posting features |
+| LP-2 | Text-only → text post; media → text as commentary with media attached | done | Text, image and video posts |
 | LP-3 | Missing/invalid settings → tell user, link to LinkedIn settings | done | |
 | LP-4 | Success (with link) or clear error | done | |
 | LP-5 | Append default hashtags when enabled | done | |
 | LP-6 *(new, Q-12)* | Preview/confirm before publishing | done (interim for Q-12) | Confirmation dialog with the final, editable text |
-| LP-NFR | ≤ 3,000 chars, plain text (no Markdown), media size/count limits | partial | Length, plain text and the 20-image limit done; video limits with Q-08 |
+| LP-NFR | ≤ 3,000 chars, plain text (no Markdown), media size/count limits | done | Length, plain text, 20 images, one video per post; slideshows are 16 s, inside LinkedIn's 3 s–10 min |
 
 ## Implementation
 
@@ -21,7 +21,7 @@ Nothing is built yet. The auth model (**Q-03**) decides how the token is obtaine
 |----|------|-----------|--------|
 | LP-1-I | `LinkedInClient`: get member URN (`GET /v2/userinfo` → `sub`, or from OAuth sign-in), then `POST /rest/posts` with headers `Authorization: Bearer`, `LinkedIn-Version: YYYYMM`, `X-Restli-Protocol-Version: 2.0.0`; body `author: urn:li:person:{id}`, `commentary`, `visibility: PUBLIC`, `distribution`, `lifecycleState: PUBLISHED`. Returns the post URN from `x-restli-id`. | FND-5, FND-6, Q-03 (interim: pasted token) | done — `LinkedInClient` with the pasted token; `commentary` is encoded as LinkedIn "little text" (`toLittleText`: reserved characters escaped, hashtags as `{hashtag\|\#\|tag}`) |
 | LP-1-I2 | `PostToLinkedInUseCase(content: PostContent)`: builds final text (MarkdownToLinkedIn → HashtagAppender), checks length, uploads media, creates post. Single entry point for every Post in LinkedIn button. | LP-1-I, TC-I3, HT-I4 | done — `PostToLinkedInUseCase` (media upload with P5) |
-| LP-2-I | Media upload: images via `POST /rest/images?action=initializeUpload` → PUT bytes → `content.media.id` (single) or `content.multiImage` (2–20). Video via `/rest/videos?action=initializeUpload`, multipart PUT, `finalizeUpload`. | LP-1-I | images done (`LinkedInClient.createPost`); video blocked on Q-08 |
+| LP-2-I | Media upload: images via `POST /rest/images?action=initializeUpload` → PUT bytes → `content.media.id` (single) or `content.multiImage` (2–20). Video via `/rest/videos?action=initializeUpload`, multipart PUT, `finalizeUpload`. | LP-1-I | done — images and video (`LinkedInClient.createPost`) |
 | LP-3-I | Before posting: if token/settings missing → snackbar "Set up LinkedIn" with action to S2. On 401 → "LinkedIn token expired or invalid" with the same action. | LP-1-I2 | done — dialog instead of a snackbar (`SmScreen` has no scaffold) |
 | LP-4-I | Progress on the button while posting; success snackbar with "Open" (`https://www.linkedin.com/feed/update/{urn}`); errors from `ApiError` (403 missing `w_member_social`, 422 validation, 429 rate limit). Prevent double posting. | LP-1-I2 | done — `PostViewModel`, `PostDialogs` |
 | LP-5-I | Same as HT-I5. | HT-I4 | done |
@@ -35,7 +35,7 @@ Nothing is built yet. The auth model (**Q-03**) decides how the token is obtaine
 | LP-V2 | No token → "Set up LinkedIn" takes you to S2. Revoked token → expired message. | todo |
 | LP-V3 | Tapping Post twice quickly makes one post. | todo |
 | LP-V4 (P5) | Single-image and multi-image posts show the images. | todo |
-| LP-V5 (P6) | Video post plays on LinkedIn. | blocked |
+| LP-V5 (P6) | Video post plays on LinkedIn. | todo |
 | LP-V6 | Prepare Prompt screen has no Post button (07 "does not appear"). | todo |
 
 ## Tests

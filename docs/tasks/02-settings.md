@@ -10,14 +10,14 @@ Current code: `SettingsScreens.kt` (`ApiSettingsForm`), `data/ApiSettings.kt` (`
 | LI-1 | Enter/edit LinkedIn API value and key | done | |
 | LI-2 | SAVE persists both values across restarts | done | Validated; key encrypted |
 | LI-3 | Saved values pre-filled on reopen | done | |
-| LI-4 | Posting uses saved values | todo | No LinkedIn client yet (LP-1) |
-| LI-NFR | Key masked, secure storage, never logged | partial | Masked and encrypted; logging FND-6 |
+| LI-4 | Posting uses saved values | done | `LinkedInClient` reads the store at call time |
+| LI-NFR | Key masked, secure storage, never logged | done | Masked and encrypted; HTTP logging redacts secrets (FND-6) |
 | LI-Q3 | Auth model: pasted token vs "Sign in with LinkedIn" OAuth | **blocked (Q-03)** | |
 | AG-1 | Open Claude, Gemini, Groq settings from the list | done | |
 | AG-2 | Enter/edit/save API value and key per agent | done | Validated; key encrypted |
 | AG-3 | Persist and pre-fill | done | |
 | AG-4 | Agents configured independently | done | Separate keys per service |
-| AG-5 | Generators use the configured agent(s) | partial | Clients done (AGC-1); selection and generators next |
+| AG-5 | Generators use the configured agent(s) | done | `AgentSelector` for text, Gemini for images and video slides |
 | AG-6 *(new, Q-04)* | Show/edit the model per agent | blocked (Q-04) | `model` comes only from `app.yml` (D-6) |
 
 ## Implementation
