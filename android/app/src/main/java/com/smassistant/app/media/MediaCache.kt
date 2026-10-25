@@ -19,6 +19,12 @@ class MediaCache(private val dir: File) {
         return File(dir, "${UUID.randomUUID()}.$extension").apply { writeBytes(bytes) }
     }
 
+    /** A new, empty path in the cache for a file the caller writes, e.g. an encoded video. */
+    fun newFile(extension: String): File {
+        dir.mkdirs()
+        return File(dir, "${UUID.randomUUID()}.$extension")
+    }
+
     fun clearOlderThan(maxAgeMillis: Long = TimeUnit.DAYS.toMillis(7), now: Long = System.currentTimeMillis()) {
         dir.listFiles()?.filter { now - it.lastModified() > maxAgeMillis }?.forEach { it.delete() }
     }
@@ -29,4 +35,11 @@ fun extensionFor(mimeType: String) = when (mimeType.lowercase()) {
     "image/jpeg", "image/jpg" -> "jpg"
     "image/webp" -> "webp"
     else -> "png"
+}
+
+/** MIME type of a cached image, from the extension [MediaCache] gave it. */
+fun imageMimeType(file: File) = when (file.extension.lowercase()) {
+    "jpg", "jpeg" -> "image/jpeg"
+    "webp" -> "image/webp"
+    else -> "image/png"
 }

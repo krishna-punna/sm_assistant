@@ -73,6 +73,8 @@ dependencies {
     implementation(libs.okhttp.logging)
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)
+    implementation(libs.androidx.media3.transformer)
+    implementation(libs.androidx.media3.effect)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
