@@ -75,7 +75,7 @@ Current code: one placeholder `FeatureScreen` shared by all six hub features; Su
 | IM-V1 | Val | Short URL prompt yields architecture-style diagrams; badge count matches; preview opens the tapped image; posting 1 and 3 images both work on LinkedIn. | IM-I1…4 | todo |
 | IM-T1 | unit | Generator: requested count, cache files created, error when Gemini not configured. | IM-I1 | done (`GenerateImagesTest`, `ImageAgentTest`) |
 | IM-T2 | UI | Strip shows N thumbnails and badge; deselecting updates selection; tap navigates to preview with index. | IM-I2 | done (`ImageStripTest`) |
-| IM-T3 | UI | Preview shows Post in LinkedIn and swipes between images. | IM-I3 | todo |
+| IM-T3 | UI | Preview shows Post in LinkedIn and swipes between images. | IM-I3 | done (`ImagePreviewTest`) |
 
 ## 6.3 Generate Video (P6) — Q-08 answered: slideshow of generated diagrams
 
