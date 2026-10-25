@@ -16,5 +16,6 @@ fun HomeScreen(onNavigate: (String) -> Unit) {
         MenuButton("AI Agent") { onNavigate(Routes.AI_AGENTS) }
         MenuButton("SM Assistant") { onNavigate(Routes.HUB) }
         MenuButton("Default Hash Tags") { onNavigate(Routes.DEFAULT_HASHTAGS) }
+        MenuButton("API Status") { onNavigate(Routes.API_STATUS) }
     }
 }

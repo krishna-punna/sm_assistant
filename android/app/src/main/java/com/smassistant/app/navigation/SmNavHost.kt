@@ -9,6 +9,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.smassistant.app.ui.screens.AgentSettingsScreen
 import com.smassistant.app.ui.screens.AiAgentListScreen
+import com.smassistant.app.ui.screens.ApiStatusScreen
 import com.smassistant.app.ui.screens.AssistantHubScreen
 import com.smassistant.app.ui.screens.DefaultHashtagsScreen
 import com.smassistant.app.ui.screens.FeatureScreen
@@ -55,6 +56,9 @@ fun SmNavHost(navController: NavHostController = rememberNavController()) {
         }
         composable(Routes.DEFAULT_HASHTAGS) {
             DefaultHashtagsScreen(onBackToHome = backToHome)
+        }
+        composable(Routes.API_STATUS) {
+            ApiStatusScreen(onBackToHome = backToHome)
         }
     }
 }

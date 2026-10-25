@@ -29,6 +29,7 @@ object Routes {
     const val HUB = "hub"
     const val FEATURE = "hub/{feature}"
     const val DEFAULT_HASHTAGS = "settings/hashtags"
+    const val API_STATUS = "settings/status"
 
     fun agentSettings(agent: AiAgent) = "settings/agents/${agent.name}"
     fun feature(feature: Feature) = "hub/${feature.name}"

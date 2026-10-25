@@ -45,7 +45,7 @@ Keys ship empty; don't commit real keys to `app.yml`.
 ## Status
 
 Skeleton: every screen from the requirements exists and is reachable, and API settings are
-loaded from `app.yml` and saved on the device. AI generation, hashtag persistence and LinkedIn
+loaded from `app.yml` and saved on the device. The API Status screen tests each API and key. AI generation, hashtag persistence and LinkedIn
 posting are TODOs.
 
 Choices made on open questions for now:
