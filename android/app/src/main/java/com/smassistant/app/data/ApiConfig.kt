@@ -11,7 +11,8 @@ enum class ApiService(val displayName: String, val configKey: String) {
     GROQ("Groq", "groq"),
 }
 
-data class ApiConfig(val api: String, val key: String, val model: String = "")
+/** [imageModel] is only used by Gemini, for image generation (AGC-2). */
+data class ApiConfig(val api: String, val key: String, val model: String = "", val imageModel: String = "")
 
 /**
  * Parses app.yml, in this shape:
@@ -22,6 +23,9 @@ data class ApiConfig(val api: String, val key: String, val model: String = "")
  *     api: https://api.anthropic.com/v1/messages
  *     model: claude-sonnet-5-5
  *     key: ""
+ *   gemini:
+ *     model: gemini-2.5-flash
+ *     image_model: gemini-2.5-flash-image
  * ```
  *
  * Every [ApiService] gets an entry; missing services or fields become empty strings.
@@ -35,6 +39,7 @@ fun parseAppConfig(input: InputStream): Map<ApiService, ApiConfig> {
             api = entry["api"]?.toString().orEmpty(),
             key = entry["key"]?.toString().orEmpty(),
             model = entry["model"]?.toString().orEmpty(),
+            imageModel = entry["image_model"]?.toString().orEmpty(),
         )
     }
 }
