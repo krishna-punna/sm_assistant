@@ -6,6 +6,7 @@ import androidx.compose.ui.test.performClick
 import com.smassistant.app.linkedin.PostState
 import com.smassistant.app.ui.components.ConfirmPostContent
 import com.smassistant.app.ui.components.PostDialogs
+import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Rule
@@ -46,6 +47,12 @@ class PostDialogsTest {
         compose.setContent { ConfirmPostContent(state) { events += "text" } }
         compose.onNodeWithText("5 characters over LinkedIn's 3000 limit. Shorten the text to post.").assertExists()
         assertFalse(state.canPost)
+    }
+
+    @Test
+    fun videoShowsAsOneAttachment() {
+        compose.setContent { ConfirmPostContent(PostState.Confirm("", emptyList(), listOf(File("video.mp4")))) { events += "text" } }
+        compose.onNodeWithText("1 video attached").assertExists()
     }
 
     @Test

@@ -158,4 +158,13 @@ class PostToLinkedInTest {
         assertTrue(useCase.post("x", List(21) { File("$it.png") }) is ApiResult.Failed)
         assertTrue(attached.isEmpty())
     }
+
+    @Test
+    fun `a video goes alone`() = runTest(dispatcher) {
+        assertEquals(
+            ApiResult.Failed(ApiError.BadResponse("LinkedIn posts take one video and no images")),
+            useCase.post("x", listOf(File("v.mp4"), File("a.png"))),
+        )
+        assertTrue(attached.isEmpty())
+    }
 }
