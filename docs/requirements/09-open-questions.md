@@ -20,3 +20,7 @@ Gaps and ambiguities found while reading the wireframes. Each should be resolved
 | Q-14 | Architecture | Does the mobile app call AI/LinkedIn APIs directly, or through a backend service (which would keep API keys off the device)? |
 | Q-15 | Platforms | Target platforms (Android, iOS, both) and framework? |
 | Q-16 | Accounts | Is there any app login, or is it a single-user personal tool? |
+| Q-17 | Default hashtags | The wireframe has no enable/disable control. The docs put an **Add default hashtags to LinkedIn posts** toggle on the Default Hash Tags screen. Should it live there, or on a separate settings screen? |
+| Q-18 | Default hashtags | Should **Clear** only empty the text box (the documented behaviour) or also delete the saved list immediately? |
+| Q-19 | Default hashtags | Should the user be able to skip or edit the default hashtags for a single post, or is the global toggle enough? |
+| Q-20 | Default hashtags | Should the AI also suggest topic-specific hashtags (e.g. `#SystemDesign`) in addition to the defaults? |

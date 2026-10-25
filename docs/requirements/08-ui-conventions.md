@@ -28,6 +28,7 @@ Derived from all wireframe slides.
 | Prompt card | Dark card with title, copy icon, expand icon, and the prompt text. |
 | Result view | Scrollable rich text and/or media gallery, followed by **Post in LinkedIn**. |
 | Footer | Full-width black **Back to Home**. |
+| Toggle | On/off switch for a persisted setting (e.g. default hashtags). Not drawn in any wireframe yet. |
 
 ## Layout rules
 

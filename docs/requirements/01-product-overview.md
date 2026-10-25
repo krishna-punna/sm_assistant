@@ -31,7 +31,7 @@ flowchart LR
 1. **One-time setup** — enter LinkedIn API details and API key; enter API details and key for one or more AI agents.
 2. **Prepare a prompt** — type a short topic; the assistant returns a detailed, role-based prompt (copyable).
 3. **Generate** — paste/submit the prompt in one of five generators to get text, image(s), video, or a combination.
-4. **Publish** — tap **Post in LinkedIn** on the result.
+4. **Publish** — tap **Post in LinkedIn** on the result. If default hashtags are enabled, they are appended to the post text first.
 
 ## In scope (per wireframes)
 
@@ -46,6 +46,7 @@ flowchart LR
   6. Generate Content & Video
 - Chat-style generation screens with prompt input, Submit, rendered result, copy/expand on prompt cards.
 - One-tap posting of generated output to LinkedIn.
+- Default hashtags: a saved list of hashtags, appended to every post when enabled ([10](10-default-hashtags.md)).
 
 ## Not shown in wireframes
 

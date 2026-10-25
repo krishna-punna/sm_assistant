@@ -6,7 +6,7 @@ Source: slides 2–11.
 
 | ID | Screen | Reached from | Key elements | Slide |
 |----|--------|--------------|--------------|-------|
-| S1 | **Home** | App launch | Buttons: *LinkedIn API*, *AI Agent*, *AI Agent* (duplicate label, see Q-01), *SM Assistant* | 2 (left) |
+| S1 | **Home** | App launch | Buttons: *LinkedIn API*, *AI Agent*, *AI Agent* (duplicate label, see Q-01), *SM Assistant*, *Default Hash Tags* (new, see [10](10-default-hashtags.md)) | 2 (left) |
 | S2 | **LinkedIn settings** | Home → LinkedIn API | Section chip *LinkedIn*; fields *LinkedIn APIs*, *LinkedIn API Key*; **SAVE**; **Back to Home** | 2 (right) |
 | S3 | **AI Agent list** | Home → AI Agent | Section chip *AI Agent*; list: *Claude AI Agent*, *Gemini AI Agent*, *Groq AI Agent*; **Back to Home** | 3 (left) |
 | S4 | **Claude AI Agent settings** | S3 → Claude AI Agent | Fields *Claude APIs*, *Claude API Key*; **SAVE**; **Back to Home** | 3 (right) |
@@ -19,6 +19,7 @@ Source: slides 2–11.
 | S11 | **Generate Video** | S7 | As S9, result is video | 9 |
 | S12 | **Generate Content & Image** | S7 | As S9, result is text + image(s) | 11 |
 | S13 | **Generate Content & Video** | S7 | As S9, result is text + video | 10 |
+| S14 | **Default Hash Tags** | Home → Default Hash Tags | Section chip *Default Hash Tags#*; multi-line hashtag box; **Save**, **Clear**; enable/disable toggle; **Back to Home** | [wireframe](wireframes/default-hashtags.png) |
 
 ## Navigation map
 
@@ -37,7 +38,8 @@ flowchart TD
     Hub --> VI[S11 Generate Video]
     Hub --> CI[S12 Generate Content & Image]
     Hub --> CV[S13 Generate Content & Video]
-    LI & AG & CL & GE & GR & P & TC & IM & VI & CI & CV -.Back to Home.-> Home
+    Home -->|Default Hash Tags| HT[S14 Default Hash Tags]
+    LI & AG & CL & GE & GR & P & TC & IM & VI & CI & CV & HT -.Back to Home.-> Home
 ```
 
 - Every screen except Home and the hub shows a full-width **Back to Home** button pinned to the bottom. The hub itself (slide 5, left) shows no Back to Home button in the wireframe *(probably an omission; see Q-02)*.

@@ -19,6 +19,7 @@ This knowledge base is derived from the wireframe deck [`requirements/SM Assista
 | 7 | [Posting to LinkedIn](07-post-to-linkedin.md) | "Post in LinkedIn" action and the target post format | 6–12 |
 | 8 | [UI conventions](08-ui-conventions.md) | Colours, components and layout rules used across wireframes | all |
 | 9 | [Open questions](09-open-questions.md) | Gaps and ambiguities to resolve with the product owner | — |
+| 10 | [Default hashtags](10-default-hashtags.md) | Default hashtag list, enable/disable toggle, appending tags when posting | [extra wireframe](wireframes/default-hashtags.png) |
 
 ## Slide index
 
@@ -36,6 +37,7 @@ This knowledge base is derived from the wireframe deck [`requirements/SM Assista
 | 10 | Generate Content & Video (3 states) | [slide-10](wireframes/slide-10.jpg) |
 | 11 | Generate Content & Image (3 states) | [slide-11](wireframes/slide-11.jpg) |
 | 12 | Screenshot of a published LinkedIn post (reference for the desired output) | [slide-12](wireframes/slide-12.jpg) |
+| — | Default Hash Tags screen (added 2026-10-25, not in the deck) | [default-hashtags](wireframes/default-hashtags.png) |
 
 ## Glossary
 
@@ -45,4 +47,5 @@ This knowledge base is derived from the wireframe deck [`requirements/SM Assista
 | **AI Agent** | A configured LLM provider (Claude, Gemini, Groq) used to generate prompts and content. |
 | **Post prompt** | A detailed, expert-style prompt the app builds from a short topic (e.g. "Design a system for Short URL"). |
 | **Feature screen** | Any of the six chat-style screens launched from the hub (Prepare prompt, Technical Content, Image, Video, Content & Image, Content & Video). |
+| **Default hashtags** | User-maintained list of hashtags appended to every LinkedIn post when the toggle is on. |
 | **Post in LinkedIn** | Action that publishes the generated result to the user's LinkedIn account. |

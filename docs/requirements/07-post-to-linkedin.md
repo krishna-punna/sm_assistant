@@ -31,10 +31,11 @@ Slide 12 is a screenshot of a real LinkedIn post by the product owner, showing t
 - **LP-2** Text-only results post as a text post; results with images/video post the text as commentary with the media attached.
 - **LP-3** If LinkedIn settings are missing or invalid, tell the user and link to the LinkedIn settings screen *(inferred)*.
 - **LP-4** Show success (ideally with a link to the post) or a clear error *(inferred)*.
+- **LP-5** If **Add default hashtags to LinkedIn posts** is on, the saved default hashtags are appended to the post text before publishing. Tags already in the text are not repeated. See [Default hashtags](10-default-hashtags.md) (HT-10 to HT-15).
 
 ## Content constraints *(inferred, to confirm)*
 
 - LinkedIn post commentary is limited to about 3,000 characters, so long technical write-ups (6.1) must be condensed into post format like slide 12, not posted verbatim. Generation prompts should target that format (Q-11).
 - LinkedIn renders plain text only: Markdown headings/tables must be converted (emoji headers, line breaks), and tables turned into an image as in slide 12.
 - Multi-image posts and video posts have their own size/count limits on LinkedIn.
-- A preview/edit step before publishing is recommended (Q-12).
+- A preview/edit step before publishing is recommended (Q-12). If added, it should show the default hashtags that will be appended.
