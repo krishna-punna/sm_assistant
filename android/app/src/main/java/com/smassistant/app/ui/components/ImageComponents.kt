@@ -69,9 +69,15 @@ fun GeneratedImage(file: File, modifier: Modifier = Modifier, maxSidePx: Int = 5
     val image = rememberImage(file, maxSidePx)
     Box(modifier, contentAlignment = Alignment.Center) {
         if (image == null) {
-            CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+            CircularProgressIndicator(
+                Modifier
+                    .size(24.dp)
+                    .semantics { contentDescription = "Loading image" },
+                strokeWidth = 2.dp,
+            )
         } else {
-            Image(image, contentDescription = "Generated image", contentScale = contentScale, modifier = Modifier.fillMaxSize())
+            // The thumbnail or preview around it names the image ("Image 2"), so this stays silent.
+            Image(image, contentDescription = null, contentScale = contentScale, modifier = Modifier.fillMaxSize())
         }
     }
 }
@@ -100,7 +106,7 @@ fun ImageStrip(
                         .size(150.dp)
                         .clip(RoundedCornerShape(8.dp))
                         .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
-                        .clickable { onOpen(index) }
+                        .clickable(onClickLabel = "Open preview") { onOpen(index) }
                         .semantics { contentDescription = "Image ${index + 1}" },
                 ) {
                     GeneratedImage(file, Modifier.fillMaxSize(), maxSidePx = 400)
@@ -110,6 +116,7 @@ fun ImageStrip(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.7f), RoundedCornerShape(4.dp))
+                            .semantics { contentDescription = "Post image ${index + 1}" }
                             .testTag("select$index"),
                     )
                 }
@@ -135,7 +142,7 @@ fun ImagePreview(
                 val pager = rememberPagerState(initialPage = startIndex) { images.size }
                 Text("Image ${pager.currentPage + 1} of ${images.size}", style = MaterialTheme.typography.titleMedium)
                 HorizontalPager(pager, modifier = Modifier.weight(1f).fillMaxWidth().testTag("imagePager")) { page ->
-                    ZoomableImage(images[page])
+                    ZoomableImage(images[page], "Image ${page + 1} of ${images.size}")
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { actions(pager.currentPage) }
             }
@@ -144,7 +151,7 @@ fun ImagePreview(
 }
 
 @Composable
-private fun ZoomableImage(file: File) {
+private fun ZoomableImage(file: File, description: String) {
     var scale by remember { mutableFloatStateOf(1f) }
     var offsetX by remember { mutableFloatStateOf(0f) }
     var offsetY by remember { mutableFloatStateOf(0f) }
@@ -157,6 +164,7 @@ private fun ZoomableImage(file: File) {
         file,
         Modifier
             .fillMaxSize()
+            .semantics { contentDescription = description }
             .transformable(state, canPan = { scale > 1f })
             .graphicsLayer(scaleX = scale, scaleY = scale, translationX = offsetX, translationY = offsetY),
         maxSidePx = 2048,
