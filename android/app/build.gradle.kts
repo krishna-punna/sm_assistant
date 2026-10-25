@@ -71,6 +71,8 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.okhttp.logging)
+    implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.ui)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
