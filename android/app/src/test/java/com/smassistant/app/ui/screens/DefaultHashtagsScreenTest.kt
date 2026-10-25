@@ -12,8 +12,11 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
+// Robolectric's default screen is small enough to clip the toggle; use a typical phone.
+@Config(qualifiers = "w411dp-h891dp")
 class DefaultHashtagsScreenTest {
     @get:Rule val compose = createComposeRule()
 
