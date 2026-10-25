@@ -140,7 +140,7 @@ class ChatViewModel<R>(
     }
 
     private fun saveItems(state: ChatUiState<R>) {
-        if (saver == null) return
+        val saver = saver ?: return
         handle[ITEMS] = JsonArray(state.items.map { item ->
             buildJsonObject {
                 put("id", item.id)
@@ -157,6 +157,7 @@ class ChatViewModel<R>(
 
     private fun restore(): ChatUiState<R> {
         val input = handle.get<String>(INPUT) ?: ""
+        val saver = saver
         val saved = handle.get<String>(ITEMS)
         if (saver == null || saved == null) return ChatUiState(input = input)
         val items = runCatching { Json.parseToJsonElement(saved).jsonArray.map { restoreItem(it as JsonObject, saver) } }
