@@ -46,8 +46,8 @@ Current code: `SettingsScreens.kt` (`ApiSettingsForm`), `data/ApiSettings.kt` (`
 
 | ID | Kind | Test | Status |
 |----|------|------|--------|
-| SET-T1 | unit | `AppConfig` parses `app.yml` (all four services, missing service, missing fields, empty file). Move parsing to a pure function taking an `InputStream` so it runs on the JVM. | todo |
-| SET-T2 | unit | `ApiSettingsStore`: saved value overrides default; cleared value falls back; services are independent. | todo |
+| SET-T1 | unit | `AppConfig` parses `app.yml` (all four services, missing service, missing fields, empty file). Move parsing to a pure function taking an `InputStream` so it runs on the JVM. | done (`AppConfigTest`) |
+| SET-T2 | unit | `ApiSettingsStore`: saved value overrides default; cleared value falls back; services are independent. | done (`ApiSettingsStoreTest`) |
 | SET-T3 | unit | Settings ViewModel validation: valid save, blank key error, non-https URL error, trims whitespace. | todo |
 | SET-T4 | UI | Settings screen: fields pre-filled from fake store, key field masked, SAVE with blank key shows error text. | todo |
 | SET-T5 | UI | AI Agent list opens the right settings screen for each agent (chip text = "<Agent> AI Agent"). | todo |
