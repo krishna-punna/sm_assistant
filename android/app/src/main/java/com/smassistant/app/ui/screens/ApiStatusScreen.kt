@@ -54,7 +54,7 @@ fun ApiStatusContent(
     onTestAgain: () -> Unit,
     onBackToHome: () -> Unit,
 ) {
-    SmScreen(sectionTitle = "API Status", onBackToHome = onBackToHome) {
+    SmScreen(sectionTitle = "API Status", onBackToHome = onBackToHome, scrollable = false) {
         Column(
             modifier = Modifier
                 .weight(1f)

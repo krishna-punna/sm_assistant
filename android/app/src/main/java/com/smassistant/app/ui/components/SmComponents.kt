@@ -3,12 +3,16 @@ package com.smassistant.app.ui.components
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -20,6 +24,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.smassistant.app.ui.theme.SmAmber
@@ -29,13 +34,16 @@ import com.smassistant.app.ui.theme.SmGreen
 
 /**
  * Common screen frame: blue "SM Assistant" app bar, optional yellow section chip,
- * scrollable body, and an optional black "Back to Home" footer.
+ * scrollable body, and an optional black "Back to Home" footer (UI-1, UI-3). Screens that
+ * scroll a part of the body themselves (a chat list) pass [scrollable] = false. The body
+ * stays above the keyboard.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SmScreen(
     sectionTitle: String?,
     onBackToHome: (() -> Unit)?,
+    scrollable: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Scaffold(
@@ -60,7 +68,11 @@ fun SmScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .consumeWindowInsets(padding)
+                .imePadding()
+                .then(if (scrollable) Modifier.verticalScroll(rememberScrollState()) else Modifier)
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .testTag("screenBody"),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (sectionTitle != null) SectionChip(sectionTitle)
