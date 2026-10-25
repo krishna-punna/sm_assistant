@@ -45,7 +45,7 @@ fun <R> ChatScreen(
         if (state.items.isNotEmpty()) listState.animateScrollToItem(state.items.lastIndex)
     }
 
-    SmScreen(sectionTitle = title, onBackToHome = onBackToHome) {
+    SmScreen(sectionTitle = title, onBackToHome = onBackToHome, scrollable = false) {
         Box(
             Modifier
                 .fillMaxWidth()
