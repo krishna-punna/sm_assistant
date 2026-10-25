@@ -1,0 +1,95 @@
+name: Release
+
+# Builds a signed release APK and attaches it to a GitHub Release.
+# Run it by pushing a tag like v1.2.0, or from the Actions tab with a version.
+#
+# Signing uses these repository secrets (Settings > Secrets and variables > Actions):
+#   SM_KEYSTORE_BASE64   the release keystore (.jks), base64-encoded
+#   SM_KEYSTORE_PASSWORD the keystore password
+#   SM_KEY_ALIAS         the key alias inside the keystore
+#   SM_KEY_PASSWORD      the key password
+# Without them the APK is signed with a throwaway debug key and the release is marked
+# as a pre-release: it installs for testing, but can't update a properly signed install.
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version, e.g. 1.2.0 (tagged v1.2.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Work out the version
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          version="${INPUT_VERSION:-${GITHUB_REF_NAME#v}}"
+          version="${version#v}"
+          if ! [[ "$version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "::error::Version must look like 1.2.0, got '$version'"
+            exit 1
+          fi
+          # 1.2.3 -> 10203, so each release has a higher versionCode than the last.
+          code=$(( BASH_REMATCH[1] * 10000 + BASH_REMATCH[2] * 100 + BASH_REMATCH[3] ))
+          echo "SM_VERSION_NAME=$version" >> "$GITHUB_ENV"
+          echo "SM_VERSION_CODE=$code" >> "$GITHUB_ENV"
+          echo "TAG=v$version" >> "$GITHUB_ENV"
+
+      - name: Set up the signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.SM_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.SM_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.SM_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.SM_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::warning::SM_KEYSTORE_BASE64 is not set, so this APK is signed with a debug key and released as a pre-release."
+            echo "PRERELEASE=--prerelease" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          if [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "::error::SM_KEYSTORE_BASE64 is set but SM_KEYSTORE_PASSWORD, SM_KEY_ALIAS or SM_KEY_PASSWORD is missing."
+            exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          {
+            echo "SM_KEYSTORE_FILE=$RUNNER_TEMP/release.jks"
+            echo "SM_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
+            echo "SM_KEY_ALIAS=$KEY_ALIAS"
+            echo "SM_KEY_PASSWORD=$KEY_PASSWORD"
+          } >> "$GITHUB_ENV"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Unit tests and release APK
+        run: ./gradlew clean :app:testDebugUnitTest :app:assembleRelease --stacktrace
+
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          apk="app/build/outputs/apk/release/SMAssistant-$SM_VERSION_NAME-release.apk"
+          test -f "$apk" || { echo "::error::$apk was not built"; ls app/build/outputs/apk/release; exit 1; }
+          gh release create "$TAG" "$apk" \
+            --target "$GITHUB_SHA" \
+            --title "SM Assistant $SM_VERSION_NAME" \
+            --generate-notes \
+            $PRERELEASE
