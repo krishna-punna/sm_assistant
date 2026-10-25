@@ -11,6 +11,7 @@ import com.smassistant.app.ui.screens.AgentSettingsScreen
 import com.smassistant.app.ui.screens.AiAgentListScreen
 import com.smassistant.app.ui.screens.ApiStatusScreen
 import com.smassistant.app.ui.screens.AssistantHubScreen
+import com.smassistant.app.ui.screens.ContentAndImageScreen
 import com.smassistant.app.ui.screens.DefaultHashtagsScreen
 import com.smassistant.app.ui.screens.FeatureScreen
 import com.smassistant.app.ui.screens.HomeScreen
@@ -66,6 +67,11 @@ fun SmNavHost(navController: NavHostController = rememberNavController()) {
                     onBackToHome = backToHome,
                 )
                 Feature.IMAGE -> ImageScreen(
+                    onSetUpAgent = { navController.navigate(Routes.AI_AGENTS) },
+                    onSetUpLinkedIn = { navController.navigate(Routes.LINKEDIN_SETTINGS) },
+                    onBackToHome = backToHome,
+                )
+                Feature.CONTENT_AND_IMAGE -> ContentAndImageScreen(
                     onSetUpAgent = { navController.navigate(Routes.AI_AGENTS) },
                     onSetUpLinkedIn = { navController.navigate(Routes.LINKEDIN_SETTINGS) },
                     onBackToHome = backToHome,

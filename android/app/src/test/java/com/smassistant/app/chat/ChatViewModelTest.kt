@@ -114,4 +114,22 @@ class ChatViewModelTest {
         assertEquals("Cancelled", (vm.state.value.items[1] as ChatItem.Failure).message)
         assertFalse(vm.state.value.busy)
     }
+
+    @Test
+    fun `updateResult shows the pending value, then the reworked one`() = runTest(dispatcher) {
+        val vm = ChatViewModel { Outcome.Ok("first") }
+        vm.onInputChange("topic")
+        vm.submit()
+        advanceUntilIdle()
+        val result = vm.state.value.items.last() as ChatItem.Result<String>
+
+        val gate = CompletableDeferred<String>()
+        vm.updateResult(result.id, pending = { "$it…" }) { input, value -> "$value $input ${gate.await()}" }
+        assertEquals("first…", (vm.state.value.items.last() as ChatItem.Result<String>).value)
+
+        gate.complete("done")
+        advanceUntilIdle()
+        assertEquals("first… topic done", (vm.state.value.items.last() as ChatItem.Result<String>).value)
+        assertEquals(2, vm.state.value.items.size)
+    }
 }

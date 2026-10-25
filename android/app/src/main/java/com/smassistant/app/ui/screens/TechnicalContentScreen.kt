@@ -8,14 +8,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.smassistant.app.agents.appAgentSelector
 import com.smassistant.app.chat.ChatViewModel
-import com.smassistant.app.generate.GenerateTextUseCase
+import com.smassistant.app.generate.appGenerateTechnicalContent
 import com.smassistant.app.linkedin.PostState
 import com.smassistant.app.linkedin.PostViewModel
 import com.smassistant.app.linkedin.appPostToLinkedIn
 import com.smassistant.app.navigation.Feature
-import com.smassistant.app.prompt.loadPromptAsset
 import com.smassistant.app.ui.components.MarkdownText
 import com.smassistant.app.ui.components.PostDialogs
 import com.smassistant.app.ui.components.PostInLinkedInButton
@@ -26,8 +24,7 @@ import com.smassistant.app.ui.components.PromptCard
 fun TechnicalContentScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToHome: () -> Unit) {
     val appContext = LocalContext.current.applicationContext
     val viewModel = viewModel {
-        val selector = appAgentSelector(appContext)
-        val useCase = GenerateTextUseCase(loadPromptAsset(appContext, "technical_content"), selector::textAgent)
+        val useCase = appGenerateTechnicalContent(appContext)
         ChatViewModel<String> { prompt -> useCase(prompt) }
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
