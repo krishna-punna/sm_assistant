@@ -1,6 +1,7 @@
 package com.smassistant.app.agents
 
 import com.smassistant.app.data.ApiConfig
+import com.smassistant.app.data.ApiService
 import com.smassistant.app.media.MediaCache
 import com.smassistant.app.media.extensionFor
 import com.smassistant.app.net.ApiError
@@ -26,8 +27,11 @@ import okhttp3.OkHttpClient
 /** How many images one Generate Image submit asks for (interim answer to Q-10). */
 const val IMAGES_PER_REQUEST = 4
 
-/** Turns a prompt into image files (docs/tasks AGC-2). Images always come from Gemini (Q-05 interim). */
+/** Turns a prompt into image files (docs/tasks AGC-2), with Gemini or Claude ([IMAGE_AGENTS]). */
 fun interface ImageAgent {
+    /** The service named in errors, e.g. "Gemini is rate limiting requests." */
+    val service: ApiService get() = ApiService.GEMINI
+
     suspend fun generate(prompt: String, count: Int): ApiResult<List<File>>
 }
 

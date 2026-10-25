@@ -20,6 +20,7 @@ import com.smassistant.app.linkedin.PostState
 import com.smassistant.app.linkedin.PostViewModel
 import com.smassistant.app.linkedin.appPostToLinkedIn
 import com.smassistant.app.navigation.Feature
+import com.smassistant.app.ui.components.ImageAgentDropdown
 import com.smassistant.app.ui.components.ImagePreview
 import com.smassistant.app.ui.components.ImageStrip
 import com.smassistant.app.ui.components.PostDialogs
@@ -51,6 +52,7 @@ fun ImageScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToH
         onCancel = viewModel::cancel,
         onSetUpAgent = onSetUpAgent,
         onBackToHome = onBackToHome,
+        header = { ImageAgentDropdown() },
         inputContent = { PromptCard("Your prompt", it, collapsedLines = 4) },
         resultContent = { images ->
             ImageResult(

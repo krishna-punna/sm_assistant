@@ -1,11 +1,9 @@
 package com.smassistant.app.generate
 
 import android.content.Context
-import com.smassistant.app.agents.GeminiImageAgent
 import com.smassistant.app.agents.ImageAgent
+import com.smassistant.app.agents.appImageAgentSelector
 import com.smassistant.app.chat.Outcome
-import com.smassistant.app.data.ApiService
-import com.smassistant.app.data.ApiSettingsStore
 import com.smassistant.app.media.Media3SlideshowMaker
 import com.smassistant.app.media.MediaCache
 import com.smassistant.app.media.SlideshowMaker
@@ -29,7 +27,7 @@ const val VIDEO_MAKER = "the video maker"
 data class GeneratedVideo(val file: File, val slides: List<File>)
 
 /**
- * Generate Video (docs/tasks VI-I1, Q-08 = slideshow): asks Gemini for [slides] diagram
+ * Generate Video (docs/tasks VI-I1, Q-08 = slideshow): asks the image agent for [slides] diagram
  * slides that explain the prompt step by step (`assets/prompts/video.md`), then encodes
  * them, in order, into an MP4 with [maker]. Slides that fail are left out.
  */
@@ -49,7 +47,7 @@ class GenerateVideoUseCase(
         if (images.size < MIN_SLIDES) {
             val error = results.filterIsInstance<ApiResult.Failed>().firstOrNull()?.error
                 ?: ApiError.BadResponse("only ${images.size} slide came back")
-            return Outcome.Failed(error, ApiService.GEMINI.displayName)
+            return Outcome.Failed(error, selected.service.displayName)
         }
         return maker.make(images, newVideoFile()).fold(
             onSuccess = { Outcome.Ok(GeneratedVideo(it, images)) },
@@ -63,14 +61,12 @@ class GenerateVideoUseCase(
         .replace("{{slides}}", slides.toString())
 }
 
-/** The video generator the screens use: saved Gemini settings, the slide asset, on-device encoding. */
+/** The video generator the screens use: the selected image agent, the slide asset, on-device encoding. */
 fun appGenerateVideo(context: Context): GenerateVideoUseCase {
-    val settings = ApiSettingsStore(context)
     val cache = MediaCache(context)
-    val agent = GeminiImageAgent({ settings.load(ApiService.GEMINI) }, cache)
     return GenerateVideoUseCase(
         slideTemplate = loadPromptAsset(context, "video"),
-        agent = { agent.takeIf { settings.load(ApiService.GEMINI).let { it.key.isNotBlank() && it.imageModel.isNotBlank() } } },
+        agent = appImageAgentSelector(context, cache)::imageAgent,
         maker = Media3SlideshowMaker(context.applicationContext),
         newVideoFile = { cache.newFile("mp4") },
     )

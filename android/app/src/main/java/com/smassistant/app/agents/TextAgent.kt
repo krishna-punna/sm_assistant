@@ -36,6 +36,9 @@ fun textAgentFor(
     ApiService.LINKEDIN -> error("LinkedIn is not an AI agent")
 }
 
+/** Claude with a larger reply budget, for long outputs such as SVG infographics. */
+fun claudeAgent(config: () -> ApiConfig, client: OkHttpClient, maxTokens: Int): TextAgent = ClaudeAgent(config, client, maxTokens)
+
 /** True when the agent has everything needed to make a call. */
 fun ApiConfig.isUsableAgent() = api.isNotBlank() && key.isNotBlank() && model.isNotBlank()
 
@@ -59,7 +62,11 @@ private abstract class BaseAgent(private val config: () -> ApiConfig) : TextAgen
 }
 
 /** Anthropic Messages API: POST {api} (e.g. https://api.anthropic.com/v1/messages). */
-private class ClaudeAgent(config: () -> ApiConfig, private val client: OkHttpClient) : BaseAgent(config) {
+private class ClaudeAgent(
+    config: () -> ApiConfig,
+    private val client: OkHttpClient,
+    private val maxTokens: Int = 4096,
+) : BaseAgent(config) {
     override val service = ApiService.CLAUDE
 
     override suspend fun call(config: ApiConfig, system: String, user: String) = client.postJson(
@@ -67,7 +74,7 @@ private class ClaudeAgent(config: () -> ApiConfig, private val client: OkHttpCli
         headers = mapOf("x-api-key" to config.key, "anthropic-version" to "2023-06-01"),
         body = buildJsonObject {
             put("model", config.model)
-            put("max_tokens", 4096)
+            put("max_tokens", maxTokens)
             put("system", system)
             putJsonArray("messages") {
                 addJsonObject {
