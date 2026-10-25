@@ -1,7 +1,7 @@
 # SM Assistant — Implementation task breakdown
 
 Tasks to implement every requirement in [`docs/requirements/`](../requirements/README.md) in the Android app (`android/`).
-Status is measured against `f-mobile-app` after PR #4 (Android skeleton, `app.yml` config, API Status screen, CI APK build) was merged on 2026-10-25.
+Status was first measured against `f-mobile-app` after PR #4 (Android skeleton, `app.yml` config, API Status screen, CI APK build) on 2026-10-25, and is updated by each implementation PR.
 
 ## How to read the task files
 
@@ -42,7 +42,7 @@ Phases are ordered so each one ships something usable and later phases build on 
 | **P3 AI text** | Agent clients and the two text features | AGC-*, GEN-1…4, PP-*, TC-1…2 | Q-05, Q-09, Q-11 |
 | **P4 Post text to LinkedIn** | First end-to-end flow: topic → prompt → content → post | LP-1…5, TC-3, HT-10…16 wiring | **Q-03** (auth), Q-12 |
 | **P5 Images** | Image generation and image posts | IM-*, CI-* | Q-10 |
-| **P6 Video** | Video generation and video posts | VI-*, CV-* | **Q-08** (hard block) |
+| **P6 Video** | Video generation and video posts | VI-*, CV-* | Q-08 answered 2026-10-25: slideshow of generated diagrams |
 | **P7 Release polish** | Accessibility, release build, signing | REL-* in [00-foundation.md](00-foundation.md) | Q-15 (iOS?) |
 
 ```mermaid
@@ -59,30 +59,30 @@ flowchart LR
 
 P1 and P2 can run in parallel once P0 is in.
 
-## Status summary (after PR #4)
+## Status summary (after PR #30)
 
 | Area | Done | Partial | Todo | Blocked |
 |------|------|---------|------|---------|
-| Foundation | 0 | 2 | 6 | 0 |
-| Navigation & UI | 3 | 5 | 0 | 1 |
-| Settings (LI, AG) | 5 | 3 | 2 | 2 |
-| API Status (AS) | 5 | 1 | 1 | 0 |
-| Default hashtags (HT) | 1 | 3 | 13 | 0 |
-| Prepare prompt (PP) | 1 | 1 | 6 | 0 |
-| Content generation | 0 | 1 | 16 | 4 |
-| Post to LinkedIn (LP) | 0 | 0 | 4 | 3 |
+| Foundation (FND tasks) | 5 | 1 | 2 | 0 |
+| Navigation & UI | 7 | 1 | 0 | 1 |
+| Settings (LI, AG) | 10 | 0 | 0 | 2 |
+| API Status (AS) | 6 | 0 | 1 | 0 |
+| Default hashtags (HT) | 17 | 0 | 0 | 0 |
+| Prepare prompt (PP) | 7 | 0 | 1 | 0 |
+| Content generation | 20 | 0 | 1 | 0 |
+| Post to LinkedIn (LP) | 7 | 0 | 0 | 0 |
 
-Counts are per requirement row in each file (including the new rows this plan adds), not per task. Nothing has automated tests yet: the `test`/`androidTest` dependencies are declared but there are no test sources, and CI only builds the APK.
+Counts are per requirement row in each file (per task for Foundation). What's left: NAV-4 (results survive process death); the optional rows waiting on Q-06, Q-22 and Q-23; Q-03 (LinkedIn sign-in) and Q-04 (model choice), which are still open; the release tasks (REL-*); and the manual validation (`-V`) checks, which need a device. Unit and Robolectric UI tests run in CI on every PR.
 
 ## Defects found in the current code
 
 | # | Where | Problem | Fixed by |
 |---|-------|---------|----------|
-| D-1 | `DefaultHashtagsScreen.kt` | Toggle starts **on**; HT-8 says it starts **off** until the first non-empty save. Toggle and list aren't persisted. | HT-7-I, HT-8-I |
-| D-2 | `ApiSettingsStore` | API keys are in plain `SharedPreferences` (excluded from backup, but not encrypted). Requirement 03/04 NFR asks for Keystore-backed storage. | FND-4 |
-| D-3 | `ApiSettingsForm` | No validation for empty fields, and saving an empty API URL overwrites the `app.yml` default with `""`. | LI-2-I, AG-2-I |
-| D-4 | `FeatureScreen` | One generic screen for all six features with a TODO Submit; no chat history, prompt cards, or result view. | GEN-*, PP-* |
-| D-5 | `.github/workflows/android.yml` | CI builds only; no unit tests or lint. | FND-2 |
+| D-1 | `DefaultHashtagsScreen.kt` | ~~Toggle starts **on**; HT-8 says it starts **off** until the first non-empty save. Toggle and list aren't persisted.~~ Fixed. | HT-I2, HT-I3 |
+| D-2 | `ApiSettingsStore` | ~~API keys are in plain `SharedPreferences` (excluded from backup, but not encrypted).~~ Fixed: encrypted with a Keystore key. | FND-4 |
+| D-3 | `ApiSettingsForm` | ~~No validation for empty fields, and saving an empty API URL overwrites the `app.yml` default with `""`.~~ Fixed. | LI-2-I, AG-2-I |
+| D-4 | `FeatureScreen` | ~~One generic screen for all six features with a TODO Submit.~~ Fixed: every feature has its own screen and `FeatureScreen` is gone. | GEN-*, PP-* |
+| D-5 | `.github/workflows/android.yml` | ~~CI builds only; no unit tests or lint.~~ Fixed: CI runs lint and unit tests. | FND-2 |
 | D-6 | Settings screens | `model` from `app.yml` is loaded but can't be viewed or changed in the app. | AG-6 (Q-04) |
 
 ## Blocked on open questions
@@ -96,7 +96,7 @@ Counts are per requirement row in each file (including the new rows this plan ad
 | Q-05 Which agent per feature | GEN-1, AGC-4 | Default agent setting + capability filter (text: any; image: Gemini) | No, but affects UI |
 | Q-06 Prompt hand-off | PP-8 | Copy/paste only | No |
 | Q-07 Hub vs Home | NAV-2 | Separate hub (done) | No |
-| **Q-08 Video** | VI-*, CV-* | None sensible | **Yes for P6** |
+| **Q-08 Video** | VI-*, CV-* | Answered: slideshow of Gemini diagrams encoded on the device | No (answered) |
 | Q-09 Loading/error states | GEN-4 | Spinner + inline error card with Retry | No |
 | Q-10 Image count / selection | IM-2, IM-5 | Up to 4 images, user can deselect | No |
 | Q-11 Post format | TC-1, TC-3, LP-2 | Generators produce LinkedIn-ready text ≤ 3,000 chars | No, but changes prompts |

@@ -1,0 +1,48 @@
+package com.smassistant.app.ui.screens
+
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
+import com.smassistant.app.generate.GenerateContentAndMediaUseCase
+import com.smassistant.app.generate.GeneratedVideo
+import java.io.File
+import org.junit.Assert.assertEquals
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+
+@RunWith(RobolectricTestRunner::class)
+@Config(qualifiers = "w411dp-h891dp")
+class VideoScreenTest {
+    @get:Rule val compose = createComposeRule()
+
+    @Test
+    fun resultShowsThePlayerAndLengthAndPosts() {
+        var posts = 0
+        val slides = (1..4).map { File("s$it.png") }
+        compose.setContent { VideoResult(GeneratedVideo(File("video.mp4"), slides), posting = false, onPost = { posts++ }) }
+        compose.onNodeWithTag("videoPlayer").assertExists()
+        compose.onNodeWithText("4 slides, 16 seconds").assertExists()
+        compose.onNodeWithText("Post in LinkedIn").performClick()
+        assertEquals(1, posts)
+    }
+
+    @Test
+    fun withoutGeminiSetUpOpensAgentSettings() {
+        var setUp = 0
+        compose.setContent { VideoScreen(onSetUpAgent = { setUp++ }, onSetUpLinkedIn = {}, onBackToHome = {}) }
+
+        // The bundled app.yml has no keys, so Gemini isn't set up.
+        compose.onNodeWithTag("chatInput").performTextInput("How a URL shortener works")
+        compose.onNodeWithText("Submit").performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithText(GenerateContentAndMediaUseCase.VIDEO_NOT_SET_UP).assertExists()
+        compose.onNodeWithText("Set up an AI agent").performClick()
+        assertEquals(1, setUp)
+    }
+}

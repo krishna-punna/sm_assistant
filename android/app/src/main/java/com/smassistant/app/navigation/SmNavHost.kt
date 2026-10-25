@@ -11,10 +11,15 @@ import com.smassistant.app.ui.screens.AgentSettingsScreen
 import com.smassistant.app.ui.screens.AiAgentListScreen
 import com.smassistant.app.ui.screens.ApiStatusScreen
 import com.smassistant.app.ui.screens.AssistantHubScreen
+import com.smassistant.app.ui.screens.ContentAndImageScreen
+import com.smassistant.app.ui.screens.ContentAndVideoScreen
 import com.smassistant.app.ui.screens.DefaultHashtagsScreen
-import com.smassistant.app.ui.screens.FeatureScreen
 import com.smassistant.app.ui.screens.HomeScreen
+import com.smassistant.app.ui.screens.ImageScreen
 import com.smassistant.app.ui.screens.LinkedInSettingsScreen
+import com.smassistant.app.ui.screens.PreparePromptScreen
+import com.smassistant.app.ui.screens.TechnicalContentScreen
+import com.smassistant.app.ui.screens.VideoScreen
 
 @Composable
 fun SmNavHost(navController: NavHostController = rememberNavController()) {
@@ -52,7 +57,37 @@ fun SmNavHost(navController: NavHostController = rememberNavController()) {
             arguments = listOf(navArgument("feature") { type = NavType.StringType }),
         ) { entry ->
             val feature = Feature.valueOf(entry.arguments?.getString("feature")!!)
-            FeatureScreen(feature = feature, onBackToHome = backToHome)
+            when (feature) {
+                Feature.PREPARE_PROMPT -> PreparePromptScreen(
+                    onSetUpAgent = { navController.navigate(Routes.AI_AGENTS) },
+                    onBackToHome = backToHome,
+                )
+                Feature.TECHNICAL_CONTENT -> TechnicalContentScreen(
+                    onSetUpAgent = { navController.navigate(Routes.AI_AGENTS) },
+                    onSetUpLinkedIn = { navController.navigate(Routes.LINKEDIN_SETTINGS) },
+                    onBackToHome = backToHome,
+                )
+                Feature.IMAGE -> ImageScreen(
+                    onSetUpAgent = { navController.navigate(Routes.AI_AGENTS) },
+                    onSetUpLinkedIn = { navController.navigate(Routes.LINKEDIN_SETTINGS) },
+                    onBackToHome = backToHome,
+                )
+                Feature.CONTENT_AND_IMAGE -> ContentAndImageScreen(
+                    onSetUpAgent = { navController.navigate(Routes.AI_AGENTS) },
+                    onSetUpLinkedIn = { navController.navigate(Routes.LINKEDIN_SETTINGS) },
+                    onBackToHome = backToHome,
+                )
+                Feature.VIDEO -> VideoScreen(
+                    onSetUpAgent = { navController.navigate(Routes.AI_AGENTS) },
+                    onSetUpLinkedIn = { navController.navigate(Routes.LINKEDIN_SETTINGS) },
+                    onBackToHome = backToHome,
+                )
+                Feature.CONTENT_AND_VIDEO -> ContentAndVideoScreen(
+                    onSetUpAgent = { navController.navigate(Routes.AI_AGENTS) },
+                    onSetUpLinkedIn = { navController.navigate(Routes.LINKEDIN_SETTINGS) },
+                    onBackToHome = backToHome,
+                )
+            }
         }
         composable(Routes.DEFAULT_HASHTAGS) {
             DefaultHashtagsScreen(onBackToHome = backToHome)

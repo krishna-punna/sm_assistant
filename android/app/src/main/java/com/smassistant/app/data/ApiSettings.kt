@@ -1,69 +1,53 @@
 package com.smassistant.app.data
 
 import android.content.Context
-import org.yaml.snakeyaml.Yaml
 
-/** External services the app calls. [configKey] is the service's entry under `apis:` in app.yml. */
-enum class ApiService(val displayName: String, val configKey: String) {
-    LINKEDIN("LinkedIn", "linkedin"),
-    CLAUDE("Claude", "claude"),
-    GEMINI("Gemini", "gemini"),
-    GROQ("Groq", "groq"),
-}
-
-data class ApiConfig(val api: String, val key: String, val model: String = "")
-
-/**
- * Defaults bundled in `assets/app.yml`, in this shape:
- *
- * ```yaml
- * apis:
- *   claude:
- *     api: https://api.anthropic.com/v1/messages
- *     model: claude-sonnet-5-5
- *     key: ""
- * ```
- */
+/** Defaults bundled in `assets/app.yml` (see [parseAppConfig]). */
 object AppConfig {
     @Volatile private var cached: Map<ApiService, ApiConfig>? = null
 
     fun defaults(context: Context, service: ApiService): ApiConfig =
-        (cached ?: load(context).also { cached = it }).getValue(service)
-
-    private fun load(context: Context): Map<ApiService, ApiConfig> {
-        val root: Map<String, Any?> = context.assets.open("app.yml").use { Yaml().load(it) } ?: emptyMap()
-        val apis = root["apis"] as? Map<*, *> ?: emptyMap<String, Any?>()
-        return ApiService.entries.associateWith { service ->
-            val entry = apis[service.configKey] as? Map<*, *> ?: emptyMap<String, Any?>()
-            ApiConfig(
-                api = entry["api"]?.toString().orEmpty(),
-                key = entry["key"]?.toString().orEmpty(),
-                model = entry["model"]?.toString().orEmpty(),
-            )
-        }
-    }
+        (cached ?: context.assets.open("app.yml").use(::parseAppConfig).also { cached = it }).getValue(service)
 }
 
 /**
  * API settings for each service: values the user saved on a settings screen,
- * falling back to the defaults in app.yml.
+ * falling back to the defaults in app.yml. Keys are encrypted with [cipher];
+ * URLs are stored as plain text.
  */
-class ApiSettingsStore(context: Context) {
+class ApiSettingsStore(context: Context, private val cipher: SecretCipher = KeystoreCipher()) {
     private val appContext = context.applicationContext
     private val prefs = appContext.getSharedPreferences("api_settings", Context.MODE_PRIVATE)
 
     fun load(service: ApiService): ApiConfig {
         val defaults = AppConfig.defaults(appContext, service)
         return defaults.copy(
-            api = prefs.getString("${service.name}.api", null) ?: defaults.api,
-            key = prefs.getString("${service.name}.key", null) ?: defaults.key,
+            api = prefs.getString(apiPref(service), null) ?: defaults.api,
+            key = savedKey(service) ?: defaults.key,
         )
     }
 
+    /** Saves both values, trimmed. A blank [api] removes the override so the app.yml default applies again. */
     fun save(service: ApiService, api: String, key: String) {
-        prefs.edit()
-            .putString("${service.name}.api", api.trim())
-            .putString("${service.name}.key", key.trim())
-            .apply()
+        prefs.edit().apply {
+            if (api.isBlank()) remove(apiPref(service)) else putString(apiPref(service), api.trim())
+            putString(encryptedKeyPref(service), cipher.encrypt(key.trim()))
+            remove(legacyKeyPref(service))
+        }.apply()
     }
+
+    private fun savedKey(service: ApiService): String? {
+        prefs.getString(encryptedKeyPref(service), null)?.let { return cipher.decrypt(it) }
+        // Builds before encryption stored the key in plain text: encrypt it once and drop the plain copy.
+        val legacy = prefs.getString(legacyKeyPref(service), null) ?: return null
+        prefs.edit()
+            .putString(encryptedKeyPref(service), cipher.encrypt(legacy))
+            .remove(legacyKeyPref(service))
+            .apply()
+        return legacy
+    }
+
+    private fun apiPref(service: ApiService) = "${service.name}.api"
+    private fun encryptedKeyPref(service: ApiService) = "${service.name}.key_enc"
+    private fun legacyKeyPref(service: ApiService) = "${service.name}.key"
 }
