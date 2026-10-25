@@ -7,10 +7,12 @@ import com.smassistant.app.net.Http
 import com.smassistant.app.net.await
 import com.smassistant.app.net.path
 import com.smassistant.app.net.textOrNull
+import java.io.File
 import java.io.IOException
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
@@ -20,6 +22,7 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 
@@ -39,14 +42,23 @@ class LinkedInClient(
 ) {
     private var cachedMember: Pair<String, String>? = null
 
-    /** Publishes [text] (plain text, not yet escaped) as a public text post. */
-    suspend fun createTextPost(text: String): ApiResult<LinkedInPost> {
+    /**
+     * Publishes [text] (plain text, not yet escaped) as a public post. [images] are uploaded first
+     * and attached: one as `content.media`, two or more as `content.multiImage` (LP-2-I).
+     */
+    suspend fun createPost(text: String, images: List<File> = emptyList()): ApiResult<LinkedInPost> {
         val current = config()
         if (current.api.isBlank() || current.key.isBlank()) return ApiResult.Failed(ApiError.NotConfigured)
         val postsUrl = current.api.toHttpUrlOrNull() ?: return ApiResult.Failed(ApiError.Unreachable("Invalid API URL"))
         val author = when (val member = memberUrn(postsUrl, current.key)) {
             is ApiResult.Failed -> return member
             is ApiResult.Ok -> member.value
+        }
+        val imageUrns = images.map { file ->
+            when (val uploaded = uploadImage(postsUrl, current.key, author, file)) {
+                is ApiResult.Failed -> return uploaded
+                is ApiResult.Ok -> uploaded.value
+            }
         }
         val body = buildJsonObject {
             put("author", author)
@@ -56,6 +68,15 @@ class LinkedInClient(
                 put("feedDistribution", "MAIN_FEED")
                 putJsonArray("targetEntities") {}
                 putJsonArray("thirdPartyDistributionChannels") {}
+            }
+            when (imageUrns.size) {
+                0 -> Unit
+                1 -> putJsonObject("content") { putJsonObject("media") { put("id", imageUrns.single()) } }
+                else -> putJsonObject("content") {
+                    putJsonObject("multiImage") {
+                        putJsonArray("images") { imageUrns.forEach { urn -> addJsonObject { put("id", urn) } } }
+                    }
+                }
             }
             put("lifecycleState", "PUBLISHED")
             put("isReshareDisabledByAuthor", false)
@@ -69,6 +90,34 @@ class LinkedInClient(
             val urn = response.header("x-restli-id") ?: response.header("x-linkedin-id")
             if (urn.isNullOrBlank()) ApiResult.Failed(ApiError.BadResponse("no post id")) else ApiResult.Ok(LinkedInPost(urn))
         }
+    }
+
+    /** Images API: initializeUpload gives an upload URL and image URN, then the bytes are PUT there. */
+    private suspend fun uploadImage(postsUrl: HttpUrl, token: String, owner: String, file: File): ApiResult<String> {
+        val initialize = Request.Builder()
+            .url(postsUrl.resolve("/rest/images?action=initializeUpload")!!)
+            .restliHeaders(token)
+            .post(buildJsonObject { putJsonObject("initializeUploadRequest") { put("owner", owner) } }.toString().toRequestBody(JSON))
+            .build()
+        val target = call(initialize) { _, json ->
+            val uploadUrl = json?.path("value", "uploadUrl")?.textOrNull?.toHttpUrlOrNull()
+            val image = json?.path("value", "image")?.textOrNull
+            if (uploadUrl == null || image.isNullOrBlank()) {
+                ApiResult.Failed(ApiError.BadResponse("no image upload URL"))
+            } else {
+                ApiResult.Ok(uploadUrl to image)
+            }
+        }
+        val (uploadUrl, image) = when (target) {
+            is ApiResult.Failed -> return target
+            is ApiResult.Ok -> target.value
+        }
+        val upload = Request.Builder()
+            .url(uploadUrl)
+            .header("Authorization", "Bearer $token")
+            .put(file.asRequestBody(OCTET_STREAM))
+            .build()
+        return call(upload) { _, _ -> ApiResult.Ok(image) }
     }
 
     /** `urn:li:person:{sub}` from OpenID userinfo on the same host, cached per token. */
@@ -116,5 +165,6 @@ class LinkedInClient(
         /** LinkedIn's monthly API version (YYYYMM). Each is supported for about a year; bump when it nears sunset. */
         const val API_VERSION = "202606"
         private val JSON = "application/json".toMediaType()
+        private val OCTET_STREAM = "application/octet-stream".toMediaType()
     }
 }

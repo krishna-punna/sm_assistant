@@ -16,6 +16,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.io.File
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class PostToLinkedInTest {
@@ -24,13 +25,14 @@ class PostToLinkedInTest {
     private var enabled = true
     private var configured = true
     private val published = mutableListOf<String>()
+    private val attached = mutableListOf<File>()
     private var reply: suspend () -> ApiResult<LinkedInPost> = { ApiResult.Ok(LinkedInPost("urn:li:share:1")) }
 
     private val useCase = PostToLinkedInUseCase(
         tags = { tags },
         tagsEnabled = { enabled },
         configured = { configured },
-        publish = { text -> published += text; reply() },
+        publish = { text, images -> published += text; attached += images; reply() },
     )
 
     @Before fun setUp() = Dispatchers.setMain(dispatcher)
@@ -127,5 +129,33 @@ class PostToLinkedInTest {
         vm.confirm()
         advanceUntilIdle()
         assertTrue(vm.state.value is PostState.Posted)
+    }
+
+    @Test
+    fun `images can be posted without body text`() = runTest(dispatcher) {
+        enabled = false
+        val images = listOf(File("a.png"), File("b.png"))
+        val vm = PostViewModel(useCase)
+        vm.start("", images)
+        val confirm = vm.state.value as PostState.Confirm
+        assertEquals("", confirm.text)
+        assertEquals(images, confirm.images)
+        assertTrue(confirm.canPost)
+
+        vm.confirm()
+        advanceUntilIdle()
+        assertTrue(vm.state.value is PostState.Posted)
+        assertEquals(images, attached)
+    }
+
+    @Test
+    fun `an image-only post gets the hashtags as its text`() {
+        assertEquals("#systemdesign #java", useCase.prepare("").text)
+    }
+
+    @Test
+    fun `more than twenty images are refused`() = runTest(dispatcher) {
+        assertTrue(useCase.post("x", List(21) { File("$it.png") }) is ApiResult.Failed)
+        assertTrue(attached.isEmpty())
     }
 }

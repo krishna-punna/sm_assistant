@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.io.File
 
 /**
  * The single entry point for every Post in LinkedIn button (docs/tasks LP-1-I2, HT-I5):
@@ -26,7 +27,7 @@ class PostToLinkedInUseCase(
     private val tags: () -> List<String>,
     private val tagsEnabled: () -> Boolean,
     private val configured: () -> Boolean,
-    private val publish: suspend (String) -> ApiResult<LinkedInPost>,
+    private val publish: suspend (String, List<File>) -> ApiResult<LinkedInPost>,
 ) {
     /** The text that would be posted for [markdown], with the default hashtags when they're on. */
     fun prepare(markdown: String): PostText =
@@ -34,10 +35,18 @@ class PostToLinkedInUseCase(
 
     fun isConfigured() = configured()
 
-    suspend fun post(text: String): ApiResult<LinkedInPost> = when {
+    /** Posts [text] with [images] attached. A post needs text or at least one image (HT-12: media-only text is the hashtags). */
+    suspend fun post(text: String, images: List<File> = emptyList()): ApiResult<LinkedInPost> = when {
         !isConfigured() -> ApiResult.Failed(ApiError.NotConfigured)
-        text.isBlank() || text.length > LINKEDIN_POST_LIMIT -> ApiResult.Failed(ApiError.BadResponse("post text must be 1 to $LINKEDIN_POST_LIMIT characters"))
-        else -> publish(text)
+        text.isBlank() && images.isEmpty() -> ApiResult.Failed(ApiError.BadResponse("nothing to post"))
+        text.length > LINKEDIN_POST_LIMIT -> ApiResult.Failed(ApiError.BadResponse("post text is over $LINKEDIN_POST_LIMIT characters"))
+        images.size > MAX_IMAGES -> ApiResult.Failed(ApiError.BadResponse("LinkedIn allows up to $MAX_IMAGES images"))
+        else -> publish(text, images)
+    }
+
+    companion object {
+        /** LinkedIn's multi-image limit. */
+        const val MAX_IMAGES = 20
     }
 }
 
@@ -45,10 +54,13 @@ class PostToLinkedInUseCase(
 sealed interface PostState {
     data object Idle : PostState
 
-    /** Confirmation dialog with the final text (LP-6, HT-15). [addedTags] are the defaults that were appended. */
-    data class Confirm(val text: String, val addedTags: List<String>) : PostState {
+    /**
+     * Confirmation dialog with the final text and attached [images] (LP-6, HT-15).
+     * [addedTags] are the defaults that were appended.
+     */
+    data class Confirm(val text: String, val addedTags: List<String>, val images: List<File> = emptyList()) : PostState {
         val overLimitBy get() = (text.length - LINKEDIN_POST_LIMIT).coerceAtLeast(0)
-        val canPost get() = text.isNotBlank() && overLimitBy == 0
+        val canPost get() = (text.isNotBlank() || images.isNotEmpty()) && overLimitBy == 0
     }
 
     data object Posting : PostState
@@ -62,12 +74,12 @@ class PostViewModel(private val useCase: PostToLinkedInUseCase) : ViewModel() {
     private val _state = MutableStateFlow<PostState>(PostState.Idle)
     val state: StateFlow<PostState> = _state.asStateFlow()
 
-    /** Post in LinkedIn tapped under a result. */
-    fun start(markdown: String) {
+    /** Post in LinkedIn tapped under a result: its text (Markdown, may be empty) and selected images. */
+    fun start(markdown: String, images: List<File> = emptyList()) {
         if (_state.value == PostState.Posting) return
         _state.value = if (useCase.isConfigured()) {
             val prepared = useCase.prepare(markdown)
-            PostState.Confirm(prepared.text, prepared.addedTags)
+            PostState.Confirm(prepared.text, prepared.addedTags, images)
         } else {
             failure(ApiError.NotConfigured)
         }
@@ -84,7 +96,7 @@ class PostViewModel(private val useCase: PostToLinkedInUseCase) : ViewModel() {
         if (!confirm.canPost) return
         _state.value = PostState.Posting
         viewModelScope.launch {
-            _state.value = when (val result = useCase.post(confirm.text)) {
+            _state.value = when (val result = useCase.post(confirm.text, confirm.images)) {
                 is ApiResult.Ok -> PostState.Posted(result.value)
                 is ApiResult.Failed -> failure(result.error)
             }
@@ -112,6 +124,6 @@ fun appPostToLinkedIn(context: Context): PostToLinkedInUseCase {
         tags = { hashtags.tags },
         tagsEnabled = { hashtags.enabled },
         configured = { settings.load(ApiService.LINKEDIN).let { it.api.isNotBlank() && it.key.isNotBlank() } },
-        publish = client::createTextPost,
+        publish = client::createPost,
     )
 }
