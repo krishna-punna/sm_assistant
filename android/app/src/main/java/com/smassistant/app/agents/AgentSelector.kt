@@ -3,6 +3,7 @@ package com.smassistant.app.agents
 import android.content.Context
 import com.smassistant.app.data.ApiConfig
 import com.smassistant.app.data.ApiService
+import com.smassistant.app.data.ApiSettingsStore
 
 /** Agents that can generate text, in fallback order. */
 val TEXT_AGENTS = listOf(ApiService.CLAUDE, ApiService.GEMINI, ApiService.GROQ)
@@ -33,4 +34,15 @@ class AgentSelector(
 ) {
     fun textAgent(): TextAgent? =
         (listOfNotNull(preferred()) + TEXT_AGENTS).firstOrNull { configOf(it).isUsableAgent() }?.let(agentFor)
+}
+
+/** The selector the screens use: saved settings, the user's default, and the real HTTP clients. */
+fun appAgentSelector(context: Context): AgentSelector {
+    val store = ApiSettingsStore(context)
+    val preferences = AgentPreferences(context)
+    return AgentSelector(
+        configOf = store::load,
+        preferred = { preferences.defaultTextAgent },
+        agentFor = { service -> textAgentFor(service, { store.load(service) }) },
+    )
 }

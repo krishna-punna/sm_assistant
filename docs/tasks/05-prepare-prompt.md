@@ -7,12 +7,12 @@ Depends on the agent clients (AGC-*) and shared chat screen (GEN-I1) in [06](06-
 
 | ID | Requirement | Status | Gap |
 |----|-------------|--------|-----|
-| PP-1 | Type a topic and submit | partial | Input + Submit drawn; Submit does nothing |
-| PP-2 | Send topic to the agent with instructions to produce a detailed LinkedIn-post prompt | todo | |
-| PP-3 | Show result as a titled card (title from topic) | todo | |
-| PP-4 | Copy action copies full prompt | todo | |
-| PP-5 | Expand action shows prompt full-screen | todo | |
-| PP-6 | Conversation stays; user can submit another topic | todo | |
+| PP-1 | Type a topic and submit | done | |
+| PP-2 | Send topic to the agent with instructions to produce a detailed LinkedIn-post prompt | done | |
+| PP-3 | Show result as a titled card (title from topic) | done | |
+| PP-4 | Copy action copies full prompt | done | |
+| PP-5 | Expand action shows prompt full-screen | done | |
+| PP-6 | Conversation stays; user can submit another topic | done | |
 | PP-7 | Back to Home | done | |
 | PP-8 *(new, Q-06)* | "Use this prompt in…" hand-off to a generator | todo (optional) | Waiting on Q-06 |
 
@@ -20,9 +20,9 @@ Depends on the agent clients (AGC-*) and shared chat screen (GEN-I1) in [06](06-
 
 | ID | Task | Depends on | Status |
 |----|------|-----------|--------|
-| PP-I1 | System prompt asset `assets/prompts/prepare_prompt.md` reproducing the observed recipe (persona with seniority → task with concrete stack → sections to cover → diagrams/code/trade-offs → scale targets). Ask for JSON `{ "title": "...", "prompt": "..." }` so the card title is reliable (PP-3). | — | todo |
-| PP-I2 | `PreparePromptUseCase(topic) → Result<PreparedPrompt>` using the selected text agent (AGC-4). Parse JSON; if parsing fails, fall back to title = topic in title case, prompt = raw text. | AGC-1…4, PP-I1 | todo |
-| PP-I3 | Screen on the shared chat scaffold: user bubble with the topic, assistant `PromptCard` with title, copy (clipboard + "Copied" snackbar) and expand (full-screen dialog). Input cleared after submit; history kept in ViewModel (PP-6). No Post in LinkedIn button here (HT-16, 07). | GEN-I1, UI-2-I | todo |
+| PP-I1 | System prompt asset `assets/prompts/prepare_prompt.md` reproducing the observed recipe (persona with seniority → task with concrete stack → sections to cover → diagrams/code/trade-offs → scale targets). Ask for JSON `{ "title": "...", "prompt": "..." }` so the card title is reliable (PP-3). | — | done |
+| PP-I2 | `PreparePromptUseCase(topic) → Result<PreparedPrompt>` using the selected text agent (AGC-4). Parse JSON; if parsing fails, fall back to title = topic in title case, prompt = raw text. | AGC-1…4, PP-I1 | done — `PreparePromptUseCase` |
+| PP-I3 | Screen on the shared chat scaffold: user bubble with the topic, assistant `PromptCard` with title, copy (clipboard + "Copied" snackbar) and expand (full-screen dialog). Input cleared after submit; history kept in ViewModel (PP-6). No Post in LinkedIn button here (HT-16, 07). | GEN-I1, UI-2-I | done — `PreparePromptScreen` |
 | PP-8-I | "Use in…" menu on the card opens the chosen generator with the prompt pre-filled (nav argument or shared `PromptHandoff` holder). | Q-06, GEN-I1 | todo (optional) |
 
 ## Validation
@@ -38,8 +38,8 @@ Depends on the agent clients (AGC-*) and shared chat screen (GEN-I1) in [06](06-
 
 | ID | Kind | Test | Status |
 |----|------|------|--------|
-| PP-T1 | unit | Use case with a fake agent: sends system prompt + topic; parses JSON; falls back on non-JSON; propagates `ApiError`. | todo |
-| PP-T2 | unit | Title fallback from topic. | todo |
-| PP-T3 | unit | ViewModel: submit appends user + loading item, then replaces loading with card; blank input ignored; second submit while busy ignored. | todo |
-| PP-T4 | UI | Card shows title and text; copy writes clipboard; expand opens dialog; no "Post in LinkedIn" node on this screen. | todo |
-| PP-T5 | unit | Prompt asset contains each recipe section (guards against accidental edits). | todo |
+| PP-T1 | unit | Use case with a fake agent: sends system prompt + topic; parses JSON; falls back on non-JSON; propagates `ApiError`. | done (`PreparePromptTest`) |
+| PP-T2 | unit | Title fallback from topic. | done (`PreparePromptTest`) |
+| PP-T3 | unit | ViewModel: submit appends user + loading item, then replaces loading with card; blank input ignored; second submit while busy ignored. | done (`ChatViewModelTest`) |
+| PP-T4 | UI | Card shows title and text; copy writes clipboard; expand opens dialog; no "Post in LinkedIn" node on this screen. | done (`ChatScreenTest`, `PreparePromptScreenTest`) |
+| PP-T5 | unit | Prompt asset contains each recipe section (guards against accidental edits). | done (`PreparePromptTest`) |

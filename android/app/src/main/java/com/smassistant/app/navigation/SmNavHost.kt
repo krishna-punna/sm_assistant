@@ -15,6 +15,7 @@ import com.smassistant.app.ui.screens.DefaultHashtagsScreen
 import com.smassistant.app.ui.screens.FeatureScreen
 import com.smassistant.app.ui.screens.HomeScreen
 import com.smassistant.app.ui.screens.LinkedInSettingsScreen
+import com.smassistant.app.ui.screens.PreparePromptScreen
 
 @Composable
 fun SmNavHost(navController: NavHostController = rememberNavController()) {
@@ -52,7 +53,13 @@ fun SmNavHost(navController: NavHostController = rememberNavController()) {
             arguments = listOf(navArgument("feature") { type = NavType.StringType }),
         ) { entry ->
             val feature = Feature.valueOf(entry.arguments?.getString("feature")!!)
-            FeatureScreen(feature = feature, onBackToHome = backToHome)
+            when (feature) {
+                Feature.PREPARE_PROMPT -> PreparePromptScreen(
+                    onSetUpAgent = { navController.navigate(Routes.AI_AGENTS) },
+                    onBackToHome = backToHome,
+                )
+                else -> FeatureScreen(feature = feature, onBackToHome = backToHome)
+            }
         }
         composable(Routes.DEFAULT_HASHTAGS) {
             DefaultHashtagsScreen(onBackToHome = backToHome)
