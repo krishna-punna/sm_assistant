@@ -138,4 +138,10 @@ class ApiSettingsViewModel(
     }
 
     fun messageShown() = _state.update { it.copy(message = null) }
+
+    /** Shows the saved values again, e.g. after LinkedIn sign-in replaced the token. */
+    fun reload() {
+        val saved = store.load(service)
+        _state.update { it.copy(api = saved.api, key = saved.key, apiError = null, keyError = null) }
+    }
 }

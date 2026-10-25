@@ -2,10 +2,13 @@ package com.smassistant.app.ui.screens
 
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -21,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -31,20 +35,149 @@ import com.smassistant.app.data.AiModel
 import com.smassistant.app.data.ApiService
 import com.smassistant.app.data.ApiSettingsStore
 import com.smassistant.app.data.ModelCatalog
+import com.smassistant.app.linkedin.LinkedInAuthStore
 import com.smassistant.app.navigation.AiAgent
 import com.smassistant.app.settings.ApiSettingsUiState
 import com.smassistant.app.settings.ApiSettingsViewModel
+import com.smassistant.app.settings.LinkedInAuthUiState
+import com.smassistant.app.settings.LinkedInAuthViewModel
+import com.smassistant.app.ui.components.LinkedInSignInDialog
 import com.smassistant.app.ui.components.MenuButton
 import com.smassistant.app.ui.components.PrimaryButton
 import com.smassistant.app.ui.components.SelectDropdown
 import com.smassistant.app.ui.components.SmScreen
+import com.smassistant.app.ui.components.clearLinkedInBrowserLogin
+import java.text.DateFormat
+import java.util.Date
 
-/** S2 LinkedIn settings. */
+/** S2 LinkedIn settings: Sign in with LinkedIn (Q-03), or paste an access token as a fallback. */
 @Composable
 fun LinkedInSettingsScreen(onBackToHome: () -> Unit) {
-    SmScreen(sectionTitle = "LinkedIn", onBackToHome = onBackToHome) {
-        ApiSettingsForm(ApiService.LINKEDIN)
+    val appContext = LocalContext.current.applicationContext
+    val auth = viewModel { LinkedInAuthViewModel(LinkedInAuthStore(appContext), ApiSettingsStore(appContext)) }
+    val pasteForm = apiSettingsViewModel(ApiService.LINKEDIN)
+    val state by auth.state.collectAsStateWithLifecycle()
+    val pasted by pasteForm.state.collectAsStateWithLifecycle()
+
+    LaunchedEffect(state.message) {
+        state.message?.let {
+            Toast.makeText(appContext, it, Toast.LENGTH_LONG).show()
+            auth.messageShown()
+        }
     }
+    // Sign-in or sign-out replaced the token: show it in the paste form.
+    LaunchedEffect(state.tokenVersion) {
+        if (state.tokenVersion > 0) pasteForm.reload()
+    }
+    // A pasted token replaces the signed-in one: drop the "Signed in as" line.
+    LaunchedEffect(pasted.message) { auth.refreshSession() }
+
+    SmScreen(sectionTitle = "LinkedIn", onBackToHome = onBackToHome) {
+        LinkedInSignInFields(
+            state = state,
+            now = System.currentTimeMillis(),
+            onClientIdChange = auth::onClientIdChange,
+            onClientSecretChange = auth::onClientSecretChange,
+            onRedirectUriChange = auth::onRedirectUriChange,
+            onSignIn = auth::signIn,
+            onSignOut = {
+                clearLinkedInBrowserLogin()
+                auth.signOut()
+            },
+        )
+        HorizontalDivider(Modifier.padding(vertical = 4.dp))
+        Text("Or paste an access token", style = MaterialTheme.typography.titleSmall)
+        Text(
+            "Use this if you already have a token with the w_member_social permission, e.g. from LinkedIn's OAuth token tool.",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        ApiSettingsForm(ApiService.LINKEDIN, pasteForm)
+    }
+    state.authorizationUrl?.let { url ->
+        LinkedInSignInDialog(url, onNavigate = auth::onBrowserNavigate, onCancel = auth::cancelSignIn)
+    }
+}
+
+/** Stateless sign-in section, so it can be UI-tested with any state. */
+@Composable
+fun ColumnScope.LinkedInSignInFields(
+    state: LinkedInAuthUiState,
+    now: Long,
+    onClientIdChange: (String) -> Unit,
+    onClientSecretChange: (String) -> Unit,
+    onRedirectUriChange: (String) -> Unit,
+    onSignIn: () -> Unit,
+    onSignOut: () -> Unit,
+) {
+    val session = state.session
+    if (session != null) {
+        val date = DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(session.expiresAt))
+        val expired = state.isExpired(now)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Signed in as ${session.name}", style = MaterialTheme.typography.titleSmall, modifier = Modifier.testTag("linkedInSession"))
+                Text(
+                    if (expired) "Token expired on $date. Sign in again." else "Token expires on $date",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (expired) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            TextButton(onClick = onSignOut) { Text("Sign out") }
+        }
+    } else {
+        Text("Sign in with your LinkedIn developer app", style = MaterialTheme.typography.titleSmall)
+    }
+    SettingsTextField(state.clientId, onClientIdChange, "Client ID", state.clientIdError, "clientIdField")
+    SettingsTextField(state.clientSecret, onClientSecretChange, "Client Secret", state.clientSecretError, "clientSecretField", secret = true)
+    SettingsTextField(
+        state.redirectUri,
+        onRedirectUriChange,
+        "Redirect URL",
+        state.redirectUriError ?: "Add this exact URL under Authorized redirect URLs in your LinkedIn app.",
+        "redirectUriField",
+        isError = state.redirectUriError != null,
+    )
+    Text(
+        "The Client Secret is stored encrypted on this phone only. Use a LinkedIn app made just for SM Assistant.",
+        style = MaterialTheme.typography.bodySmall,
+    )
+    PrimaryButton(
+        when {
+            state.finishing -> "Signing in…"
+            session != null -> "Sign in again"
+            else -> "Sign in with LinkedIn"
+        },
+        onClick = onSignIn,
+        enabled = !state.finishing,
+    )
+}
+
+@Composable
+private fun SettingsTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    supporting: String?,
+    tag: String,
+    secret: Boolean = false,
+    isError: Boolean = supporting != null,
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        singleLine = true,
+        visualTransformation = if (secret) PasswordVisualTransformation() else VisualTransformation.None,
+        isError = isError,
+        supportingText = if (supporting != null) {
+            { Text(supporting) }
+        } else {
+            null
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag(tag),
+    )
 }
 
 /** S3 AI Agent list. */
@@ -113,13 +246,18 @@ fun AgentSettingsScreen(agent: AiAgent, onBackToHome: () -> Unit) {
     }
 }
 
-/** API + API key form shared by the settings screens. */
 @Composable
-private fun ColumnScope.ApiSettingsForm(service: ApiService) {
+private fun apiSettingsViewModel(service: ApiService): ApiSettingsViewModel {
     val appContext = LocalContext.current.applicationContext
-    val viewModel = viewModel(key = service.name) {
+    return viewModel(key = service.name) {
         ApiSettingsViewModel(service, ApiSettingsStore(appContext), catalog = if (service in TEXT_AGENTS) ModelCatalog() else null)
     }
+}
+
+/** API + API key form shared by the settings screens. */
+@Composable
+private fun ColumnScope.ApiSettingsForm(service: ApiService, viewModel: ApiSettingsViewModel = apiSettingsViewModel(service)) {
+    val appContext = LocalContext.current.applicationContext
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     LaunchedEffect(state.message) {
