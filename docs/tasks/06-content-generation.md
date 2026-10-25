@@ -98,16 +98,16 @@ Current code: one placeholder `FeatureScreen` shared by all six hub features; Su
 
 | ID | Requirement | Status |
 |----|-------------|--------|
-| CI-1 | Text and image(s) from one submit | todo |
-| CI-2 | Post text as body with image(s) attached | todo |
+| CI-1 | Text and image(s) from one submit | done |
+| CI-2 | Post text as body with image(s) attached | done |
 
 | ID | Type | Task | Depends on | Status |
 |----|------|------|-----------|--------|
-| CI-I1 | Impl | Composite generator: run TC text generation and image generation in parallel from the same prompt; render Markdown result then `ImageStrip`, then Post in LinkedIn. Partial failure shows the part that worked + Retry for the other. | TC-I1, TC-I2, IM-I1, IM-I2 | todo |
-| CI-I2 | Impl | Post converted text + selected images in one post. | LP-2-I, TC-I3 | todo |
+| CI-I1 | Impl | Composite generator: run TC text generation and image generation in parallel from the same prompt; render Markdown result then `ImageStrip`, then Post in LinkedIn. Partial failure shows the part that worked + Retry for the other. | TC-I1, TC-I2, IM-I1, IM-I2 | done — `GenerateContentAndImagesUseCase`, `ContentAndImageScreen` |
+| CI-I2 | Impl | Post converted text + selected images in one post. | LP-2-I, TC-I3 | done |
 | CI-V1 | Val | Matches slide 11 order (text, strip, Post); LinkedIn post has body + images + default hashtags. | CI-I1, CI-I2 | todo |
-| CI-T1 | unit | Composite: both succeed; text fails/image succeeds; image fails/text succeeds; retry re-runs only the failed part. | CI-I1 | todo |
-| CI-T2 | UI | Result shows text then strip then Post button. | CI-I1 | todo |
+| CI-T1 | unit | Composite: both succeed; text fails/image succeeds; image fails/text succeeds; retry re-runs only the failed part. | CI-I1 | done (`GenerateContentAndImagesTest`, `ChatViewModelTest`) |
+| CI-T2 | UI | Result shows text then strip then Post button. | CI-I1 | done (`ContentAndImagesResultTest`) |
 
 ## 6.5 Generate Content & Video (P6) — blocked on Q-08
 

@@ -170,13 +170,13 @@ fun PostInLinkedInButton(onClick: () -> Unit, enabled: Boolean = true, busy: Boo
     }
 }
 
-/** Spinner shown while a generation runs, with Cancel (GEN-4). */
+/** Spinner shown while a generation runs, with Cancel when [onCancel] is given (GEN-4). */
 @Composable
-fun GeneratingRow(onCancel: () -> Unit) {
+fun GeneratingRow(onCancel: (() -> Unit)? = null) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
         Text("Generating…", modifier = Modifier.weight(1f))
-        TextButton(onClick = onCancel) { Text("Cancel") }
+        if (onCancel != null) TextButton(onClick = onCancel) { Text("Cancel") }
     }
 }
 

@@ -82,6 +82,22 @@ class ChatViewModel<R>(private val generate: suspend (String) -> Outcome<R>) : V
         }
     }
 
+    /**
+     * Reworks part of an existing result in place, e.g. retrying the half of a combined
+     * result that failed (CI-I1). [pending] is shown at once; [work] gets the input text.
+     */
+    fun updateResult(id: Long, pending: (R) -> R = { it }, work: suspend (input: String, value: R) -> R) {
+        val item = _state.value.items.firstOrNull { it.id == id } as? ChatItem.Result<R> ?: return
+        val input = _state.value.items.filterIsInstance<ChatItem.Input>().firstOrNull { it.id == item.forInput } ?: return
+        val started = pending(item.value)
+        replaceResult(id, started)
+        viewModelScope.launch { replaceResult(id, work(input.text, started)) }
+    }
+
+    private fun replaceResult(id: Long, value: R) = _state.update { s ->
+        s.copy(items = s.items.map { if (it.id == id && it is ChatItem.Result) ChatItem.Result(it.id, it.forInput, value) else it })
+    }
+
     private fun run(input: ChatItem.Input) {
         val loading = ChatItem.Loading(nextId++, input.id)
         _state.update { it.copy(items = it.items + loading) }

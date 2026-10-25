@@ -11,18 +11,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.smassistant.app.agents.GeminiImageAgent
-import com.smassistant.app.agents.IMAGES_PER_REQUEST
 import com.smassistant.app.chat.ChatViewModel
-import com.smassistant.app.data.ApiService
-import com.smassistant.app.data.ApiSettingsStore
-import com.smassistant.app.generate.GenerateImagesUseCase
+import com.smassistant.app.generate.GenerateContentAndImagesUseCase
+import com.smassistant.app.generate.appGenerateImages
 import com.smassistant.app.linkedin.PostState
 import com.smassistant.app.linkedin.PostViewModel
 import com.smassistant.app.linkedin.appPostToLinkedIn
-import com.smassistant.app.media.MediaCache
 import com.smassistant.app.navigation.Feature
-import com.smassistant.app.prompt.loadPromptAsset
 import com.smassistant.app.ui.components.ImagePreview
 import com.smassistant.app.ui.components.ImageStrip
 import com.smassistant.app.ui.components.PostDialogs
@@ -37,13 +32,7 @@ import java.io.File
 fun ImageScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToHome: () -> Unit) {
     val appContext = LocalContext.current.applicationContext
     val viewModel = viewModel {
-        val settings = ApiSettingsStore(appContext)
-        val agent = GeminiImageAgent({ settings.load(ApiService.GEMINI) }, MediaCache(appContext))
-        val useCase = GenerateImagesUseCase(
-            styleTemplate = loadPromptAsset(appContext, "image"),
-            agent = { agent.takeIf { settings.load(ApiService.GEMINI).let { it.key.isNotBlank() && it.imageModel.isNotBlank() } } },
-            count = IMAGES_PER_REQUEST,
-        )
+        val useCase = appGenerateImages(appContext)
         ChatViewModel<List<File>> { prompt -> useCase(prompt) }
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -69,7 +58,7 @@ fun ImageScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToH
                 onBackToHome = onBackToHome,
             )
         },
-        noAgentMessage = "Images are made with Gemini. Add a Gemini API key in AI Agent settings.",
+        noAgentMessage = GenerateContentAndImagesUseCase.IMAGES_NOT_SET_UP,
     )
     PostDialogs(
         state = postState,
@@ -82,10 +71,16 @@ fun ImageScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToH
 
 /**
  * One generation: the strip, then Post in LinkedIn for the selected images (IM-4, IM-5).
- * The preview posts the image it shows.
+ * The preview posts the image it shows. Content & Image also posts its text through [onPost].
  */
 @Composable
-fun ImageResult(images: List<File>, posting: Boolean, onPost: (List<File>) -> Unit, onBackToHome: () -> Unit) {
+fun ImageResult(
+    images: List<File>,
+    posting: Boolean,
+    onPost: (List<File>) -> Unit,
+    onBackToHome: () -> Unit,
+    canPostWithoutImages: Boolean = false,
+) {
     var selected by rememberSaveable(images) { mutableStateOf(images.indices.toSet()) }
     var previewIndex by rememberSaveable(images) { mutableStateOf<Int?>(null) }
 
@@ -98,7 +93,7 @@ fun ImageResult(images: List<File>, posting: Boolean, onPost: (List<File>) -> Un
         )
         PostInLinkedInButton(
             onClick = { onPost(images.filterIndexed { index, _ -> index in selected }) },
-            enabled = selected.isNotEmpty(),
+            enabled = canPostWithoutImages || selected.isNotEmpty(),
             busy = posting,
         )
     }

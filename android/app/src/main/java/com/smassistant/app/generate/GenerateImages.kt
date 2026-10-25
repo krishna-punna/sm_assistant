@@ -1,8 +1,14 @@
 package com.smassistant.app.generate
 
+import android.content.Context
+import com.smassistant.app.agents.GeminiImageAgent
+import com.smassistant.app.agents.IMAGES_PER_REQUEST
 import com.smassistant.app.agents.ImageAgent
 import com.smassistant.app.chat.Outcome
 import com.smassistant.app.data.ApiService
+import com.smassistant.app.data.ApiSettingsStore
+import com.smassistant.app.media.MediaCache
+import com.smassistant.app.prompt.loadPromptAsset
 import com.smassistant.app.net.ApiResult
 import java.io.File
 
@@ -22,4 +28,15 @@ class GenerateImagesUseCase(
             is ApiResult.Failed -> Outcome.Failed(result.error, ApiService.GEMINI.displayName)
         }
     }
+}
+
+/** The image generator the screens use: saved Gemini settings, the style asset, the media cache. */
+fun appGenerateImages(context: Context): GenerateImagesUseCase {
+    val settings = ApiSettingsStore(context)
+    val agent = GeminiImageAgent({ settings.load(ApiService.GEMINI) }, MediaCache(context))
+    return GenerateImagesUseCase(
+        styleTemplate = loadPromptAsset(context, "image"),
+        agent = { agent.takeIf { settings.load(ApiService.GEMINI).let { it.key.isNotBlank() && it.imageModel.isNotBlank() } } },
+        count = IMAGES_PER_REQUEST,
+    )
 }
