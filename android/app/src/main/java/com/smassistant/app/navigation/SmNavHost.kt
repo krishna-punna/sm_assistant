@@ -16,6 +16,7 @@ import com.smassistant.app.ui.screens.FeatureScreen
 import com.smassistant.app.ui.screens.HomeScreen
 import com.smassistant.app.ui.screens.LinkedInSettingsScreen
 import com.smassistant.app.ui.screens.PreparePromptScreen
+import com.smassistant.app.ui.screens.TechnicalContentScreen
 
 @Composable
 fun SmNavHost(navController: NavHostController = rememberNavController()) {
@@ -55,6 +56,10 @@ fun SmNavHost(navController: NavHostController = rememberNavController()) {
             val feature = Feature.valueOf(entry.arguments?.getString("feature")!!)
             when (feature) {
                 Feature.PREPARE_PROMPT -> PreparePromptScreen(
+                    onSetUpAgent = { navController.navigate(Routes.AI_AGENTS) },
+                    onBackToHome = backToHome,
+                )
+                Feature.TECHNICAL_CONTENT -> TechnicalContentScreen(
                     onSetUpAgent = { navController.navigate(Routes.AI_AGENTS) },
                     onBackToHome = backToHome,
                 )
