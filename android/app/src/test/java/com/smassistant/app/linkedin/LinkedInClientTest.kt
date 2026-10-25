@@ -15,6 +15,8 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
+import java.io.File
+import java.nio.file.Files
 
 class LinkedInClientTest {
     private val server = MockWebServer()
@@ -32,7 +34,7 @@ class LinkedInClientTest {
     private fun created(urn: String = "urn:li:share:7400") =
         server.enqueue(MockResponse().setResponseCode(201).setHeader("x-restli-id", urn))
 
-    private fun post(text: String) = runBlocking { linkedIn.createTextPost(text) }
+    private fun post(text: String) = runBlocking { linkedIn.createPost(text) }
 
     @Test
     fun `creates a text post as the member with restli headers`() {
@@ -107,5 +109,57 @@ class LinkedInClientTest {
         userinfo()
         server.enqueue(MockResponse().setResponseCode(201))
         assertEquals(ApiResult.Failed(ApiError.BadResponse("no post id")), post("hi"))
+    }
+
+    private fun initUpload(image: String) = server.enqueue(
+        MockResponse().setBody("""{"value":{"uploadUrl":"${server.url("/upload/$image")}","image":"urn:li:image:$image"}}"""),
+    )
+
+    @Test
+    fun `uploads images then attaches one as media and several as multiImage`() {
+        val dir = Files.createTempDirectory("post").toFile()
+        val first = File(dir, "a.png").apply { writeBytes(byteArrayOf(1, 2, 3)) }
+        val second = File(dir, "b.png").apply { writeBytes(byteArrayOf(4)) }
+
+        userinfo()
+        initUpload("A")
+        server.enqueue(MockResponse().setResponseCode(201))
+        created()
+        assertEquals(ApiResult.Ok(LinkedInPost("urn:li:share:7400")), runBlocking { linkedIn.createPost("One", listOf(first)) })
+
+        server.takeRequest() // userinfo
+        val init = server.takeRequest()
+        assertEquals("/rest/images?action=initializeUpload", init.path)
+        assertEquals(LinkedInClient.API_VERSION, init.getHeader("LinkedIn-Version"))
+        val initBody = Json.parseToJsonElement(init.body.readUtf8()) as JsonObject
+        assertEquals("urn:li:person:abc123", initBody.path("initializeUploadRequest", "owner")?.textOrNull)
+        val put = server.takeRequest()
+        assertEquals("PUT", put.method)
+        assertEquals("/upload/A", put.path)
+        assertEquals("Bearer token-1", put.getHeader("Authorization"))
+        assertEquals(listOf<Byte>(1, 2, 3), put.body.readByteArray().toList())
+        val single = Json.parseToJsonElement(server.takeRequest().body.readUtf8()) as JsonObject
+        assertEquals("urn:li:image:A", single.path("content", "media", "id")?.textOrNull)
+
+        initUpload("B")
+        server.enqueue(MockResponse().setResponseCode(201))
+        initUpload("C")
+        server.enqueue(MockResponse().setResponseCode(201))
+        created()
+        runBlocking { linkedIn.createPost("", listOf(first, second)) }
+        repeat(4) { server.takeRequest() }
+        val multi = Json.parseToJsonElement(server.takeRequest().body.readUtf8()) as JsonObject
+        assertEquals("urn:li:image:B", multi.path("content", "multiImage", "images", 0, "id")?.textOrNull)
+        assertEquals("urn:li:image:C", multi.path("content", "multiImage", "images", 1, "id")?.textOrNull)
+    }
+
+    @Test
+    fun `a failed upload stops before the post`() {
+        val file = Files.createTempFile("img", ".png").toFile().apply { writeBytes(byteArrayOf(1)) }
+        userinfo()
+        initUpload("A")
+        server.enqueue(MockResponse().setResponseCode(500))
+        assertEquals(ApiResult.Failed(ApiError.Server(500, null)), runBlocking { linkedIn.createPost("x", listOf(file)) })
+        assertEquals(3, server.requestCount)
     }
 }

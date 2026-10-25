@@ -4,6 +4,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -44,6 +47,15 @@ fun PostDialogs(
                             .heightIn(max = 360.dp)
                             .testTag("postText"),
                     )
+                    if (state.images.isNotEmpty()) {
+                        Text(
+                            if (state.images.size == 1) "1 image attached" else "${state.images.size} images attached",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            items(state.images) { GeneratedImage(it, Modifier.size(64.dp), maxSidePx = 160) }
+                        }
+                    }
                     if (state.addedTags.isNotEmpty()) {
                         Text("Default hashtags added: ${state.addedTags.joinToString(" ")}", style = MaterialTheme.typography.bodySmall)
                     }

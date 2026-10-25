@@ -127,7 +127,7 @@ fun ImagePreview(
     images: List<File>,
     startIndex: Int,
     onDismiss: () -> Unit,
-    actions: @Composable () -> Unit,
+    actions: @Composable (currentIndex: Int) -> Unit,
 ) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.fillMaxSize()) {
@@ -137,7 +137,7 @@ fun ImagePreview(
                 HorizontalPager(pager, modifier = Modifier.weight(1f).fillMaxWidth().testTag("imagePager")) { page ->
                     ZoomableImage(images[page])
                 }
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { actions() }
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { actions(pager.currentPage) }
             }
         }
     }
