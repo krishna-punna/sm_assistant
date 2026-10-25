@@ -19,6 +19,7 @@ import com.smassistant.app.ui.screens.ImageScreen
 import com.smassistant.app.ui.screens.LinkedInSettingsScreen
 import com.smassistant.app.ui.screens.PreparePromptScreen
 import com.smassistant.app.ui.screens.TechnicalContentScreen
+import com.smassistant.app.ui.screens.VideoScreen
 
 @Composable
 fun SmNavHost(navController: NavHostController = rememberNavController()) {
@@ -74,6 +75,10 @@ fun SmNavHost(navController: NavHostController = rememberNavController()) {
                 Feature.CONTENT_AND_IMAGE -> ContentAndImageScreen(
                     onSetUpAgent = { navController.navigate(Routes.AI_AGENTS) },
                     onSetUpLinkedIn = { navController.navigate(Routes.LINKEDIN_SETTINGS) },
+                    onBackToHome = backToHome,
+                )
+                Feature.VIDEO -> VideoScreen(
+                    onSetUpAgent = { navController.navigate(Routes.AI_AGENTS) },
                     onBackToHome = backToHome,
                 )
                 else -> FeatureScreen(feature = feature, onBackToHome = backToHome)

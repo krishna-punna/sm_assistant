@@ -23,7 +23,7 @@ import java.io.File
  * Pauses when the app goes to the background and releases the player when it leaves the screen.
  */
 @Composable
-fun VideoPlayer(file: File, modifier: Modifier = Modifier) {
+fun VideoPlayer(file: File, modifier: Modifier = Modifier, aspectRatio: Float = 16f / 9f) {
     val context = LocalContext.current
     val player = remember(file) {
         ExoPlayer.Builder(context).build().apply {
@@ -45,7 +45,7 @@ fun VideoPlayer(file: File, modifier: Modifier = Modifier) {
         update = { it.player = player },
         modifier = modifier
             .fillMaxWidth()
-            .aspectRatio(16f / 9f)
+            .aspectRatio(aspectRatio)
             .testTag("videoPlayer"),
     )
 }
