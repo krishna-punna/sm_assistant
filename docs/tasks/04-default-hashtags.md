@@ -18,13 +18,13 @@ Fully local, so it can be built and tested in parallel with P1. The appending lo
 | HT-7 | Toggle on/off, persisted (Q-17: on this screen) | done | |
 | HT-8 | Off on first install; auto-on at first non-empty save | done | D-1 fixed |
 | HT-9 | Turning off keeps the list | done | |
-| HT-10 | Append after one blank line, space-separated, when on and non-empty | todo | |
-| HT-11 | Skip tags already in the text (case-insensitive) | todo | |
-| HT-12 | Applies to all five posting features; media-only posts get tags as the text | todo | |
-| HT-13 | Applied at posting time, not stored in content | todo | |
-| HT-14 | Counts towards ~3,000 chars; keep tags, ask user to shorten body | todo | |
-| HT-15 | Preview/confirmation shows the tags (Q-12) | todo | |
-| HT-16 | Never added to Prepare Prompt output | todo | Trivially true until posting exists; needs a test |
+| HT-10 | Append after one blank line, space-separated, when on and non-empty | done | |
+| HT-11 | Skip tags already in the text (case-insensitive) | done | |
+| HT-12 | Applies to all five posting features; media-only posts get tags as the text | partial | Wired for text posts; media-only posts with P5/P6 |
+| HT-13 | Applied at posting time, not stored in content | done | |
+| HT-14 | Counts towards ~3,000 chars; keep tags, ask user to shorten body | done | |
+| HT-15 | Preview/confirmation shows the tags (Q-12) | done | |
+| HT-16 | Never added to Prepare Prompt output | done | Prepare Prompt has no Post button (`PreparePromptScreenTest`) |
 | HT-NFR | Warn (not block) above 5 tags | done | |
 
 ## Implementation
@@ -35,7 +35,7 @@ Fully local, so it can be built and tested in parallel with P1. The appending lo
 | HT-I2 | `HashtagSettingsStore` (SharedPreferences; not secret): `tags: List<String>`, `enabled: Boolean` (default false), `everSavedNonEmpty: Boolean`. Covers HT-3, HT-7, HT-8, HT-9. | — | done |
 | HT-I3 | `DefaultHashtagsViewModel`: load into box on open; Save → parse; if invalid show inline message and don't save; else store, auto-enable on first non-empty save, toast "Saved N hashtags"; show warning when > 5. Clear empties the box only. Toggle writes immediately. Fixes D-1. | HT-I1, HT-I2 | done |
 | HT-I4 | `HashtagAppender.apply(body, tags, enabled): PostText` (pure): HT-10 format, HT-11 skip existing (match whole tags, case-insensitive), HT-12 media-only → tags only, HT-14 returns `overLimitBy` when body + tags > 3,000. | HT-I1 | done — `Hashtags.appendTo` |
-| HT-I5 | Call `HashtagAppender` inside the posting use case for every posting feature, never on Prepare Prompt; show over-limit message; feed the final text to the preview (LP-6). Covers HT-12…16. | HT-I4, LP-1-I, LP-6-I | todo (P4) |
+| HT-I5 | Call `HashtagAppender` inside the posting use case for every posting feature, never on Prepare Prompt; show over-limit message; feed the final text to the preview (LP-6). Covers HT-12…16. | HT-I4, LP-1-I, LP-6-I | done — `PostToLinkedInUseCase.prepare` |
 | HT-17-I *(Q-19)* | Per-post "Skip hashtags" in the preview. | Q-19, LP-6-I | blocked (optional) |
 
 ## Validation
@@ -56,5 +56,5 @@ Fully local, so it can be built and tested in parallel with P1. The appending lo
 | HT-T1 | unit | Parser: separators (space, comma, newline, mixed), `#` added, invalid chars reported (`C++`, `hello-world`, emoji), underscore and non-Latin letters allowed, case-insensitive de-dupe keeps first spelling and order, empty input → empty list. | done (`HashtagsParseTest`) |
 | HT-T2 | unit | Store/ViewModel: default off; first non-empty save turns on; later saves don't change toggle; user-off stays off after save; empty save keeps toggle; restart persistence. | done (`HashtagSettingsTest`) |
 | HT-T3 | unit | Appender: format (`body\n\n#A #B`), skip existing (`#ai` in body skips `#AI`, but `#AIEngineer` in body doesn't skip `#AI`), disabled/empty → body unchanged, media-only → tags only, over-limit detection at 3,000. | done (`HashtagsAppendTest`) |
-| HT-T4 | UI | Prepare Prompt screen has no Post in LinkedIn button, so its output can never get hashtags (HT-16). | todo (P4) |
+| HT-T4 | UI | Prepare Prompt screen has no Post in LinkedIn button, so its output can never get hashtags (HT-16). | done (`PreparePromptScreenTest`) |
 | HT-T5 | UI | Screen: pre-fills saved tags, Clear empties box without changing store, Save shows error text for invalid input, toggle reflects store. | done (`DefaultHashtagsScreenTest`, Robolectric) |
