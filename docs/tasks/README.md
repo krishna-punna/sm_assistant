@@ -72,7 +72,7 @@ P1 and P2 can run in parallel once P0 is in.
 | Content generation | 20 | 0 | 1 | 0 |
 | Post to LinkedIn (LP) | 7 | 0 | 0 | 0 |
 
-Counts are per requirement row in each file (per task for Foundation). What's left: the optional rows waiting on Q-06, Q-22 and Q-23; Q-03 (LinkedIn sign-in), which is still open; the release tasks (REL-*); and the manual validation (`-V`) checks, which need a device. Unit and Robolectric UI tests run in CI on every PR.
+Counts are per requirement row in each file (per task for Foundation). What's left: the optional rows waiting on Q-06, Q-22 and Q-23; the release tasks (REL-*); and the manual validation (`-V`) checks, which need a device. Unit and Robolectric UI tests run in CI on every PR.
 
 ## Defects found in the current code
 
@@ -91,7 +91,7 @@ Counts are per requirement row in each file (per task for Foundation). What's le
 |----------|--------|----------------------------------|-------------|
 | Q-01 Duplicate AI Agent button | NAV-1 final layout | One button (already done) | No |
 | Q-02 Back on hub / one-level back | NAV-3 | Back to Home on hub + system back pops one level (done) | No |
-| **Q-03 LinkedIn auth** | LI-*, LP-1, LP-2, AS LinkedIn check | Treat the key field as a pasted OAuth access token with `w_member_social` | **Yes for P4** — pasted tokens expire in 60 days; a real sign-in flow changes the settings screen |
+| **Q-03 LinkedIn auth** | LI-*, LP-1, LP-2, AS LinkedIn check | Answered 2026-10-25: Sign in with LinkedIn (OAuth, user's own developer app), pasted token as fallback | No (answered) |
 | Q-04 What "APIs" holds; model choice | AG-6 | API = endpoint URL; model picked from the provider's live list (answered 2026-10-25) | No |
 | Q-05 Which agent per feature | GEN-1, AGC-4 | Default agent setting + capability filter (text: any; image: Gemini) | No, but affects UI |
 | Q-06 Prompt hand-off | PP-8 | Copy/paste only | No |

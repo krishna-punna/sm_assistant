@@ -102,7 +102,7 @@ class PostToLinkedInTest {
         vm.confirm()
         advanceUntilIdle()
         assertEquals(
-            PostState.Failed("LinkedIn token expired or invalid. Paste a new access token in LinkedIn settings.", openSettings = true),
+            PostState.Failed("LinkedIn token expired or invalid. Sign in again in LinkedIn settings.", openSettings = true),
             vm.state.value,
         )
 

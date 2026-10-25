@@ -12,7 +12,7 @@ Current code: `SettingsScreens.kt` (`ApiSettingsForm`), `data/ApiSettings.kt` (`
 | LI-3 | Saved values pre-filled on reopen | done | |
 | LI-4 | Posting uses saved values | done | `LinkedInClient` reads the store at call time |
 | LI-NFR | Key masked, secure storage, never logged | done | Masked and encrypted; HTTP logging redacts secrets (FND-6) |
-| LI-Q3 | Auth model: pasted token vs "Sign in with LinkedIn" OAuth | **blocked (Q-03)** | |
+| LI-Q3 | Auth model: pasted token vs "Sign in with LinkedIn" OAuth | done | Q-03 answered: OAuth sign-in with the user's own developer app, pasted token kept as fallback (LI-5…7) |
 | AG-1 | Open Claude, Gemini, Groq settings from the list | done | |
 | AG-2 | Enter/edit/save API value and key per agent | done | Validated; key encrypted |
 | AG-3 | Persist and pre-fill | done | |
@@ -27,7 +27,7 @@ Current code: `SettingsScreens.kt` (`ApiSettingsForm`), `data/ApiSettings.kt` (`
 | LI-2-I / AG-2-I | Settings ViewModel: validate on SAVE (API must be an `https://` URL; key non-empty), inline field errors, toast on success. Saving a blank API clears the override (falls back to `app.yml`) instead of storing `""`. | — | done — `ApiSettingsViewModel` |
 | LI-2-I2 / AG-2-I2 | Save through the secure store (FND-4). | FND-4 | done |
 | LI-4-I | `LinkedInClient` reads `ApiSettingsStore.load(LINKEDIN)` at call time (no caching), so a new key takes effect immediately. | LP-1-I | done |
-| LI-Q3-I | **If Q-03 = OAuth:** replace the key field with "Sign in with LinkedIn" (Custom Tab + PKCE, redirect to app link), store access token + expiry, show "Signed in as …" and Sign out. Requires a LinkedIn developer app with `w_member_social` (and `openid profile` for Q-21). **If Q-03 = pasted token:** relabel fields as "Access token", show token-expiry hint. | Q-03, FND-4 | blocked |
+| LI-Q3-I | Client ID, Client Secret (encrypted) and redirect URL on S2; "Sign in with LinkedIn" runs the authorization-code flow (scopes `openid profile w_member_social`, random `state`) in an in-app browser that catches the redirect, since LinkedIn won't redirect to an app scheme and an App Link needs a verified domain. The token is saved as the LinkedIn key; name and expiry are shown with Sign out. Paste-token form kept below. | Q-03, FND-4 | done — `LinkedInAuth.kt`, `LinkedInAuthViewModel`, `LinkedInSignInDialog` |
 | AG-5-I | See AGC-1…4 in [06](06-content-generation.md). | | |
 | AG-6-I | Add a "Model" field (or dropdown filled from `GET /models`, which the status check already calls) to S4–S6. | Q-04, FND-3 | done (`ModelCatalog`, `ApiSettingsViewModel`) |
 | AG-NFR-I | Keep one generic agent-settings screen driven by `AiAgent` so a fourth agent is one enum entry + one client. | — | done |
@@ -38,6 +38,7 @@ Current code: `SettingsScreens.kt` (`ApiSettingsForm`), `data/ApiSettings.kt` (`
 |----|-------|--------|
 | LI-V1 | Enter values, SAVE, force-stop, reopen: values pre-filled, key masked. | todo |
 | LI-V2 | Blank key → SAVE shows an inline error and saves nothing. Blank API → SAVE reverts to the `app.yml` URL. | todo |
+| LI-V3 | With a real LinkedIn app: Sign in with LinkedIn → approve → "Signed in as …" with an expiry ~60 days out; Post in LinkedIn works; Sign out clears the token. | todo |
 | LI-V3 | After SAVE, API Status shows the LinkedIn result for the new key without restarting. | todo |
 | AG-V1 | Same as LI-V1/LI-V2 for each of Claude, Gemini, Groq; saving one doesn't change the others. | todo |
 | AG-V2 | Fresh install with keys added to a local `app.yml`: screens show defaults; saved values override them. | todo |
