@@ -28,16 +28,25 @@ cd android
 ```
 app/src/main/java/com/smassistant/app/
   MainActivity.kt
+  data/         app.yml defaults and saved API settings
   navigation/   routes (Routes.kt) and the NavHost
   ui/theme/     colours from the wireframes, Material theme
   ui/components SmScreen frame (app bar, section chip, Back to Home), buttons
   ui/screens/   one composable per screen in the screen inventory (S1–S14)
 ```
 
+## Configuration
+
+Default API endpoints, models and keys live in [`app/src/main/assets/app.yml`](app/src/main/assets/app.yml),
+bundled with the app. Whatever the user saves on the LinkedIn and AI agent settings screens
+overrides the file (stored on the device in SharedPreferences, excluded from backup).
+Keys ship empty; don't commit real keys to `app.yml`.
+
 ## Status
 
-Skeleton only: every screen from the requirements exists and is reachable, but nothing is saved
-or sent yet. Settings SAVE, AI generation, hashtag persistence and LinkedIn posting are TODOs.
+Skeleton: every screen from the requirements exists and is reachable, and API settings are
+loaded from `app.yml` and saved on the device. AI generation, hashtag persistence and LinkedIn
+posting are TODOs.
 
 Choices made on open questions for now:
 - Q-01: Home shows a single **AI Agent** button.

@@ -1,10 +1,14 @@
 package com.smassistant.app.navigation
 
+import com.smassistant.app.data.ApiService
+
 /** AI agents the user can configure (docs/requirements/04-ai-agent-settings.md). */
-enum class AiAgent(val displayName: String) {
-    CLAUDE("Claude"),
-    GEMINI("Gemini"),
-    GROQ("Groq"),
+enum class AiAgent(val service: ApiService) {
+    CLAUDE(ApiService.CLAUDE),
+    GEMINI(ApiService.GEMINI),
+    GROQ(ApiService.GROQ);
+
+    val displayName get() = service.displayName
 }
 
 /** Feature screens launched from the Social Media Assistant hub. */

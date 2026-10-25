@@ -1,0 +1,25 @@
+# SM Assistant default configuration, bundled with the app.
+#
+# Values saved on the settings screens override what is here.
+# Keys are left empty on purpose: the user enters them in the app.
+# Do not commit real API keys to this file.
+
+apis:
+  linkedin:
+    api: https://api.linkedin.com/rest/posts
+    key: ""
+
+  claude:
+    api: https://api.anthropic.com/v1/messages
+    model: claude-sonnet-5-5
+    key: ""
+
+  gemini:
+    api: https://generativelanguage.googleapis.com/v1beta
+    model: gemini-2.5-flash
+    key: ""
+
+  groq:
+    api: https://api.groq.com/openai/v1/chat/completions
+    model: llama-3.3-70b-versatile
+    key: ""
