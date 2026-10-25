@@ -34,30 +34,7 @@ fun PostDialogs(
         is PostState.Confirm -> AlertDialog(
             onDismissRequest = onDismiss,
             title = { Text("Post to LinkedIn?") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = state.text,
-                        onValueChange = onTextChange,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 360.dp)
-                            .testTag("postText"),
-                    )
-                    if (state.addedTags.isNotEmpty()) {
-                        Text("Default hashtags added: ${state.addedTags.joinToString(" ")}", style = MaterialTheme.typography.bodySmall)
-                    }
-                    Text(
-                        if (state.overLimitBy > 0) {
-                            "${state.overLimitBy} characters over LinkedIn's $LINKEDIN_POST_LIMIT limit. Shorten the text to post."
-                        } else {
-                            "${state.text.length} / $LINKEDIN_POST_LIMIT characters"
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (state.overLimitBy > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            },
+            text = { ConfirmPostContent(state, onTextChange) },
             confirmButton = { TextButton(onClick = onConfirm, enabled = state.canPost) { Text("Post") } },
             dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
         )
@@ -95,6 +72,33 @@ fun PostDialogs(
             } else {
                 null
             },
+        )
+    }
+}
+
+/** Body of the confirm dialog: the editable text, the hashtags that were added and the character count. */
+@Composable
+fun ConfirmPostContent(state: PostState.Confirm, onTextChange: (String) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedTextField(
+            value = state.text,
+            onValueChange = onTextChange,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 360.dp)
+                .testTag("postText"),
+        )
+        if (state.addedTags.isNotEmpty()) {
+            Text("Default hashtags added: ${state.addedTags.joinToString(" ")}", style = MaterialTheme.typography.bodySmall)
+        }
+        Text(
+            if (state.overLimitBy > 0) {
+                "${state.overLimitBy} characters over LinkedIn's $LINKEDIN_POST_LIMIT limit. Shorten the text to post."
+            } else {
+                "${state.text.length} / $LINKEDIN_POST_LIMIT characters"
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = if (state.overLimitBy > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
