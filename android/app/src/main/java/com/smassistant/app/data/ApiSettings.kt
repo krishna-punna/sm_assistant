@@ -1,47 +1,13 @@
 package com.smassistant.app.data
 
 import android.content.Context
-import org.yaml.snakeyaml.Yaml
 
-/** External services the app calls. [configKey] is the service's entry under `apis:` in app.yml. */
-enum class ApiService(val displayName: String, val configKey: String) {
-    LINKEDIN("LinkedIn", "linkedin"),
-    CLAUDE("Claude", "claude"),
-    GEMINI("Gemini", "gemini"),
-    GROQ("Groq", "groq"),
-}
-
-data class ApiConfig(val api: String, val key: String, val model: String = "")
-
-/**
- * Defaults bundled in `assets/app.yml`, in this shape:
- *
- * ```yaml
- * apis:
- *   claude:
- *     api: https://api.anthropic.com/v1/messages
- *     model: claude-sonnet-5-5
- *     key: ""
- * ```
- */
+/** Defaults bundled in `assets/app.yml` (see [parseAppConfig]). */
 object AppConfig {
     @Volatile private var cached: Map<ApiService, ApiConfig>? = null
 
     fun defaults(context: Context, service: ApiService): ApiConfig =
-        (cached ?: load(context).also { cached = it }).getValue(service)
-
-    private fun load(context: Context): Map<ApiService, ApiConfig> {
-        val root: Map<String, Any?> = context.assets.open("app.yml").use { Yaml().load(it) } ?: emptyMap()
-        val apis = root["apis"] as? Map<*, *> ?: emptyMap<String, Any?>()
-        return ApiService.entries.associateWith { service ->
-            val entry = apis[service.configKey] as? Map<*, *> ?: emptyMap<String, Any?>()
-            ApiConfig(
-                api = entry["api"]?.toString().orEmpty(),
-                key = entry["key"]?.toString().orEmpty(),
-                model = entry["model"]?.toString().orEmpty(),
-            )
-        }
-    }
+        (cached ?: context.assets.open("app.yml").use(::parseAppConfig).also { cached = it }).getValue(service)
 }
 
 /**

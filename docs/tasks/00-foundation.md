@@ -6,14 +6,14 @@ Cross-cutting work that the feature tasks depend on. Do these first: today there
 
 | ID | Type | Task | Depends on | Status |
 |----|------|------|-----------|--------|
-| FND-1 | Impl | **Test setup.** Add `kotlinx-coroutines-test`, `mockwebserver` (OkHttp), `turbine`, Robolectric to the version catalog. Create `app/src/test` and `app/src/androidTest` source sets with one sample test each. | — | todo |
-| FND-2 | Impl | **CI runs tests.** Extend `.github/workflows/android.yml`: `./gradlew lint testDebugUnitTest assembleDebug`; upload test reports. Add a second job running `connectedDebugAndroidTest` on an emulator (`reactivecircus/android-emulator-runner`), on PRs only. | FND-1 | todo |
+| FND-1 | Impl | **Test setup.** Add `kotlinx-coroutines-test`, `mockwebserver` (OkHttp), `turbine`, Robolectric to the version catalog. Create `app/src/test` and `app/src/androidTest` source sets with one sample test each. | — | done — JUnit, coroutines-test, Robolectric 4.16 (`sdk=35`); MockWebServer/Turbine added with the first client that needs them; `androidTest` sources come with the first UI test |
+| FND-2 | Impl | **CI runs tests.** Extend `.github/workflows/android.yml`: `./gradlew lint testDebugUnitTest assembleDebug`; upload test reports. Add a second job running `connectedDebugAndroidTest` on an emulator (`reactivecircus/android-emulator-runner`), on PRs only. | FND-1 | partial — CI runs `lintDebug testDebugUnitTest assembleDebug` and uploads reports; emulator job added with the first UI test |
 | FND-3 | Impl | **ViewModel per screen.** Move state and side effects out of composables into `ViewModel`s exposing `StateFlow<UiState>`; composables become stateless (`Screen(state, onEvent)`), so they can be UI-tested with fake state. Start with settings, API Status, hashtags. | FND-7 | todo |
 | FND-4 | Impl | **Secure key storage.** Store API keys encrypted with an Android Keystore key (Jetpack DataStore + Tink `Aead`, since `EncryptedSharedPreferences` is deprecated). Migrate existing values from the `api_settings` prefs on first run. Non-secret settings (URLs, hashtags, toggles) go in a plain DataStore. | FND-1 | partial — plain SharedPreferences, excluded from backup (D-2) |
 | FND-5 | Impl | **HTTP layer.** One `OkHttpClient` (10 s timeouts, no body logging in release) + `kotlinx.serialization` JSON. Base URLs injectable so tests can point at MockWebServer. Port `ApiConnectionCheck` to it. | FND-1 | partial — `HttpURLConnection` in `ApiConnectionCheck` only |
 | FND-6 | Impl | **Error model and key redaction.** A shared `ApiResult`/`ApiError` (NotConfigured, InvalidKey, NoAccess, RateLimited, Unreachable, Server(code)) used by every client. An OkHttp interceptor/log wrapper that strips `Authorization`, `x-api-key`, `x-goog-api-key` from any log. | FND-5 | todo |
 | FND-7 | Impl | **Dependency wiring.** A small manual `AppContainer` (settings store, HTTP client, agent clients, LinkedIn client) created in `Application`, passed to ViewModel factories. Lets tests swap fakes. | — | todo |
-| FND-8 | Impl | **Release-safe config.** Fail the build if `app.yml` contains a non-empty `key:` (Gradle check task), so real keys are never committed. | — | todo |
+| FND-8 | Impl | **Release-safe config.** Fail the build if `app.yml` contains a non-empty `key:` (Gradle check task), so real keys are never committed. | — | done — unit test `AppConfigTest` fails CI if `app.yml` has a key |
 
 ### Validation
 

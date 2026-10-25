@@ -34,6 +34,16 @@ android {
     buildFeatures {
         compose = true
     }
+    testOptions {
+        // Robolectric reads assets (app.yml) and resources from the merged build.
+        unitTests.isIncludeAndroidResources = true
+    }
+    lint {
+        abortOnError = true
+        checkDependencies = false
+        // New library versions appear constantly; don't fail CI on them.
+        disable += setOf("GradleDependency", "NewerVersionAvailable", "AndroidGradlePluginVersion")
+    }
 }
 
 kotlin {
@@ -56,6 +66,9 @@ dependencies {
     implementation(libs.snakeyaml)
 
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

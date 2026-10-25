@@ -63,7 +63,7 @@ P1 and P2 can run in parallel once P0 is in.
 
 | Area | Done | Partial | Todo | Blocked |
 |------|------|---------|------|---------|
-| Foundation | 0 | 2 | 6 | 0 |
+| Foundation | 2 | 3 | 3 | 0 |
 | Navigation & UI | 3 | 5 | 0 | 1 |
 | Settings (LI, AG) | 5 | 3 | 2 | 2 |
 | API Status (AS) | 5 | 1 | 1 | 0 |
@@ -82,7 +82,7 @@ Counts are per requirement row in each file (including the new rows this plan ad
 | D-2 | `ApiSettingsStore` | API keys are in plain `SharedPreferences` (excluded from backup, but not encrypted). Requirement 03/04 NFR asks for Keystore-backed storage. | FND-4 |
 | D-3 | `ApiSettingsForm` | No validation for empty fields, and saving an empty API URL overwrites the `app.yml` default with `""`. | LI-2-I, AG-2-I |
 | D-4 | `FeatureScreen` | One generic screen for all six features with a TODO Submit; no chat history, prompt cards, or result view. | GEN-*, PP-* |
-| D-5 | `.github/workflows/android.yml` | CI builds only; no unit tests or lint. | FND-2 |
+| D-5 | `.github/workflows/android.yml` | ~~CI builds only; no unit tests or lint.~~ Fixed: CI runs lint and unit tests. | FND-2 |
 | D-6 | Settings screens | `model` from `app.yml` is loaded but can't be viewed or changed in the app. | AG-6 (Q-04) |
 
 ## Blocked on open questions
