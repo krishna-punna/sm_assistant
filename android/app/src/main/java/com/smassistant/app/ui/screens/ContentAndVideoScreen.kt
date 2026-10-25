@@ -23,6 +23,7 @@ import com.smassistant.app.linkedin.PostViewModel
 import com.smassistant.app.linkedin.appPostToLinkedIn
 import com.smassistant.app.navigation.Feature
 import com.smassistant.app.ui.components.TextAgentDropdown
+import com.smassistant.app.ui.components.ImageAgentDropdown
 import com.smassistant.app.ui.components.ErrorCard
 import com.smassistant.app.ui.components.GeneratingRow
 import com.smassistant.app.ui.components.MarkdownText
@@ -57,7 +58,10 @@ fun ContentAndVideoScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit,
         onCancel = viewModel::cancel,
         onSetUpAgent = onSetUpAgent,
         onBackToHome = onBackToHome,
-        header = { TextAgentDropdown() },
+        header = {
+            TextAgentDropdown()
+            ImageAgentDropdown()
+        },
         inputContent = { PromptCard("Your prompt", it, collapsedLines = 4) },
         resultContent = { result ->
             // As in Content & Image: find the result's item so a half can be retried in place.

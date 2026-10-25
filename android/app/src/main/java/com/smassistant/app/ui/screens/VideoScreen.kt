@@ -21,6 +21,7 @@ import com.smassistant.app.linkedin.PostViewModel
 import com.smassistant.app.linkedin.appPostToLinkedIn
 import com.smassistant.app.media.SECONDS_PER_SLIDE
 import com.smassistant.app.navigation.Feature
+import com.smassistant.app.ui.components.ImageAgentDropdown
 import com.smassistant.app.ui.components.PostDialogs
 import com.smassistant.app.ui.components.PostInLinkedInButton
 import com.smassistant.app.ui.components.PromptCard
@@ -48,6 +49,7 @@ fun VideoScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToH
         onCancel = viewModel::cancel,
         onSetUpAgent = onSetUpAgent,
         onBackToHome = onBackToHome,
+        header = { ImageAgentDropdown() },
         inputContent = { PromptCard("Your prompt", it, collapsedLines = 4) },
         resultContent = { video ->
             VideoResult(video, posting = postState == PostState.Posting, onPost = { postViewModel.start("", listOf(video.file)) })

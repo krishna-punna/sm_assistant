@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.smassistant.app.agents.AgentPreferences
+import com.smassistant.app.agents.IMAGE_AGENTS
 import com.smassistant.app.agents.TEXT_AGENTS
 import com.smassistant.app.data.AiModel
 import com.smassistant.app.data.ApiService
@@ -54,6 +55,7 @@ fun AiAgentListScreen(onAgentSelected: (AiAgent) -> Unit, onBackToHome: () -> Un
             MenuButton("${agent.displayName} AI Agent") { onAgentSelected(agent) }
         }
         DefaultTextAgentPicker()
+        DefaultImageAgentPicker()
     }
 }
 
@@ -70,10 +72,26 @@ private fun DefaultTextAgentPicker() {
 }
 
 @Composable
-fun DefaultTextAgentChips(selected: ApiService, onSelect: (ApiService) -> Unit) {
-    Text("Default agent for text", style = MaterialTheme.typography.titleSmall)
+fun DefaultTextAgentChips(selected: ApiService, onSelect: (ApiService) -> Unit) =
+    DefaultAgentChips("Default agent for text", TEXT_AGENTS, selected, onSelect)
+
+/** Which agent makes images and video slides: Gemini paints them, Claude draws them as SVG. */
+@Composable
+private fun DefaultImageAgentPicker() {
+    val appContext = LocalContext.current.applicationContext
+    val preferences = remember { AgentPreferences(appContext) }
+    var selected by remember { mutableStateOf(preferences.defaultImageAgent ?: IMAGE_AGENTS.first()) }
+    DefaultAgentChips("Default agent for images", IMAGE_AGENTS, selected) {
+        preferences.defaultImageAgent = it
+        selected = it
+    }
+}
+
+@Composable
+private fun DefaultAgentChips(title: String, agents: List<ApiService>, selected: ApiService, onSelect: (ApiService) -> Unit) {
+    Text(title, style = MaterialTheme.typography.titleSmall)
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        TEXT_AGENTS.forEach { service ->
+        agents.forEach { service ->
             FilterChip(
                 selected = service == selected,
                 onClick = { onSelect(service) },

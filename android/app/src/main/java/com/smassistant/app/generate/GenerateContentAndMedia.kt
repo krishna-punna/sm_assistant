@@ -66,7 +66,7 @@ class GenerateContentAndMediaUseCase<M>(
 
     companion object {
         const val TEXT_NOT_SET_UP = "No text agent is set up. Add a Claude, Gemini or Groq key in AI Agent settings."
-        const val IMAGES_NOT_SET_UP = "Images are made with Gemini. Add a Gemini API key in AI Agent settings."
-        const val VIDEO_NOT_SET_UP = "Videos are made from Gemini slides. Add a Gemini API key in AI Agent settings."
+        const val IMAGES_NOT_SET_UP = "No image agent is set up. Add a Gemini or Claude API key in AI Agent settings."
+        const val VIDEO_NOT_SET_UP = "Videos are made from Gemini or Claude slides. Add a Gemini or Claude API key in AI Agent settings."
     }
 }

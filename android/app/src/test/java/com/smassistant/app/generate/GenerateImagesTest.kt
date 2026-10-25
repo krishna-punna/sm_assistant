@@ -2,6 +2,7 @@ package com.smassistant.app.generate
 
 import com.smassistant.app.agents.ImageAgent
 import com.smassistant.app.chat.Outcome
+import com.smassistant.app.data.ApiService
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
 import java.io.File
@@ -37,6 +38,15 @@ class GenerateImagesTest {
         assertEquals(Outcome.NoAgent, GenerateImagesUseCase("{{prompt}}", { null }, 4)("x"))
         reply = ApiResult.Failed(ApiError.RateLimited)
         assertEquals(Outcome.Failed(ApiError.RateLimited, "Gemini"), GenerateImagesUseCase("{{prompt}}", { agent }, 4)("x"))
+    }
+
+    @Test
+    fun `errors name the agent that made the images`() = runTest {
+        val claude = object : ImageAgent {
+            override val service = ApiService.CLAUDE
+            override suspend fun generate(prompt: String, count: Int) = ApiResult.Failed(ApiError.InvalidKey)
+        }
+        assertEquals(Outcome.Failed(ApiError.InvalidKey, "Claude"), GenerateImagesUseCase("{{prompt}}", { claude }, 4)("x"))
     }
 
     @Test

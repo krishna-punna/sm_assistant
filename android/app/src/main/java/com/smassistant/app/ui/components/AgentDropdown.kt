@@ -21,8 +21,10 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.smassistant.app.agents.AgentPreferences
+import com.smassistant.app.agents.IMAGE_AGENTS
 import com.smassistant.app.agents.TEXT_AGENTS
 import com.smassistant.app.agents.isUsableAgent
+import com.smassistant.app.agents.isUsableImageAgent
 import com.smassistant.app.data.ApiService
 import com.smassistant.app.data.ApiSettingsStore
 
@@ -47,9 +49,35 @@ fun TextAgentDropdown() {
     }
 }
 
+/**
+ * "Image agent: Gemini ▾" on the image and video features: Gemini paints the images, Claude
+ * draws them as SVG. Lists only set-up agents and is hidden unless there's a choice to make.
+ */
 @Composable
-fun AgentDropdown(agents: List<ApiService>, selected: ApiService, onSelect: (ApiService) -> Unit) =
-    SelectDropdown("Agent", selected, agents, { it.displayName }, onSelect, "agentDropdown")
+fun ImageAgentDropdown() {
+    val appContext = LocalContext.current.applicationContext
+    val preferences = remember { AgentPreferences(appContext) }
+    val agents = remember {
+        val store = ApiSettingsStore(appContext)
+        IMAGE_AGENTS.filter { store.load(it).isUsableImageAgent(it) }
+    }
+    if (agents.size < 2) return
+    // Same rule as ImageAgentSelector: the default if it's set up, otherwise the first set-up agent.
+    var selected by remember { mutableStateOf(preferences.defaultImageAgent?.takeIf { it in agents } ?: agents.first()) }
+    AgentDropdown(agents, selected, label = "Image agent", testTag = "imageAgentDropdown") {
+        preferences.defaultImageAgent = it
+        selected = it
+    }
+}
+
+@Composable
+fun AgentDropdown(
+    agents: List<ApiService>,
+    selected: ApiService,
+    label: String = "Agent",
+    testTag: String = "agentDropdown",
+    onSelect: (ApiService) -> Unit,
+) = SelectDropdown(label, selected, agents, { it.displayName }, onSelect, testTag)
 
 /** "[label]  [current ▾]": a button that opens a menu of [options], the current one ticked. */
 @Composable
