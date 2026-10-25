@@ -17,7 +17,7 @@ Current code: `SettingsScreens.kt` (`ApiSettingsForm`), `data/ApiSettings.kt` (`
 | AG-2 | Enter/edit/save API value and key per agent | done | Validated; key encrypted |
 | AG-3 | Persist and pre-fill | done | |
 | AG-4 | Agents configured independently | done | Separate keys per service |
-| AG-5 | Generators use the configured agent(s) | todo | Agent clients AGC-*, selection blocked on Q-05 |
+| AG-5 | Generators use the configured agent(s) | partial | Clients done (AGC-1); selection and generators next |
 | AG-6 *(new, Q-04)* | Show/edit the model per agent | blocked (Q-04) | `model` comes only from `app.yml` (D-6) |
 
 ## Implementation
