@@ -20,6 +20,7 @@ This knowledge base is derived from the wireframe deck [`requirements/SM Assista
 | 8 | [UI conventions](08-ui-conventions.md) | Colours, components and layout rules used across wireframes | all |
 | 9 | [Open questions](09-open-questions.md) | Gaps and ambiguities to resolve with the product owner | — |
 | 10 | [Default hashtags](10-default-hashtags.md) | Default hashtag list, enable/disable toggle, appending tags when posting | [extra wireframe](wireframes/default-hashtags.png) |
+| 11 | [API connection status](11-api-status.md) | Screen that tests each API and key and shows whether it connects | — (request 2026-10-25) |
 
 ## Slide index
 
@@ -38,6 +39,7 @@ This knowledge base is derived from the wireframe deck [`requirements/SM Assista
 | 11 | Generate Content & Image (3 states) | [slide-11](wireframes/slide-11.jpg) |
 | 12 | Screenshot of a published LinkedIn post (reference for the desired output) | [slide-12](wireframes/slide-12.jpg) |
 | — | Default Hash Tags screen (added 2026-10-25, not in the deck) | [default-hashtags](wireframes/default-hashtags.png) |
+| — | API Status screen (added 2026-10-25, no wireframe) | — |
 
 ## Glossary
 
