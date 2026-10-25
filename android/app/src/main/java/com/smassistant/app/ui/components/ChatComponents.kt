@@ -1,5 +1,6 @@
 package com.smassistant.app.ui.components
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -35,13 +36,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import android.widget.Toast
 import com.smassistant.app.ui.theme.SmBlue
 import com.smassistant.app.ui.theme.SmGreen
 
@@ -175,7 +178,12 @@ fun PostInLinkedInButton(onClick: () -> Unit, enabled: Boolean = true, busy: Boo
 fun GeneratingRow(onCancel: (() -> Unit)? = null) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
-        Text("Generating…", modifier = Modifier.weight(1f))
+        Text(
+            "Generating…",
+            modifier = Modifier
+                .weight(1f)
+                .semantics { liveRegion = LiveRegionMode.Polite },
+        )
         if (onCancel != null) TextButton(onClick = onCancel) { Text("Cancel") }
     }
 }
@@ -188,7 +196,12 @@ fun ErrorCard(message: String, actionLabel: String, onAction: () -> Unit) {
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(message, color = MaterialTheme.colorScheme.onErrorContainer)
+            // Announced when it appears, so TalkBack users hear why the generation stopped.
+            Text(
+                message,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+            )
             SmButton(actionLabel, SmGreen, onAction)
         }
     }
