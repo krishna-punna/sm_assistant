@@ -18,7 +18,7 @@ Current code: `SettingsScreens.kt` (`ApiSettingsForm`), `data/ApiSettings.kt` (`
 | AG-3 | Persist and pre-fill | done | |
 | AG-4 | Agents configured independently | done | Separate keys per service |
 | AG-5 | Generators use the configured agent(s) | done | `AgentSelector` for text, Gemini for images and video slides |
-| AG-6 *(new, Q-04)* | Show/edit the model per agent | blocked (Q-04) | `model` comes only from `app.yml` (D-6) |
+| AG-6 *(new, Q-04)* | Show/edit the model per agent | done | Model dropdown on S4–S6 (and Image model on Gemini), filled from the provider's `GET /models`; fetched on open when the saved list is over a day old, on Refresh, and after a new key. Krishna asked for it on 2026-10-25 |
 
 ## Implementation
 
@@ -29,7 +29,7 @@ Current code: `SettingsScreens.kt` (`ApiSettingsForm`), `data/ApiSettings.kt` (`
 | LI-4-I | `LinkedInClient` reads `ApiSettingsStore.load(LINKEDIN)` at call time (no caching), so a new key takes effect immediately. | LP-1-I | done |
 | LI-Q3-I | **If Q-03 = OAuth:** replace the key field with "Sign in with LinkedIn" (Custom Tab + PKCE, redirect to app link), store access token + expiry, show "Signed in as …" and Sign out. Requires a LinkedIn developer app with `w_member_social` (and `openid profile` for Q-21). **If Q-03 = pasted token:** relabel fields as "Access token", show token-expiry hint. | Q-03, FND-4 | blocked |
 | AG-5-I | See AGC-1…4 in [06](06-content-generation.md). | | |
-| AG-6-I | Add a "Model" field (or dropdown filled from `GET /models`, which the status check already calls) to S4–S6. | Q-04, FND-3 | blocked |
+| AG-6-I | Add a "Model" field (or dropdown filled from `GET /models`, which the status check already calls) to S4–S6. | Q-04, FND-3 | done (`ModelCatalog`, `ApiSettingsViewModel`) |
 | AG-NFR-I | Keep one generic agent-settings screen driven by `AiAgent` so a fourth agent is one enum entry + one client. | — | done |
 
 ## Validation

@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.smassistant.app.agents.AgentPreferences
 import com.smassistant.app.agents.TEXT_AGENTS
@@ -47,22 +48,34 @@ fun TextAgentDropdown() {
 }
 
 @Composable
-fun AgentDropdown(agents: List<ApiService>, selected: ApiService, onSelect: (ApiService) -> Unit) {
+fun AgentDropdown(agents: List<ApiService>, selected: ApiService, onSelect: (ApiService) -> Unit) =
+    SelectDropdown("Agent", selected, agents, { it.displayName }, onSelect, "agentDropdown")
+
+/** "[label]  [current ▾]": a button that opens a menu of [options], the current one ticked. */
+@Composable
+fun <T> SelectDropdown(
+    label: String,
+    selected: T,
+    options: List<T>,
+    optionLabel: (T) -> String,
+    onSelect: (T) -> Unit,
+    testTag: String,
+) {
     var open by remember { mutableStateOf(false) }
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text("Agent", style = MaterialTheme.typography.labelLarge)
+        Text(label, style = MaterialTheme.typography.labelLarge)
         Spacer(Modifier.width(8.dp))
         Box {
-            OutlinedButton(onClick = { open = true }, modifier = Modifier.testTag("agentDropdown")) {
-                Text("${selected.displayName} ▾")
+            OutlinedButton(onClick = { open = true }, modifier = Modifier.testTag(testTag)) {
+                Text("${optionLabel(selected)} ▾", maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-                agents.forEach { agent ->
+                options.forEach { option ->
                     DropdownMenuItem(
-                        text = { Text(if (agent == selected) "✓ ${agent.displayName}" else agent.displayName) },
+                        text = { Text(if (option == selected) "✓ ${optionLabel(option)}" else optionLabel(option)) },
                         onClick = {
                             open = false
-                            onSelect(agent)
+                            onSelect(option)
                         },
                     )
                 }

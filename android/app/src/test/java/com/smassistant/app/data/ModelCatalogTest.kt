@@ -1,0 +1,82 @@
+package com.smassistant.app.data
+
+import com.smassistant.app.net.ApiError
+import com.smassistant.app.net.ApiResult
+import com.smassistant.app.net.Http
+import kotlinx.coroutines.runBlocking
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Before
+import org.junit.Test
+
+class ModelCatalogTest {
+    private val server = MockWebServer()
+    private val catalog = ModelCatalog(Http.build(timeoutSeconds = 2))
+
+    @Before fun start() = server.start()
+    @After fun stop() = server.shutdown()
+
+    private fun fetch(service: ApiService, body: String, code: Int = 200) = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(code).setBody(body))
+        catalog.fetch(service, ApiConfig(server.url("/v1/messages").toString(), "secret"))
+    }
+
+    @Test
+    fun `claude lists its models by id with display names`() {
+        val result = fetch(
+            ApiService.CLAUDE,
+            """{"data":[{"id":"claude-sonnet-5-5","display_name":"Claude Sonnet 5.5"},{"id":"claude-haiku-5-5","display_name":"Claude Haiku 5.5"}]}""",
+        )
+        assertEquals(
+            ApiResult.Ok(ModelLists(text = listOf(AiModel("claude-haiku-5-5", "Claude Haiku 5.5"), AiModel("claude-sonnet-5-5", "Claude Sonnet 5.5")))),
+            result,
+        )
+        val request = server.takeRequest()
+        assertEquals("/v1/models", request.path)
+        assertEquals("secret", request.getHeader("x-api-key"))
+    }
+
+    @Test
+    fun `gemini splits text and image models and skips ones that can't generate`() {
+        val result = fetch(
+            ApiService.GEMINI,
+            """{"models":[
+                {"name":"models/gemini-2.5-flash","displayName":"Gemini 2.5 Flash","supportedGenerationMethods":["generateContent","countTokens"]},
+                {"name":"models/gemini-2.5-flash-image","displayName":"Nano Banana","supportedGenerationMethods":["generateContent"]},
+                {"name":"models/gemini-2.5-flash-preview-tts","supportedGenerationMethods":["generateContent"]},
+                {"name":"models/text-embedding-004","supportedGenerationMethods":["embedContent"]}
+            ]}""",
+        )
+        assertEquals(
+            ApiResult.Ok(
+                ModelLists(
+                    text = listOf(AiModel("gemini-2.5-flash", "Gemini 2.5 Flash")),
+                    image = listOf(AiModel("gemini-2.5-flash-image", "Nano Banana")),
+                ),
+            ),
+            result,
+        )
+        assertEquals("/v1beta/models?pageSize=1000", server.takeRequest().path)
+    }
+
+    @Test
+    fun `groq leaves out speech models`() {
+        val result = fetch(
+            ApiService.GROQ,
+            """{"data":[{"id":"whisper-large-v3"},{"id":"openai/gpt-oss-120b"},{"id":"llama-3.3-70b-versatile"},{"id":"playai-tts"}]}""",
+        )
+        assertEquals(ApiResult.Ok(ModelLists(text = listOf(AiModel("llama-3.3-70b-versatile"), AiModel("openai/gpt-oss-120b")))), result)
+        assertEquals("Bearer secret", server.takeRequest().getHeader("Authorization"))
+    }
+
+    @Test
+    fun `errors and empty lists fail and a missing key sends nothing`() {
+        assertEquals(ApiResult.Failed(ApiError.InvalidKey), fetch(ApiService.GROQ, """{"error":{"message":"bad key"}}""", code = 401))
+        assertEquals(ApiResult.Failed(ApiError.BadResponse("no models in the reply")), fetch(ApiService.CLAUDE, """{"data":[]}"""))
+        val noKey = runBlocking { catalog.fetch(ApiService.CLAUDE, ApiConfig(server.url("/").toString(), "")) }
+        assertEquals(ApiResult.Failed(ApiError.NotConfigured), noKey)
+        assertEquals(2, server.requestCount)
+    }
+}
