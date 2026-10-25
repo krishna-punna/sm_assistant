@@ -26,7 +26,7 @@ Current code: `SettingsScreens.kt` (`ApiSettingsForm`), `data/ApiSettings.kt` (`
 |----|------|-----------|--------|
 | LI-2-I / AG-2-I | Settings ViewModel: validate on SAVE (API must be an `https://` URL; key non-empty), inline field errors, toast on success. Saving a blank API clears the override (falls back to `app.yml`) instead of storing `""`. | — | done — `ApiSettingsViewModel` |
 | LI-2-I2 / AG-2-I2 | Save through the secure store (FND-4). | FND-4 | done |
-| LI-4-I | `LinkedInClient` reads `ApiSettingsStore.load(LINKEDIN)` at call time (no caching), so a new key takes effect immediately. | LP-1-I | todo |
+| LI-4-I | `LinkedInClient` reads `ApiSettingsStore.load(LINKEDIN)` at call time (no caching), so a new key takes effect immediately. | LP-1-I | done |
 | LI-Q3-I | **If Q-03 = OAuth:** replace the key field with "Sign in with LinkedIn" (Custom Tab + PKCE, redirect to app link), store access token + expiry, show "Signed in as …" and Sign out. Requires a LinkedIn developer app with `w_member_social` (and `openid profile` for Q-21). **If Q-03 = pasted token:** relabel fields as "Access token", show token-expiry hint. | Q-03, FND-4 | blocked |
 | AG-5-I | See AGC-1…4 in [06](06-content-generation.md). | | |
 | AG-6-I | Add a "Model" field (or dropdown filled from `GET /models`, which the status check already calls) to S4–S6. | Q-04, FND-3 | blocked |
