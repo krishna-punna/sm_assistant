@@ -43,3 +43,27 @@ fun parseAppConfig(input: InputStream): Map<ApiService, ApiConfig> {
         )
     }
 }
+
+/**
+ * LinkedIn post length rules (docs/requirements/12-post-length.md), from app.yml:
+ *
+ * ```yaml
+ * linkedin_post:
+ *   max_characters: 3000
+ *   shorten_attempts: 2
+ * ```
+ *
+ * [shortenAttempts] is how many times the agent is asked to shorten a post that's over the limit.
+ * Missing or invalid values fall back to the defaults.
+ */
+data class PostRules(val maxCharacters: Int = 3_000, val shortenAttempts: Int = 2)
+
+fun parsePostRules(input: InputStream): PostRules {
+    val root = Yaml().load<Any?>(input) as? Map<*, *> ?: emptyMap<String, Any?>()
+    val entry = root["linkedin_post"] as? Map<*, *> ?: emptyMap<String, Any?>()
+    val defaults = PostRules()
+    return PostRules(
+        maxCharacters = entry["max_characters"]?.toString()?.toIntOrNull()?.takeIf { it > 0 } ?: defaults.maxCharacters,
+        shortenAttempts = entry["shorten_attempts"]?.toString()?.toIntOrNull()?.takeIf { it >= 0 } ?: defaults.shortenAttempts,
+    )
+}

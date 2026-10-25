@@ -1,7 +1,13 @@
 package com.smassistant.app.hashtags
 
-/** LinkedIn's limit on post commentary, in characters. */
+/** LinkedIn's limit on post commentary, in characters. The app reads it from app.yml (`linkedin_post.max_characters`); this is the fallback. */
 const val LINKEDIN_POST_LIMIT = 3_000
+
+/**
+ * Length of [text] as LinkedIn counts it (PL-1): every character, space, line break and emoji.
+ * Counted in Unicode code points, so an emoji such as 🔧 is one character, not two UTF-16 units.
+ */
+fun postLength(text: String): Int = text.codePointCount(0, text.length)
 
 /** LinkedIn suggests 3–5 hashtags per post; above this the app warns but doesn't block. */
 const val RECOMMENDED_MAX_HASHTAGS = 5
@@ -56,8 +62,15 @@ object Hashtags {
             body.isBlank() -> format(toAdd)
             else -> body.trimEnd() + "\n\n" + format(toAdd)
         }
-        return PostText(text, toAdd, overLimitBy = (text.length - limit).coerceAtLeast(0))
+        return PostText(text, toAdd, overLimitBy = (postLength(text) - limit).coerceAtLeast(0))
     }
+
+    /**
+     * Characters the hashtags can take at the end of a post (PL-3): the tags plus the blank line
+     * before them, or 0 when they're off or empty. Counts every tag, as the body isn't known yet.
+     */
+    fun reservedLength(tags: List<String>, enabled: Boolean): Int =
+        if (enabled && tags.isNotEmpty()) postLength(format(tags)) + 2 else 0
 
     /** Whole-tag, case-insensitive match: `#ai` matches `#AI` but not `#AIEngineer`. */
     private fun containsTag(text: String, tag: String): Boolean =

@@ -17,7 +17,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import com.smassistant.app.hashtags.LINKEDIN_POST_LIMIT
+import com.smassistant.app.hashtags.PostText
+import com.smassistant.app.hashtags.postLength
 import com.smassistant.app.linkedin.PostState
 import com.smassistant.app.media.isVideo
 
@@ -108,12 +109,32 @@ fun ConfirmPostContent(state: PostState.Confirm, onTextChange: (String) -> Unit)
         }
         Text(
             if (state.overLimitBy > 0) {
-                "${state.overLimitBy} characters over LinkedIn's $LINKEDIN_POST_LIMIT limit. Shorten the text to post."
+                "${state.overLimitBy} characters over LinkedIn's ${state.limit} limit. Shorten the text to post."
             } else {
-                "${state.text.length} / $LINKEDIN_POST_LIMIT characters"
+                "${state.length} / ${state.limit} characters"
             },
             style = MaterialTheme.typography.bodySmall,
             color = if (state.overLimitBy > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+}
+
+/**
+ * Character count under a generated post (PL-7): the length it will post at, default hashtags
+ * included, against LinkedIn's [limit]. Over the limit it says by how much, as posting is blocked.
+ */
+@Composable
+fun PostLengthNote(post: PostText, limit: Int, modifier: Modifier = Modifier) {
+    val length = postLength(post.text)
+    val tags = if (post.addedTags.isNotEmpty()) " with hashtags" else ""
+    Text(
+        if (post.fitsLimit) {
+            "$length / $limit characters$tags"
+        } else {
+            "$length / $limit characters$tags: ${post.overLimitBy} over LinkedIn's limit. Ask the agent to shorten it, or edit it when you post."
+        },
+        style = MaterialTheme.typography.bodySmall,
+        color = if (post.fitsLimit) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
+        modifier = modifier.testTag("postLength"),
+    )
 }

@@ -56,7 +56,7 @@ Home → **Default Hash Tags** *(new Home button; S14 in the [screen inventory](
 
   For image-only or video-only posts, the hashtags become the post text.
 - **HT-13** Hashtags are added at posting time. They are not saved into the generated content, so changing the list or the toggle affects the next post without regenerating anything.
-- **HT-14** Hashtags count towards LinkedIn's ~3,000-character post limit. If the post text plus hashtags would go over, the hashtags are kept and the user is told the body must be shortened (ties in with [LP-5](07-post-to-linkedin.md) / Q-12).
+- **HT-14** Hashtags count towards LinkedIn's 3,000-character post limit. Generation leaves room for them and shortens posts that still go over ([12 Post length](12-post-length.md)). If the post text plus hashtags would still go over, the hashtags are kept and the user is told the body must be shortened (ties in with [LP-5](07-post-to-linkedin.md) / Q-12).
 - **HT-15** When the toggle is on, the pre-publish confirmation or preview (if there is one, see Q-12) shows the hashtags that will be added.
 - **HT-16** Hashtags are never added to Prepare LinkedIn Post Prompt output, which is a prompt, not a post.
 
