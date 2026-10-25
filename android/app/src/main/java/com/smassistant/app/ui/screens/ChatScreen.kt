@@ -39,6 +39,7 @@ fun <R> ChatScreen(
     inputContent: @Composable (String) -> Unit,
     resultContent: @Composable (R) -> Unit,
     noAgentMessage: String = "No AI agent is set up yet. Add an API key for Claude, Gemini or Groq.",
+    header: @Composable () -> Unit = {},
 ) {
     val listState = rememberLazyListState()
     LaunchedEffect(state.items.size) {
@@ -46,6 +47,7 @@ fun <R> ChatScreen(
     }
 
     SmScreen(sectionTitle = title, onBackToHome = onBackToHome, scrollable = false) {
+        header()
         Box(
             Modifier
                 .fillMaxWidth()
