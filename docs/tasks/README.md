@@ -80,7 +80,7 @@ Counts are per requirement row in each file (including the new rows this plan ad
 |---|-------|---------|----------|
 | D-1 | `DefaultHashtagsScreen.kt` | ~~Toggle starts **on**; HT-8 says it starts **off** until the first non-empty save. Toggle and list aren't persisted.~~ Fixed. | HT-I2, HT-I3 |
 | D-2 | `ApiSettingsStore` | API keys are in plain `SharedPreferences` (excluded from backup, but not encrypted). Requirement 03/04 NFR asks for Keystore-backed storage. | FND-4 |
-| D-3 | `ApiSettingsForm` | No validation for empty fields, and saving an empty API URL overwrites the `app.yml` default with `""`. | LI-2-I, AG-2-I |
+| D-3 | `ApiSettingsForm` | ~~No validation for empty fields, and saving an empty API URL overwrites the `app.yml` default with `""`.~~ Fixed. | LI-2-I, AG-2-I |
 | D-4 | `FeatureScreen` | One generic screen for all six features with a TODO Submit; no chat history, prompt cards, or result view. | GEN-*, PP-* |
 | D-5 | `.github/workflows/android.yml` | ~~CI builds only; no unit tests or lint.~~ Fixed: CI runs lint and unit tests. | FND-2 |
 | D-6 | Settings screens | `model` from `app.yml` is loaded but can't be viewed or changed in the app. | AG-6 (Q-04) |
