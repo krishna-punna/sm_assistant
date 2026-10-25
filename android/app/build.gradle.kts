@@ -39,7 +39,11 @@ android {
         // Robolectric reads assets (app.yml) and resources from the merged build.
         unitTests.isIncludeAndroidResources = true
         // Robolectric UI tests keep a lot in memory; Gradle's 512 MB default runs out (OutOfMemoryError in CI).
-        unitTests.all { it.maxHeapSize = "2g" }
+        unitTests.all {
+            it.maxHeapSize = "2g"
+            // -PscreenshotsDir=<folder> makes UserGuideScreenshots write the user guide's PNGs there.
+            it.systemProperty("screenshotsDir", providers.gradleProperty("screenshotsDir").orNull ?: "")
+        }
     }
     lint {
         abortOnError = true

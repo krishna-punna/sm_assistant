@@ -7,7 +7,7 @@ on:
       - "android/**"
       - ".github/workflows/android.yml"
   push:
-    branches: [f-mobile-app]
+    branches: [main, f-mobile-app]
     paths:
       - "android/**"
       - ".github/workflows/android.yml"
@@ -46,3 +46,45 @@ jobs:
           name: app-debug
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+
+  # Renders the screenshots in docs/user-guide/ and commits them to the branch when they change.
+  # Pushes made with GITHUB_TOKEN don't start another run, so this can't loop.
+  screenshots:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Render user guide screenshots
+        working-directory: android
+        run: ./gradlew :app:testDebugUnitTest --tests 'com.smassistant.app.guide.UserGuideScreenshots' -PscreenshotsDir="$GITHUB_WORKSPACE/docs/user-guide/images" --stacktrace
+
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: user-guide-screenshots
+          path: docs/user-guide/images/
+          if-no-files-found: error
+
+      - name: Commit changed screenshots
+        run: |
+          git add docs/user-guide/images
+          if git diff --cached --quiet; then
+            echo "Screenshots unchanged."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Update user guide screenshots"
+          git push

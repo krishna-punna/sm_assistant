@@ -2,6 +2,7 @@
 
 Native Android app for SM Assistant, built with Kotlin and Jetpack Compose (Material 3).
 Requirements live in [`../docs/requirements/`](../docs/requirements/README.md).
+To install and set up the app on a phone, see the [user guide](../docs/user-guide/README.md).
 
 ## Stack
 
