@@ -108,13 +108,7 @@ private class GeminiAgent(config: () -> ApiConfig, private val client: OkHttpCli
         ?.mapNotNull { it.path("text")?.textOrNull }
         ?.joinToString("")
 
-    /** Gemini answers a bad key with 400 "API key not valid" rather than 401. */
-    override fun refine(error: ApiError) =
-        if (error is ApiError.Server && error.httpCode == 400 && error.detail?.contains("API key", ignoreCase = true) == true) {
-            ApiError.InvalidKey
-        } else {
-            error
-        }
+    override fun refine(error: ApiError) = geminiKeyError(error)
 }
 
 /** Groq (OpenAI-compatible): POST {api} (e.g. https://api.groq.com/openai/v1/chat/completions). */

@@ -22,6 +22,7 @@ class AppConfigTest {
               gemini:
                 api: https://generativelanguage.googleapis.com/v1beta
                 model: gemini-2.5-flash
+                image_model: gemini-2.5-flash-image
               groq:
                 api: https://api.groq.com/openai/v1/chat/completions
                 model: llama-3.3-70b-versatile
@@ -35,6 +36,7 @@ class AppConfigTest {
             config[ApiService.CLAUDE],
         )
         assertEquals("", config.getValue(ApiService.GEMINI).key)
+        assertEquals("gemini-2.5-flash-image", config.getValue(ApiService.GEMINI).imageModel)
         assertEquals("gsk", config.getValue(ApiService.GROQ).key)
     }
 

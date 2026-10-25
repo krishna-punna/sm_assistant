@@ -1,0 +1,101 @@
+package com.smassistant.app.agents
+
+import com.smassistant.app.data.ApiConfig
+import com.smassistant.app.media.MediaCache
+import com.smassistant.app.media.extensionFor
+import com.smassistant.app.net.ApiError
+import com.smassistant.app.net.ApiResult
+import com.smassistant.app.net.Http
+import com.smassistant.app.net.path
+import com.smassistant.app.net.postJson
+import com.smassistant.app.net.textOrNull
+import java.io.File
+import java.util.Base64
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.addJsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.putJsonObject
+import okhttp3.OkHttpClient
+
+/** How many images one Generate Image submit asks for (interim answer to Q-10). */
+const val IMAGES_PER_REQUEST = 4
+
+/** Turns a prompt into image files (docs/tasks AGC-2). Images always come from Gemini (Q-05 interim). */
+fun interface ImageAgent {
+    suspend fun generate(prompt: String, count: Int): ApiResult<List<File>>
+}
+
+/**
+ * Gemini image model: POST {api}/models/{imageModel}:generateContent, one image per call, so
+ * [count] calls run in parallel. Images arrive as base64 `inlineData` and are written to [cache].
+ * Returns the images that worked; fails only if none did.
+ */
+class GeminiImageAgent(
+    private val config: () -> ApiConfig,
+    private val cache: MediaCache,
+    private val client: OkHttpClient = Http.generationClient,
+) : ImageAgent {
+    override suspend fun generate(prompt: String, count: Int): ApiResult<List<File>> {
+        val current = config()
+        if (current.api.isBlank() || current.key.isBlank() || current.imageModel.isBlank()) {
+            return ApiResult.Failed(ApiError.NotConfigured)
+        }
+        val results = coroutineScope { List(count) { async { generateOne(current, prompt) } }.awaitAll() }
+        val files = results.filterIsInstance<ApiResult.Ok<File>>().map { it.value }
+        return if (files.isNotEmpty()) ApiResult.Ok(files) else results.first() as ApiResult.Failed
+    }
+
+    private suspend fun generateOne(config: ApiConfig, prompt: String): ApiResult<File> {
+        val result = client.postJson(
+            url = "${config.api.trimEnd('/')}/models/${config.imageModel}:generateContent",
+            headers = mapOf("x-goog-api-key" to config.key),
+            body = buildJsonObject {
+                putJsonArray("contents") {
+                    addJsonObject {
+                        put("role", "user")
+                        putJsonArray("parts") { addJsonObject { put("text", prompt) } }
+                    }
+                }
+                putJsonObject("generationConfig") {
+                    putJsonArray("responseModalities") {
+                        add("TEXT")
+                        add("IMAGE")
+                    }
+                }
+            },
+        )
+        val response = when (result) {
+            is ApiResult.Failed -> return ApiResult.Failed(geminiKeyError(result.error))
+            is ApiResult.Ok -> result.value
+        }
+        val image = (response.path("candidates", 0, "content", "parts") as? JsonArray)
+            ?.firstNotNullOfOrNull { part -> part.path("inlineData") ?: part.path("inline_data") }
+        val data = image?.path("data")?.textOrNull
+        if (data.isNullOrEmpty()) {
+            val reason = response.path("promptFeedback", "blockReason")?.textOrNull
+                ?: response.path("candidates", 0, "finishReason")?.textOrNull
+            return ApiResult.Failed(ApiError.BadResponse("no image in the reply" + (reason?.let { " ($it)" } ?: "")))
+        }
+        val bytes = try {
+            Base64.getDecoder().decode(data)
+        } catch (e: IllegalArgumentException) {
+            return ApiResult.Failed(ApiError.BadResponse("image data isn't base64"))
+        }
+        val mimeType = (image.path("mimeType") ?: image.path("mime_type"))?.textOrNull ?: "image/png"
+        return ApiResult.Ok(cache.save(bytes, extensionFor(mimeType)))
+    }
+}
+
+/** Gemini answers a bad key with 400 "API key not valid" rather than 401. */
+internal fun geminiKeyError(error: ApiError) =
+    if (error is ApiError.Server && error.httpCode == 400 && error.detail?.contains("API key", ignoreCase = true) == true) {
+        ApiError.InvalidKey
+    } else {
+        error
+    }
