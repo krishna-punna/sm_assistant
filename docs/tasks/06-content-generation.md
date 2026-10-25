@@ -68,7 +68,7 @@ Current code: one placeholder `FeatureScreen` shared by all six hub features; Su
 
 | ID | Type | Task | Depends on | Status |
 |----|------|------|-----------|--------|
-| IM-I1 | Impl | Image generator: optional text agent step turns the prompt into an image prompt (diagram style), then `ImageAgent` with count = 4 (Q-10 interim). | AGC-2, AGC-1 | done — `GenerateImagesUseCase` wraps the prompt in a diagram style template (`prompts/image.md`) instead of an extra text-agent call |
+| IM-I1 | Impl | Image generator: optional text agent step turns the prompt into an image prompt (diagram style), then `ImageAgent` with count = 4 (Q-10 interim). | AGC-2, AGC-1 | done — `GenerateImagesUseCase` wraps the prompt in a diagram style template (`prompts/image.md`) instead of an extra text-agent call; few-shot examples written from the sample images in `requirements/linkedin-posts-sample-images` (`prompts/image_examples.md`), the three closest to the topic by keyword go into the prompt |
 | IM-I2 | Impl | `ImageStrip`: horizontal pager of thumbnails (Coil), count badge "n/N", selection checkmarks (IM-5). | IM-I1 | done — `ImageStrip`; local files decoded with `BitmapFactory` (no Coil) |
 | IM-I3 | Impl | Full preview route (NAV-2-I): zoomable image, swipe between images, Post in LinkedIn + Back to Home. | IM-I2, NAV-2-I | done — `ImagePreview` full-screen dialog (pager + pinch zoom); Post in LinkedIn with IM-I4 |
 | IM-I4 | Impl | Post selected images (LP-2 image path). | LP-2-I | done — strip posts the selected images; preview posts the shown one |

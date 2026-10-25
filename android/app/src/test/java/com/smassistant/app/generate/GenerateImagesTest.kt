@@ -23,6 +23,16 @@ class GenerateImagesTest {
     }
 
     @Test
+    fun `puts the matching few-shot examples before the topic`() = runTest {
+        val examples = listOf(
+            ImageExample("SQL", listOf("sql"), "SQL tuning", "Before/after grid."),
+            ImageExample("Kafka", listOf("kafka"), "Kafka patterns", "Five columns."),
+        )
+        GenerateImagesUseCase("{{examples}}\n---\n{{prompt}}", { agent }, count = 1, examples = examples)("Kafka retries")
+        assertEquals("Example 1: Kafka\nTopic: Kafka patterns\nImage: Five columns.\n---\nKafka retries" to 1, requests.single())
+    }
+
+    @Test
     fun `no Gemini set up gives NoAgent and errors name Gemini`() = runTest {
         assertEquals(Outcome.NoAgent, GenerateImagesUseCase("{{prompt}}", { null }, 4)("x"))
         reply = ApiResult.Failed(ApiError.RateLimited)
