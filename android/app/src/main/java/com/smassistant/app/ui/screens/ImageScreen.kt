@@ -24,7 +24,7 @@ import com.smassistant.app.ui.components.PostDialogs
 import com.smassistant.app.ui.components.PostInLinkedInButton
 import com.smassistant.app.ui.components.PromptCard
 import com.smassistant.app.ui.components.SmButton
-import com.smassistant.app.ui.theme.SmGreen
+import com.smassistant.app.ui.theme.SmBlack
 import java.io.File
 
 /** S10 Generate Image (docs/requirements/06 §6.2): prompt card, image strip, full preview. */
@@ -106,10 +106,10 @@ fun ImageResult(
                 },
                 busy = posting,
             )
-            SmButton("Back to Home", SmGreen) {
+            SmButton("Back to Home", SmBlack, onClick = {
                 previewIndex = null
                 onBackToHome()
-            }
+            })
         }
     }
 }
