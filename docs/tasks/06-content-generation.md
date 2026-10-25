@@ -7,12 +7,12 @@ Current code: one placeholder `FeatureScreen` shared by all six hub features; Su
 
 | ID | Task | Depends on | Status |
 |----|------|-----------|--------|
-| AGC-1 | `TextAgent` interface `generate(system, user): Result<String>` with implementations: Claude (`POST /v1/messages`, `x-api-key`, `anthropic-version`), Gemini (`POST /v1beta/models/{model}:generateContent`), Groq (`POST /openai/v1/chat/completions`). Model from settings/`app.yml`. | FND-5, FND-6 | todo |
+| AGC-1 | `TextAgent` interface `generate(system, user): Result<String>` with implementations: Claude (`POST /v1/messages`, `x-api-key`, `anthropic-version`), Gemini (`POST /v1beta/models/{model}:generateContent`), Groq (`POST /openai/v1/chat/completions`). Model from settings/`app.yml`. | FND-5, FND-6 | done — `agents/TextAgent.kt` (JSON via kotlinx-serialization-json, no compiler plugin) |
 | AGC-2 | `ImageAgent` interface `generateImages(prompt, count): Result<List<ImageBytes>>`, Gemini implementation (Imagen / Gemini image model). Save results to app cache files; return URIs. | FND-5, FND-6 | todo (P5) |
 | AGC-3 | `VideoAgent` interface, implementation per Q-08 answer (e.g. Veo long-running operation with polling). | **Q-08** | blocked (P6) |
 | AGC-4 | Agent selection: a "Default text agent" setting (on the AI Agent list screen) used by PP/TC/CI/CV text; image always Gemini; if none configured → GEN-1. Interim answer to Q-05. | Q-05 (interim), AGC-1 | todo |
 | AGC-V1 | Each text agent returns a reply for a short prompt with a real key; wrong key shows Invalid key error in the chat. | AGC-1 | todo |
-| AGC-T1 | unit: MockWebServer per provider — request path, headers, JSON body (model, system, messages), response parsing, error mapping (401, 429 rate limit, 500, timeout). | AGC-1 | todo |
+| AGC-T1 | unit: MockWebServer per provider — request path, headers, JSON body (model, system, messages), response parsing, error mapping (401, 429 rate limit, 500, timeout). | AGC-1 | done (`TextAgentTest`) |
 | AGC-T2 | unit: Gemini image response (inline base64) decoded and written to cache; count respected. | AGC-2 | todo |
 | AGC-T3 | unit: selection picks default agent; falls back to any configured; none → NotConfigured. | AGC-4 | todo |
 

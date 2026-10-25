@@ -26,6 +26,9 @@ object Http {
         build(logger = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Logger { Log.d("Http", it) } else null)
     }
 
+    /** For generation calls, which can take a minute or more to answer. */
+    val generationClient: OkHttpClient by lazy { client.newBuilder().readTimeout(180, TimeUnit.SECONDS).build() }
+
     fun build(
         logger: HttpLoggingInterceptor.Logger? = null,
         timeoutSeconds: Long = 10,
