@@ -29,6 +29,7 @@ import com.smassistant.app.ui.components.GeneratingRow
 import com.smassistant.app.ui.components.MarkdownText
 import com.smassistant.app.ui.components.PostDialogs
 import com.smassistant.app.ui.components.PostInLinkedInButton
+import com.smassistant.app.ui.components.PostLengthNote
 import com.smassistant.app.ui.components.PromptCard
 import java.io.File
 
@@ -68,6 +69,7 @@ fun ContentAndImageScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit,
             val id = state.items.filterIsInstance<ChatItem.Result<ContentAndImages>>().firstOrNull { it.value === result }?.id
             ContentAndImagesResult(
                 result = result,
+                lengthNote = { PostLengthNote(postViewModel.measure(it), postViewModel.limit) },
                 posting = postState == PostState.Posting,
                 onRetryText = {
                     id?.let { viewModel.updateResult(it, { r -> r.copy(retryingText = true) }, useCase::retryText) }
@@ -98,11 +100,15 @@ fun ContentAndImagesResult(
     onRetryImages: () -> Unit,
     onPost: (List<File>) -> Unit,
     onBackToHome: () -> Unit,
+    lengthNote: @Composable (String) -> Unit = {},
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         when {
             result.retryingText -> GeneratingRow()
-            result.markdown != null -> MarkdownText(result.markdown)
+            result.markdown != null -> {
+                MarkdownText(result.markdown)
+                lengthNote(result.markdown)
+            }
             result.textError != null -> ErrorCard(result.textError, "Retry text", onRetryText)
         }
         when {

@@ -21,6 +21,7 @@ This knowledge base is derived from the wireframe deck [`requirements/SM Assista
 | 9 | [Open questions](09-open-questions.md) | Gaps and ambiguities to resolve with the product owner | — |
 | 10 | [Default hashtags](10-default-hashtags.md) | Default hashtag list, enable/disable toggle, appending tags when posting | [extra wireframe](wireframes/default-hashtags.png) |
 | 11 | [API connection status](11-api-status.md) | Screen that tests each API and key and shows whether it connects | — (request 2026-10-25) |
+| 12 | [LinkedIn post length](12-post-length.md) | Generating posts within 3,000 characters including default hashtags, checking and shortening | — (request 2026-10-25) |
 
 ## Slide index
 

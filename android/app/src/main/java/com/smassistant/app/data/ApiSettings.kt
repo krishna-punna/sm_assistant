@@ -16,6 +16,11 @@ object AppConfig {
 
     fun defaults(context: Context, service: ApiService): ApiConfig =
         (cached ?: context.assets.open("app.yml").use(::parseAppConfig).also { cached = it }).getValue(service)
+
+    @Volatile private var cachedRules: PostRules? = null
+
+    fun postRules(context: Context): PostRules =
+        cachedRules ?: context.assets.open("app.yml").use(::parsePostRules).also { cachedRules = it }
 }
 
 /**

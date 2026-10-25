@@ -5,10 +5,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.smassistant.app.data.ApiService
 import com.smassistant.app.data.ApiSettingsStore
+import com.smassistant.app.data.AppConfig
 import com.smassistant.app.hashtags.HashtagSettingsStore
 import com.smassistant.app.hashtags.Hashtags
 import com.smassistant.app.hashtags.LINKEDIN_POST_LIMIT
 import com.smassistant.app.hashtags.PostText
+import com.smassistant.app.hashtags.postLength
 import com.smassistant.app.markdown.MarkdownToLinkedIn
 import com.smassistant.app.media.isVideo
 import com.smassistant.app.net.ApiError
@@ -29,10 +31,11 @@ class PostToLinkedInUseCase(
     private val tagsEnabled: () -> Boolean,
     private val configured: () -> Boolean,
     private val publish: suspend (String, List<File>) -> ApiResult<LinkedInPost>,
+    val limit: Int = LINKEDIN_POST_LIMIT,
 ) {
     /** The text that would be posted for [markdown], with the default hashtags when they're on. */
     fun prepare(markdown: String): PostText =
-        Hashtags.appendTo(MarkdownToLinkedIn.convert(markdown), tags(), tagsEnabled())
+        Hashtags.appendTo(MarkdownToLinkedIn.convert(markdown), tags(), tagsEnabled(), limit)
 
     fun isConfigured() = configured()
 
@@ -40,7 +43,7 @@ class PostToLinkedInUseCase(
     suspend fun post(text: String, images: List<File> = emptyList()): ApiResult<LinkedInPost> = when {
         !isConfigured() -> ApiResult.Failed(ApiError.NotConfigured)
         text.isBlank() && images.isEmpty() -> ApiResult.Failed(ApiError.BadResponse("nothing to post"))
-        text.length > LINKEDIN_POST_LIMIT -> ApiResult.Failed(ApiError.BadResponse("post text is over $LINKEDIN_POST_LIMIT characters"))
+        postLength(text) > limit -> ApiResult.Failed(ApiError.BadResponse("post text is over $limit characters"))
         images.size > MAX_IMAGES -> ApiResult.Failed(ApiError.BadResponse("LinkedIn allows up to $MAX_IMAGES images"))
         images.any(::isVideo) && images.size > 1 -> ApiResult.Failed(ApiError.BadResponse("LinkedIn posts take one video and no images"))
         else -> publish(text, images)
@@ -58,10 +61,16 @@ sealed interface PostState {
 
     /**
      * Confirmation dialog with the final text and attached [images] (LP-6, HT-15).
-     * [addedTags] are the defaults that were appended.
+     * [addedTags] are the defaults that were appended; [limit] is LinkedIn's character limit.
      */
-    data class Confirm(val text: String, val addedTags: List<String>, val images: List<File> = emptyList()) : PostState {
-        val overLimitBy get() = (text.length - LINKEDIN_POST_LIMIT).coerceAtLeast(0)
+    data class Confirm(
+        val text: String,
+        val addedTags: List<String>,
+        val images: List<File> = emptyList(),
+        val limit: Int = LINKEDIN_POST_LIMIT,
+    ) : PostState {
+        val length get() = postLength(text)
+        val overLimitBy get() = (length - limit).coerceAtLeast(0)
         val canPost get() = (text.isNotBlank() || images.isNotEmpty()) && overLimitBy == 0
     }
 
@@ -81,11 +90,16 @@ class PostViewModel(private val useCase: PostToLinkedInUseCase) : ViewModel() {
         if (_state.value == PostState.Posting) return
         _state.value = if (useCase.isConfigured()) {
             val prepared = useCase.prepare(markdown)
-            PostState.Confirm(prepared.text, prepared.addedTags, images)
+            PostState.Confirm(prepared.text, prepared.addedTags, images, useCase.limit)
         } else {
             failure(ApiError.NotConfigured)
         }
     }
+
+    /** The text [markdown] would post as, with the default hashtags, for the length note under a result (PL-7). */
+    fun measure(markdown: String): PostText = useCase.prepare(markdown)
+
+    val limit get() = useCase.limit
 
     /** Edits in the confirmation dialog (interim for Q-12), e.g. to get under the limit. */
     fun onTextChange(text: String) {
@@ -127,5 +141,6 @@ fun appPostToLinkedIn(context: Context): PostToLinkedInUseCase {
         tagsEnabled = { hashtags.enabled },
         configured = { settings.load(ApiService.LINKEDIN).let { it.api.isNotBlank() && it.key.isNotBlank() } },
         publish = client::createPost,
+        limit = AppConfig.postRules(context).maxCharacters,
     )
 }

@@ -66,4 +66,20 @@ class AppConfigTest {
             assertTrue("${service.configKey} api", config.getValue(service).api.startsWith("https://"))
         }
     }
+
+    @Test
+    fun `reads the LinkedIn post rules, with defaults for missing or bad values`() {
+        assertEquals(
+            PostRules(maxCharacters = 2_500, shortenAttempts = 3),
+            parsePostRules("linkedin_post:\n  max_characters: 2500\n  shorten_attempts: 3".byteInputStream()),
+        )
+        assertEquals(PostRules(3_000, 2), parsePostRules("apis: {}".byteInputStream()))
+        assertEquals(PostRules(3_000, 2), parsePostRules("linkedin_post:\n  max_characters: lots\n  shorten_attempts: -1".byteInputStream()))
+    }
+
+    @Test
+    fun `bundled app yml sets the 3000 character limit`() {
+        val rules = java.io.File("src/main/assets/app.yml").inputStream().use(::parsePostRules)
+        assertEquals(3_000, rules.maxCharacters)
+    }
 }

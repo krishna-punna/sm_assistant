@@ -20,6 +20,7 @@ import com.smassistant.app.ui.components.TextAgentDropdown
 import com.smassistant.app.ui.components.MarkdownText
 import com.smassistant.app.ui.components.PostDialogs
 import com.smassistant.app.ui.components.PostInLinkedInButton
+import com.smassistant.app.ui.components.PostLengthNote
 import com.smassistant.app.ui.components.PromptCard
 
 /** S9 Generate Technical Content (docs/requirements/06 §6.1): the prompt card, the rendered post, Post in LinkedIn. */
@@ -49,6 +50,7 @@ fun TechnicalContentScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit
         resultContent = { markdown ->
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 MarkdownText(markdown)
+                PostLengthNote(postViewModel.measure(markdown), postViewModel.limit)
                 PostInLinkedInButton(onClick = { postViewModel.start(markdown) }, busy = postState == PostState.Posting)
             }
         },
