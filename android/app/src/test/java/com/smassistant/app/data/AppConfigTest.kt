@@ -70,9 +70,10 @@ class AppConfigTest {
     @Test
     fun `reads the LinkedIn post rules, with defaults for missing or bad values`() {
         assertEquals(
-            PostRules(maxCharacters = 2_500, shortenAttempts = 3),
-            parsePostRules("linkedin_post:\n  max_characters: 2500\n  shorten_attempts: 3".byteInputStream()),
+            PostRules(maxCharacters = 2_500, shortenAttempts = 3, aiHashtags = 5),
+            parsePostRules("linkedin_post:\n  max_characters: 2500\n  shorten_attempts: 3\n  ai_hashtags: 5".byteInputStream()),
         )
+        assertEquals(3, parsePostRules("linkedin_post:\n  ai_hashtags: 0".byteInputStream()).aiHashtags)
         assertEquals(PostRules(3_000, 2), parsePostRules("apis: {}".byteInputStream()))
         assertEquals(PostRules(3_000, 2), parsePostRules("linkedin_post:\n  max_characters: lots\n  shorten_attempts: -1".byteInputStream()))
     }
@@ -81,5 +82,6 @@ class AppConfigTest {
     fun `bundled app yml sets the 3000 character limit`() {
         val rules = java.io.File("src/main/assets/app.yml").inputStream().use(::parsePostRules)
         assertEquals(3_000, rules.maxCharacters)
+        assertEquals(3, rules.aiHashtags)
     }
 }

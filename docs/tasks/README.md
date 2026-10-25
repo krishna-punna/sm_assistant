@@ -108,7 +108,7 @@ Counts are per requirement row in each file (per task for Foundation). What's le
 | Q-17 Toggle location | HT-7 | On the Default Hash Tags screen (done) | No |
 | Q-18 Clear behaviour | HT-5 | Clear empties the box only | No |
 | Q-19 Per-post skip | HT-17 | Global toggle only | No |
-| Q-20 AI-suggested hashtags | — (future) | Not built | No |
+| Q-20 AI-suggested hashtags | HT-20-I | Built behind a toggle (2026-10-25) | No |
 | Q-21 LinkedIn status endpoint | AS-3 LinkedIn | Keep `/v2/userinfo`, show No access | No |
 | Q-22 Test button on settings | AS-7 | Not built | No |
 | Q-23 Warn when agent not Connected | GEN-6 | Not built | No |

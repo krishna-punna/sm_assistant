@@ -4,7 +4,7 @@ Source: wireframe supplied by the product owner on 2026-10-25 ([wireframe](wiref
 
 ## Purpose
 
-The user keeps a list of default hashtags (e.g. `#JavaDeveloper #AIEngineer`) that the app adds to every LinkedIn post when they tap **Post in LinkedIn**. A setting turns this on or off.
+The user keeps a list of default hashtags (e.g. `#JavaDeveloper #AIEngineer`) that the app adds to every LinkedIn post when they tap **Post in LinkedIn**. A setting turns this on or off. A second setting lets the AI agent add a few hashtags that fit each generated post, alongside the defaults.
 
 ## Entry point
 
@@ -20,6 +20,7 @@ Home → **Default Hash Tags** *(new Home button; S14 in the [screen inventory](
 | Save | Button (blue) | Saves the tags. |
 | Clear | Button (blue) | Empties the text box. |
 | Add default hashtags to LinkedIn posts | On/off toggle | *Not drawn in the wireframe.* Placed on this screen so the tags and their switch live together (see Q-17). |
+| AI-suggested hashtags | On/off toggle | *Not drawn in the wireframe.* Added 2026-10-25 at the product owner's request (answers Q-20). Short help text underneath. |
 | Back to Home | Footer button (black) | |
 
 ## Functional requirements
@@ -60,6 +61,17 @@ Home → **Default Hash Tags** *(new Home button; S14 in the [screen inventory](
 - **HT-15** When the toggle is on, the pre-publish confirmation or preview (if there is one, see Q-12) shows the hashtags that will be added.
 - **HT-16** Hashtags are never added to Prepare LinkedIn Post Prompt output, which is a prompt, not a post.
 
+### AI-suggested hashtags
+
+Requested by the product owner on 2026-10-25 (answers Q-20).
+
+- **HT-20** An **AI-suggested hashtags** toggle sits under the default hashtags toggle. It starts **off**, persists across restarts, and is independent of the default hashtags toggle.
+- **HT-21** When it is on, the text agent (Claude, Gemini or Groq) ends each generated post with one line of up to `linkedin_post.ai_hashtags` hashtags (default 3) that fit the post's topic. The prompt lists the user's default hashtags so the agent doesn't repeat them. This applies to Technical Content, Content & Image and Content & Video; image-only and video-only posts get the defaults only.
+- **HT-22** When posting, the default hashtags (if their toggle is on) join the agent's hashtag line, defaults first, so the post ends with a single hashtag line. Duplicates are dropped case-insensitively, and characters LinkedIn doesn't allow are removed from the agent's tags (`#Spring-Boot` → `#SpringBoot`).
+- **HT-23** The agent's hashtags count towards the 3,000-character limit: they are part of the body the agent writes to its budget ([PL-3](12-post-length.md)), the length note and the shortening check measure the merged line, and a shortened post keeps its hashtag line.
+
+Unlike the defaults (HT-13), the AI hashtags are part of the generated text, so they show in the result and can be edited in the Post to LinkedIn confirmation.
+
 ## Example
 
 Saved list: `#JavaDeveloper #AIEngineer`, toggle on.
@@ -70,6 +82,15 @@ Saved list: `#JavaDeveloper #AIEngineer`, toggle on.
 📌 In short: YAML is cleaner and more flexible ...
 
 #JavaDeveloper #AIEngineer
+```
+
+With **AI-suggested hashtags** also on, the agent ends the post with `#SpringBoot #Configuration`, and the post is published as:
+
+```
+...
+📌 In short: YAML is cleaner and more flexible ...
+
+#JavaDeveloper #AIEngineer #SpringBoot #Configuration
 ```
 
 ## Non-functional requirements *(inferred)*
