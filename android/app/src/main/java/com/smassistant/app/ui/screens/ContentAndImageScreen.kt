@@ -12,7 +12,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.smassistant.app.chat.ChatItem
 import com.smassistant.app.chat.ChatViewModel
 import com.smassistant.app.generate.ContentAndImages
-import com.smassistant.app.generate.GenerateContentAndImagesUseCase
+import com.smassistant.app.generate.GenerateContentAndMediaUseCase
 import com.smassistant.app.generate.appGenerateImages
 import com.smassistant.app.generate.appGenerateTechnicalContent
 import com.smassistant.app.linkedin.PostState
@@ -32,7 +32,11 @@ import java.io.File
 fun ContentAndImageScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToHome: () -> Unit) {
     val appContext = LocalContext.current.applicationContext
     val useCase = remember(appContext) {
-        GenerateContentAndImagesUseCase(appGenerateTechnicalContent(appContext)::invoke, appGenerateImages(appContext)::invoke)
+        GenerateContentAndMediaUseCase(
+            appGenerateTechnicalContent(appContext)::invoke,
+            appGenerateImages(appContext)::invoke,
+            GenerateContentAndMediaUseCase.IMAGES_NOT_SET_UP,
+        )
     }
     val viewModel = viewModel { ChatViewModel<ContentAndImages> { prompt -> useCase(prompt) } }
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -60,7 +64,7 @@ fun ContentAndImageScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit,
                     id?.let { viewModel.updateResult(it, { r -> r.copy(retryingText = true) }, useCase::retryText) }
                 },
                 onRetryImages = {
-                    id?.let { viewModel.updateResult(it, { r -> r.copy(retryingImages = true) }, useCase::retryImages) }
+                    id?.let { viewModel.updateResult(it, { r -> r.copy(retryingMedia = true) }, useCase::retryMedia) }
                 },
                 onPost = { images -> postViewModel.start(result.markdown.orEmpty(), images) },
                 onBackToHome = onBackToHome,
@@ -93,16 +97,16 @@ fun ContentAndImagesResult(
             result.textError != null -> ErrorCard(result.textError, "Retry text", onRetryText)
         }
         when {
-            result.retryingImages -> GeneratingRow()
-            result.images != null -> ImageResult(
-                images = result.images,
+            result.retryingMedia -> GeneratingRow()
+            result.media != null -> ImageResult(
+                images = result.media,
                 posting = posting,
                 onPost = onPost,
                 onBackToHome = onBackToHome,
                 canPostWithoutImages = result.markdown != null,
             )
             else -> {
-                result.imageError?.let { ErrorCard(it, "Retry images", onRetryImages) }
+                result.mediaError?.let { ErrorCard(it, "Retry images", onRetryImages) }
                 if (result.markdown != null) {
                     PostInLinkedInButton(onClick = { onPost(emptyList()) }, busy = posting)
                 }

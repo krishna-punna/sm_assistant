@@ -42,7 +42,7 @@ Phases are ordered so each one ships something usable and later phases build on 
 | **P3 AI text** | Agent clients and the two text features | AGC-*, GEN-1…4, PP-*, TC-1…2 | Q-05, Q-09, Q-11 |
 | **P4 Post text to LinkedIn** | First end-to-end flow: topic → prompt → content → post | LP-1…5, TC-3, HT-10…16 wiring | **Q-03** (auth), Q-12 |
 | **P5 Images** | Image generation and image posts | IM-*, CI-* | Q-10 |
-| **P6 Video** | Video generation and video posts | VI-*, CV-* | **Q-08** (hard block) |
+| **P6 Video** | Video generation and video posts | VI-*, CV-* | Q-08 answered 2026-10-25: slideshow of generated diagrams |
 | **P7 Release polish** | Accessibility, release build, signing | REL-* in [00-foundation.md](00-foundation.md) | Q-15 (iOS?) |
 
 ```mermaid
@@ -96,7 +96,7 @@ Counts are per requirement row in each file (including the new rows this plan ad
 | Q-05 Which agent per feature | GEN-1, AGC-4 | Default agent setting + capability filter (text: any; image: Gemini) | No, but affects UI |
 | Q-06 Prompt hand-off | PP-8 | Copy/paste only | No |
 | Q-07 Hub vs Home | NAV-2 | Separate hub (done) | No |
-| **Q-08 Video** | VI-*, CV-* | None sensible | **Yes for P6** |
+| **Q-08 Video** | VI-*, CV-* | Answered: slideshow of Gemini diagrams encoded on the device | No (answered) |
 | Q-09 Loading/error states | GEN-4 | Spinner + inline error card with Retry | No |
 | Q-10 Image count / selection | IM-2, IM-5 | Up to 4 images, user can deselect | No |
 | Q-11 Post format | TC-1, TC-3, LP-2 | Generators produce LinkedIn-ready text ≤ 3,000 chars | No, but changes prompts |

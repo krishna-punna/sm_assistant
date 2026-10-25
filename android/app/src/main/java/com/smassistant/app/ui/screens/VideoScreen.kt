@@ -11,6 +11,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.smassistant.app.chat.ChatViewModel
+import com.smassistant.app.generate.GenerateContentAndMediaUseCase
 import com.smassistant.app.generate.GeneratedVideo
 import com.smassistant.app.generate.appGenerateVideo
 import com.smassistant.app.linkedin.PostState
@@ -22,9 +23,6 @@ import com.smassistant.app.ui.components.PostDialogs
 import com.smassistant.app.ui.components.PostInLinkedInButton
 import com.smassistant.app.ui.components.PromptCard
 import com.smassistant.app.ui.components.VideoPlayer
-
-/** Shown when Gemini (the slide maker) isn't set up. */
-const val VIDEO_NOT_SET_UP = "Generate Video uses Gemini to draw the slides. Add a Gemini key to continue."
 
 /** S11 Generate Video (docs/requirements/06 §6.3, Q-08 = slideshow): prompt card, then the video. */
 @Composable
@@ -52,7 +50,7 @@ fun VideoScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToH
         resultContent = { video ->
             VideoResult(video, posting = postState == PostState.Posting, onPost = { postViewModel.start("", listOf(video.file)) })
         },
-        noAgentMessage = VIDEO_NOT_SET_UP,
+        noAgentMessage = GenerateContentAndMediaUseCase.VIDEO_NOT_SET_UP,
     )
     PostDialogs(
         state = postState,

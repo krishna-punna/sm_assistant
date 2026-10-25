@@ -7,19 +7,20 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-class GenerateContentAndImagesTest {
+class GenerateContentAndMediaTest {
     private val images = listOf(File("a.png"))
     private var text: Outcome<String> = Outcome.Ok("# Post")
     private var image: Outcome<List<File>> = Outcome.Ok(images)
     private val prompts = mutableListOf<String>()
-    private val useCase = GenerateContentAndImagesUseCase(
+    private val useCase = GenerateContentAndMediaUseCase(
         text = { prompts += "text:$it"; text },
-        images = { prompts += "images:$it"; image },
+        media = { prompts += "images:$it"; image },
+        mediaNotSetUp = GenerateContentAndMediaUseCase.IMAGES_NOT_SET_UP,
     )
 
     @Test
     fun `both halves from the same prompt`() = runTest {
-        assertEquals(Outcome.Ok(ContentAndImages(markdown = "# Post", images = images)), useCase("p"))
+        assertEquals(Outcome.Ok(ContentAndImages(markdown = "# Post", media = images)), useCase("p"))
         assertEquals(setOf("text:p", "images:p"), prompts.toSet())
     }
 
@@ -28,13 +29,13 @@ class GenerateContentAndImagesTest {
         image = Outcome.Failed(ApiError.RateLimited, "Gemini")
         val textOnly = (useCase("p") as Outcome.Ok).value
         assertEquals("# Post", textOnly.markdown)
-        assertEquals("Gemini is rate limiting requests. Try again in a minute.", textOnly.imageError)
+        assertEquals("Gemini is rate limiting requests. Try again in a minute.", textOnly.mediaError)
 
         text = Outcome.NoAgent
         image = Outcome.Ok(images)
         val imagesOnly = (useCase("p") as Outcome.Ok).value
-        assertEquals(images, imagesOnly.images)
-        assertEquals(GenerateContentAndImagesUseCase.TEXT_NOT_SET_UP, imagesOnly.textError)
+        assertEquals(images, imagesOnly.media)
+        assertEquals(GenerateContentAndMediaUseCase.TEXT_NOT_SET_UP, imagesOnly.textError)
     }
 
     @Test
@@ -49,12 +50,12 @@ class GenerateContentAndImagesTest {
 
     @Test
     fun `retry re-runs only the failed half`() = runTest {
-        val partial = ContentAndImages(markdown = "# Post", imageError = "boom", retryingImages = true)
-        assertEquals(ContentAndImages(markdown = "# Post", images = images), useCase.retryImages("p", partial))
+        val partial = ContentAndImages(markdown = "# Post", mediaError = "boom", retryingMedia = true)
+        assertEquals(ContentAndImages(markdown = "# Post", media = images), useCase.retryMedia("p", partial))
         assertEquals(listOf("images:p"), prompts)
 
         text = Outcome.Failed(ApiError.RateLimited, "Groq")
-        val still = useCase.retryText("p", ContentAndImages(images = images, textError = "x", retryingText = true))
+        val still = useCase.retryText("p", ContentAndImages(media = images, textError = "x", retryingText = true))
         assertEquals("Groq is rate limiting requests. Try again in a minute.", still.textError)
         assertEquals(false, still.retryingText)
     }
