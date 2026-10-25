@@ -26,10 +26,11 @@ class ApiSettingsStore(context: Context) {
         )
     }
 
+    /** Saves both values, trimmed. A blank [api] removes the override so the app.yml default applies again. */
     fun save(service: ApiService, api: String, key: String) {
-        prefs.edit()
-            .putString("${service.name}.api", api.trim())
-            .putString("${service.name}.key", key.trim())
-            .apply()
+        prefs.edit().apply {
+            if (api.isBlank()) remove("${service.name}.api") else putString("${service.name}.api", api.trim())
+            putString("${service.name}.key", key.trim())
+        }.apply()
     }
 }

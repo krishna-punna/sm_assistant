@@ -7,17 +7,19 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.smassistant.app.data.ApiService
 import com.smassistant.app.data.ApiSettingsStore
 import com.smassistant.app.navigation.AiAgent
+import com.smassistant.app.settings.ApiSettingsUiState
+import com.smassistant.app.settings.ApiSettingsViewModel
 import com.smassistant.app.ui.components.MenuButton
 import com.smassistant.app.ui.components.PrimaryButton
 import com.smassistant.app.ui.components.SmScreen
@@ -48,34 +50,72 @@ fun AgentSettingsScreen(agent: AiAgent, onBackToHome: () -> Unit) {
     }
 }
 
-/** API + API key form shared by the settings screens, pre-filled from [ApiSettingsStore]. */
+/** API + API key form shared by the settings screens. */
 @Composable
 private fun ColumnScope.ApiSettingsForm(service: ApiService) {
-    val context = LocalContext.current
-    val store = remember { ApiSettingsStore(context) }
-    val saved = remember(service) { store.load(service) }
-    var api by rememberSaveable(service) { mutableStateOf(saved.api) }
-    var key by rememberSaveable(service) { mutableStateOf(saved.key) }
+    val appContext = LocalContext.current.applicationContext
+    val viewModel = viewModel(key = service.name) { ApiSettingsViewModel(service, ApiSettingsStore(appContext)) }
+    val state by viewModel.state.collectAsStateWithLifecycle()
 
+    LaunchedEffect(state.message) {
+        state.message?.let {
+            Toast.makeText(appContext, it, Toast.LENGTH_SHORT).show()
+            viewModel.messageShown()
+        }
+    }
+
+    ApiSettingsFields(
+        serviceName = service.displayName,
+        state = state,
+        onApiChange = viewModel::onApiChange,
+        onKeyChange = viewModel::onKeyChange,
+        onSave = viewModel::onSave,
+    )
+}
+
+/** Stateless fields + SAVE, so the form can be UI-tested with any state. */
+@Composable
+fun ColumnScope.ApiSettingsFields(
+    serviceName: String,
+    state: ApiSettingsUiState,
+    onApiChange: (String) -> Unit,
+    onKeyChange: (String) -> Unit,
+    onSave: () -> Unit,
+) {
+    val apiError = state.apiError
+    val keyError = state.keyError
     OutlinedTextField(
-        value = api,
-        onValueChange = { api = it },
-        label = { Text("${service.displayName} APIs") },
+        value = state.api,
+        onValueChange = onApiChange,
+        label = { Text("$serviceName APIs") },
         singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
+        isError = apiError != null,
+        supportingText = if (apiError != null) {
+            { Text(apiError) }
+        } else {
+            null
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("apiField"),
     )
     OutlinedTextField(
-        value = key,
-        onValueChange = { key = it },
-        label = { Text("${service.displayName} API Key") },
-        placeholder = { Text("Enter your ${service.displayName} API key") },
+        value = state.key,
+        onValueChange = onKeyChange,
+        label = { Text("$serviceName API Key") },
+        placeholder = { Text("Enter your $serviceName API key") },
         singleLine = true,
         visualTransformation = PasswordVisualTransformation(),
-        modifier = Modifier.fillMaxWidth(),
+        isError = keyError != null,
+        supportingText = if (keyError != null) {
+            { Text(keyError) }
+        } else {
+            null
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("keyField"),
     )
     Spacer(Modifier.weight(1f))
-    PrimaryButton("SAVE", onClick = {
-        store.save(service, api, key)
-        Toast.makeText(context, "${service.displayName} settings saved", Toast.LENGTH_SHORT).show()
-    })
+    PrimaryButton("SAVE", onClick = onSave)
 }
