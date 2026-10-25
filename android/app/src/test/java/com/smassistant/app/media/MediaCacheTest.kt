@@ -1,5 +1,6 @@
 package com.smassistant.app.media
 
+import java.io.File
 import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 import org.junit.Assert.assertArrayEquals
@@ -40,5 +41,21 @@ class MediaCacheTest {
         assertEquals("webp", extensionFor("IMAGE/WEBP"))
         assertEquals("png", extensionFor("image/png"))
         assertEquals("png", extensionFor("application/octet-stream"))
+    }
+
+    @Test
+    fun `newFile gives an unused path in the cache without writing it`() {
+        val a = cache.newFile("mp4")
+        assertEquals(dir, a.parentFile)
+        assertTrue(a.name.endsWith(".mp4"))
+        assertFalse(a.exists())
+        assertFalse(a == cache.newFile("mp4"))
+    }
+
+    @Test
+    fun `extensions map back to image mime types`() {
+        assertEquals("image/jpeg", imageMimeType(File("a.JPG")))
+        assertEquals("image/webp", imageMimeType(File("a.webp")))
+        assertEquals("image/png", imageMimeType(File("a.png")))
     }
 }

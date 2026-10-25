@@ -77,21 +77,21 @@ Current code: one placeholder `FeatureScreen` shared by all six hub features; Su
 | IM-T2 | UI | Strip shows N thumbnails and badge; deselecting updates selection; tap navigates to preview with index. | IM-I2 | done (`ImageStripTest`) |
 | IM-T3 | UI | Preview shows Post in LinkedIn and swipes between images. | IM-I3 | todo |
 
-## 6.3 Generate Video (P6) — blocked on Q-08
+## 6.3 Generate Video (P6) — Q-08 answered: slideshow of generated diagrams
 
 | ID | Requirement | Status |
 |----|-------------|--------|
-| VI-1 | Generate a short video from the prompt | **blocked (Q-08)** |
+| VI-1 | Generate a short video from the prompt | partial — generator done, screen next |
 | VI-2 | Inline playback with standard controls | done (`VideoPlayer`) |
-| VI-3 | Post in LinkedIn publishes the video | blocked (needs VI-1 + LP-2 video path) |
+| VI-3 | Post in LinkedIn publishes the video | todo (needs VI-I3) |
 
 | ID | Type | Task | Depends on | Status |
 |----|------|------|-----------|--------|
-| VI-I1 | Impl | Video generator via AGC-3 (long-running; show progress, allow leaving the screen and returning). | AGC-3, Q-08 | blocked |
+| VI-I1 | Impl | Video generator. Q-08 = slideshow: Gemini makes 4 step-by-step diagram slides (`assets/prompts/video.md`), Media3 Transformer encodes them on the device into a 16 s H.264 MP4. | AGC-2, Q-08 | partial — `GenerateVideoUseCase`, `Media3SlideshowMaker`; Generate Video screen next |
 | VI-I2 | Impl | Inline player (Media3 ExoPlayer) for a local file URI. Can be built with a sample MP4 before Q-08. | GEN-I1 | done — `VideoPlayer` (Media3 1.8 ExoPlayer + PlayerView) |
-| VI-I3 | Impl | Post video (LP-2 video path: register upload, upload parts, finalize). | LP-2-I, VI-I1 | blocked |
-| VI-V1 | Val | Generated video plays inline, length/format within LinkedIn limits, posts successfully. | VI-I1…3 | blocked |
-| VI-T1 | unit | Polling generator: pending → done → file saved; timeout → error. | VI-I1 | blocked |
+| VI-I3 | Impl | Post video (LP-2 video path: register upload, upload parts, finalize). | LP-2-I, VI-I1 | todo |
+| VI-V1 | Val | Generated video plays inline, length/format within LinkedIn limits, posts successfully. | VI-I1…3 | todo |
+| VI-T1 | unit | Slideshow generator: slides asked for in order, failed slides left out, too few slides or encoder failure → error. | VI-I1 | done (`GenerateVideoTest`) |
 | VI-T2 | UI | Player shows controls for a sample file. | VI-I2 | done (`VideoPlayerTest`) |
 
 ## 6.4 Generate Content & Image (P5)
