@@ -1,11 +1,12 @@
 package com.smassistant.app.data
 
+import com.smassistant.app.net.Http
+import com.smassistant.app.net.await
 import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URI
-import java.net.URL
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import okhttp3.OkHttpClient
+import okhttp3.Request
 
 /** Result of testing one service with its current settings. */
 sealed interface ConnectionStatus {
@@ -21,58 +22,46 @@ sealed interface ConnectionStatus {
 /**
  * Checks access to each API with a cheap read-only request (listing models,
  * or the signed-in member for LinkedIn). Nothing is generated or posted.
+ * See docs/requirements/11-api-status.md (AS-3, AS-4).
  */
-object ApiConnectionCheck {
-    private const val TIMEOUT_MS = 10_000
+class ApiConnectionCheck(private val client: OkHttpClient = Http.client) {
 
-    suspend fun check(service: ApiService, config: ApiConfig): ConnectionStatus =
-        withContext(Dispatchers.IO) {
-            if (config.api.isBlank() || config.key.isBlank()) return@withContext ConnectionStatus.NotConfigured
-            try {
-                val origin = origin(config.api)
-                val connection = when (service) {
-                    ApiService.CLAUDE -> open("$origin/v1/models").apply {
-                        setRequestProperty("x-api-key", config.key)
-                        setRequestProperty("anthropic-version", "2023-06-01")
-                    }
-                    ApiService.GEMINI -> open("$origin/v1beta/models").apply {
-                        setRequestProperty("x-goog-api-key", config.key)
-                    }
-                    ApiService.GROQ -> open("$origin/openai/v1/models").apply {
-                        setRequestProperty("Authorization", "Bearer ${config.key}")
-                    }
-                    ApiService.LINKEDIN -> open("$origin/v2/userinfo").apply {
-                        setRequestProperty("Authorization", "Bearer ${config.key}")
-                    }
+    suspend fun check(service: ApiService, config: ApiConfig): ConnectionStatus {
+        if (config.api.isBlank() || config.key.isBlank()) return ConnectionStatus.NotConfigured
+        val request = request(service, config) ?: return ConnectionStatus.Unreachable("Invalid API URL")
+        return try {
+            client.newCall(request).await().use { response ->
+                when (val code = response.code) {
+                    in 200..299 -> ConnectionStatus.Connected
+                    400, 401 -> ConnectionStatus.InvalidKey
+                    403 -> ConnectionStatus.NoPermission
+                    else -> ConnectionStatus.Error(code)
                 }
-                try {
-                    when (val code = connection.responseCode) {
-                        in 200..299 -> ConnectionStatus.Connected
-                        400, 401 -> ConnectionStatus.InvalidKey
-                        403 -> ConnectionStatus.NoPermission
-                        else -> ConnectionStatus.Error(code)
-                    }
-                } finally {
-                    connection.disconnect()
-                }
-            } catch (e: IOException) {
-                ConnectionStatus.Unreachable(e.message ?: e.javaClass.simpleName)
-            } catch (e: IllegalArgumentException) {
-                ConnectionStatus.Unreachable("Invalid API URL")
             }
+        } catch (e: IOException) {
+            ConnectionStatus.Unreachable(e.message ?: e.javaClass.simpleName)
         }
-
-    /** Scheme, host and port of the configured endpoint, e.g. https://api.groq.com. */
-    private fun origin(api: String): String {
-        val uri = URI(api.trim())
-        require(uri.scheme != null && uri.host != null)
-        val port = if (uri.port == -1) "" else ":${uri.port}"
-        return "${uri.scheme}://${uri.host}$port"
     }
 
-    private fun open(url: String) = (URL(url).openConnection() as HttpURLConnection).apply {
-        requestMethod = "GET"
-        connectTimeout = TIMEOUT_MS
-        readTimeout = TIMEOUT_MS
+    /** The check request for [service], sent to the scheme, host and port of the configured API URL. */
+    internal fun request(service: ApiService, config: ApiConfig): Request? {
+        val origin = origin(config.api) ?: return null
+        val builder = Request.Builder().get()
+        when (service) {
+            ApiService.CLAUDE -> builder.url(origin.resolve("/v1/models")!!)
+                .header("x-api-key", config.key)
+                .header("anthropic-version", "2023-06-01")
+            ApiService.GEMINI -> builder.url(origin.resolve("/v1beta/models")!!)
+                .header("x-goog-api-key", config.key)
+            ApiService.GROQ -> builder.url(origin.resolve("/openai/v1/models")!!)
+                .header("Authorization", "Bearer ${config.key}")
+            ApiService.LINKEDIN -> builder.url(origin.resolve("/v2/userinfo")!!)
+                .header("Authorization", "Bearer ${config.key}")
+        }
+        return builder.build()
     }
+
+    /** e.g. https://api.groq.com/openai/v1/chat/completions → https://api.groq.com/ */
+    private fun origin(api: String): HttpUrl? =
+        api.trim().toHttpUrlOrNull()?.newBuilder()?.encodedPath("/")?.query(null)?.fragment(null)?.build()
 }

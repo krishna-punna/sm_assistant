@@ -41,13 +41,14 @@ import kotlinx.coroutines.launch
 fun ApiStatusScreen(onBackToHome: () -> Unit) {
     val context = LocalContext.current
     val store = remember { ApiSettingsStore(context) }
+    val checker = remember { ApiConnectionCheck() }
     val statuses = remember { mutableStateMapOf<ApiService, ConnectionStatus>() }
     val scope = rememberCoroutineScope()
 
     fun testAll() {
         ApiService.entries.forEach { service ->
             statuses[service] = ConnectionStatus.Checking
-            scope.launch { statuses[service] = ApiConnectionCheck.check(service, store.load(service)) }
+            scope.launch { statuses[service] = checker.check(service, store.load(service)) }
         }
     }
 
