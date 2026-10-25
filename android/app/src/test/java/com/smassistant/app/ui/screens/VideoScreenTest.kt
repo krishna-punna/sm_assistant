@@ -20,17 +20,20 @@ class VideoScreenTest {
     @get:Rule val compose = createComposeRule()
 
     @Test
-    fun resultShowsThePlayerAndLength() {
+    fun resultShowsThePlayerAndLengthAndPosts() {
+        var posts = 0
         val slides = (1..4).map { File("s$it.png") }
-        compose.setContent { VideoResult(GeneratedVideo(File("video.mp4"), slides)) }
+        compose.setContent { VideoResult(GeneratedVideo(File("video.mp4"), slides), posting = false, onPost = { posts++ }) }
         compose.onNodeWithTag("videoPlayer").assertExists()
         compose.onNodeWithText("4 slides, 16 seconds").assertExists()
+        compose.onNodeWithText("Post in LinkedIn").performClick()
+        assertEquals(1, posts)
     }
 
     @Test
     fun withoutGeminiSetUpOpensAgentSettings() {
         var setUp = 0
-        compose.setContent { VideoScreen(onSetUpAgent = { setUp++ }, onBackToHome = {}) }
+        compose.setContent { VideoScreen(onSetUpAgent = { setUp++ }, onSetUpLinkedIn = {}, onBackToHome = {}) }
 
         // The bundled app.yml has no keys, so Gemini isn't set up.
         compose.onNodeWithTag("chatInput").performTextInput("How a URL shortener works")

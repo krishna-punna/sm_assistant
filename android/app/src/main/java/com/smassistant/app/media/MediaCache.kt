@@ -43,3 +43,6 @@ fun imageMimeType(file: File) = when (file.extension.lowercase()) {
     "webp" -> "image/webp"
     else -> "image/png"
 }
+
+/** Generated videos are the `.mp4` files the slideshow maker writes; everything else is an image. */
+fun isVideo(file: File) = file.extension.equals("mp4", ignoreCase = true)

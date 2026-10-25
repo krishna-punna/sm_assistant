@@ -10,6 +10,7 @@ import com.smassistant.app.hashtags.Hashtags
 import com.smassistant.app.hashtags.LINKEDIN_POST_LIMIT
 import com.smassistant.app.hashtags.PostText
 import com.smassistant.app.markdown.MarkdownToLinkedIn
+import com.smassistant.app.media.isVideo
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
 import com.smassistant.app.net.userMessage
@@ -35,12 +36,13 @@ class PostToLinkedInUseCase(
 
     fun isConfigured() = configured()
 
-    /** Posts [text] with [images] attached. A post needs text or at least one image (HT-12: media-only text is the hashtags). */
+    /** Posts [text] with [images] (or one video) attached. A post needs text or at least one image (HT-12: media-only text is the hashtags). */
     suspend fun post(text: String, images: List<File> = emptyList()): ApiResult<LinkedInPost> = when {
         !isConfigured() -> ApiResult.Failed(ApiError.NotConfigured)
         text.isBlank() && images.isEmpty() -> ApiResult.Failed(ApiError.BadResponse("nothing to post"))
         text.length > LINKEDIN_POST_LIMIT -> ApiResult.Failed(ApiError.BadResponse("post text is over $LINKEDIN_POST_LIMIT characters"))
         images.size > MAX_IMAGES -> ApiResult.Failed(ApiError.BadResponse("LinkedIn allows up to $MAX_IMAGES images"))
+        images.any(::isVideo) && images.size > 1 -> ApiResult.Failed(ApiError.BadResponse("LinkedIn posts take one video and no images"))
         else -> publish(text, images)
     }
 

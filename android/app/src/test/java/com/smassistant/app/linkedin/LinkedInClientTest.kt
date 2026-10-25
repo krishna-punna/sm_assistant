@@ -162,4 +162,53 @@ class LinkedInClientTest {
         assertEquals(ApiResult.Failed(ApiError.Server(500, null)), runBlocking { linkedIn.createPost("x", listOf(file)) })
         assertEquals(3, server.requestCount)
     }
+
+    @Test
+    fun `uploads a video in its parts, finalizes it and attaches it as media`() {
+        val video = File(Files.createTempDirectory("post").toFile(), "v.mp4").apply { writeBytes(byteArrayOf(1, 2, 3, 4, 5)) }
+        userinfo()
+        server.enqueue(
+            MockResponse().setBody(
+                """{"value":{"video":"urn:li:video:V","uploadToken":"tok","uploadInstructions":[""" +
+                    """{"uploadUrl":"${server.url("/up/1")}","firstByte":0,"lastByte":2},""" +
+                    """{"uploadUrl":"${server.url("/up/2")}","firstByte":3,"lastByte":4}]}}""",
+            ),
+        )
+        server.enqueue(MockResponse().setHeader("ETag", "e1"))
+        server.enqueue(MockResponse().setHeader("ETag", "e2"))
+        server.enqueue(MockResponse())
+        created()
+
+        assertEquals(ApiResult.Ok(LinkedInPost("urn:li:share:7400")), runBlocking { linkedIn.createPost("Watch", listOf(video)) })
+
+        server.takeRequest() // userinfo
+        val init = server.takeRequest()
+        assertEquals("/rest/videos?action=initializeUpload", init.path)
+        val initBody = Json.parseToJsonElement(init.body.readUtf8()) as JsonObject
+        assertEquals("5", initBody.path("initializeUploadRequest", "fileSizeBytes")?.textOrNull)
+        val first = server.takeRequest()
+        assertEquals("/up/1", first.path)
+        assertEquals(listOf<Byte>(1, 2, 3), first.body.readByteArray().toList())
+        assertEquals(listOf<Byte>(4, 5), server.takeRequest().body.readByteArray().toList())
+        val finalize = server.takeRequest()
+        assertEquals("/rest/videos?action=finalizeUpload", finalize.path)
+        val finalizeBody = Json.parseToJsonElement(finalize.body.readUtf8()) as JsonObject
+        assertEquals("urn:li:video:V", finalizeBody.path("finalizeUploadRequest", "video")?.textOrNull)
+        assertEquals("tok", finalizeBody.path("finalizeUploadRequest", "uploadToken")?.textOrNull)
+        assertEquals("e2", finalizeBody.path("finalizeUploadRequest", "uploadedPartIds", 1)?.textOrNull)
+        val post = Json.parseToJsonElement(server.takeRequest().body.readUtf8()) as JsonObject
+        assertEquals("urn:li:video:V", post.path("content", "media", "id")?.textOrNull)
+    }
+
+    @Test
+    fun `a video part without an ETag stops before finalizing`() {
+        val video = Files.createTempFile("v", ".mp4").toFile().apply { writeBytes(byteArrayOf(1)) }
+        userinfo()
+        server.enqueue(
+            MockResponse().setBody("""{"value":{"video":"urn:li:video:V","uploadInstructions":[{"uploadUrl":"${server.url("/up/1")}","firstByte":0,"lastByte":0}]}}"""),
+        )
+        server.enqueue(MockResponse())
+        assertEquals(ApiResult.Failed(ApiError.BadResponse("no ETag for a video part")), runBlocking { linkedIn.createPost("x", listOf(video)) })
+        assertEquals(3, server.requestCount)
+    }
 }

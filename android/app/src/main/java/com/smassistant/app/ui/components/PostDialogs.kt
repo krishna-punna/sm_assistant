@@ -19,6 +19,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.smassistant.app.hashtags.LINKEDIN_POST_LIMIT
 import com.smassistant.app.linkedin.PostState
+import com.smassistant.app.media.isVideo
 
 /**
  * Dialogs for the Post in LinkedIn flow (LP-3, LP-4, LP-6): confirm the final text,
@@ -91,7 +92,9 @@ fun ConfirmPostContent(state: PostState.Confirm, onTextChange: (String) -> Unit)
                 .heightIn(max = 360.dp)
                 .testTag("postText"),
         )
-        if (state.images.isNotEmpty()) {
+        if (state.images.any(::isVideo)) {
+            Text("1 video attached", style = MaterialTheme.typography.bodySmall)
+        } else if (state.images.isNotEmpty()) {
             Text(
                 if (state.images.size == 1) "1 image attached" else "${state.images.size} images attached",
                 style = MaterialTheme.typography.bodySmall,

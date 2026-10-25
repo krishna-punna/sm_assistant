@@ -1,6 +1,7 @@
 package com.smassistant.app.linkedin
 
 import com.smassistant.app.data.ApiConfig
+import com.smassistant.app.media.isVideo
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
 import com.smassistant.app.net.Http
@@ -11,7 +12,9 @@ import java.io.File
 import java.io.IOException
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.add
 import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -43,10 +46,11 @@ class LinkedInClient(
     private var cachedMember: Pair<String, String>? = null
 
     /**
-     * Publishes [text] (plain text, not yet escaped) as a public post. [images] are uploaded first
-     * and attached: one as `content.media`, two or more as `content.multiImage` (LP-2-I).
+     * Publishes [text] (plain text, not yet escaped) as a public post. [media] is uploaded first
+     * and attached (LP-2-I): one image or one video (an `.mp4`, VI-I3) as `content.media`, two or
+     * more images as `content.multiImage`.
      */
-    suspend fun createPost(text: String, images: List<File> = emptyList()): ApiResult<LinkedInPost> {
+    suspend fun createPost(text: String, media: List<File> = emptyList()): ApiResult<LinkedInPost> {
         val current = config()
         if (current.api.isBlank() || current.key.isBlank()) return ApiResult.Failed(ApiError.NotConfigured)
         val postsUrl = current.api.toHttpUrlOrNull() ?: return ApiResult.Failed(ApiError.Unreachable("Invalid API URL"))
@@ -54,8 +58,13 @@ class LinkedInClient(
             is ApiResult.Failed -> return member
             is ApiResult.Ok -> member.value
         }
-        val imageUrns = images.map { file ->
-            when (val uploaded = uploadImage(postsUrl, current.key, author, file)) {
+        val mediaUrns = media.map { file ->
+            val uploaded = if (isVideo(file)) {
+                uploadVideo(postsUrl, current.key, author, file)
+            } else {
+                uploadImage(postsUrl, current.key, author, file)
+            }
+            when (uploaded) {
                 is ApiResult.Failed -> return uploaded
                 is ApiResult.Ok -> uploaded.value
             }
@@ -69,12 +78,12 @@ class LinkedInClient(
                 putJsonArray("targetEntities") {}
                 putJsonArray("thirdPartyDistributionChannels") {}
             }
-            when (imageUrns.size) {
+            when (mediaUrns.size) {
                 0 -> Unit
-                1 -> putJsonObject("content") { putJsonObject("media") { put("id", imageUrns.single()) } }
+                1 -> putJsonObject("content") { putJsonObject("media") { put("id", mediaUrns.single()) } }
                 else -> putJsonObject("content") {
                     putJsonObject("multiImage") {
-                        putJsonArray("images") { imageUrns.forEach { urn -> addJsonObject { put("id", urn) } } }
+                        putJsonArray("images") { mediaUrns.forEach { urn -> addJsonObject { put("id", urn) } } }
                     }
                 }
             }
@@ -118,6 +127,82 @@ class LinkedInClient(
             .put(file.asRequestBody(OCTET_STREAM))
             .build()
         return call(upload) { _, _ -> ApiResult.Ok(image) }
+    }
+
+    /**
+     * Videos API: initializeUpload with the file size gives the video URN and one upload URL per
+     * byte range; each part is PUT there and its ETag kept; finalizeUpload with the ETags in order.
+     */
+    private suspend fun uploadVideo(postsUrl: HttpUrl, token: String, owner: String, file: File): ApiResult<String> {
+        val initialize = Request.Builder()
+            .url(postsUrl.resolve("/rest/videos?action=initializeUpload")!!)
+            .restliHeaders(token)
+            .post(
+                buildJsonObject {
+                    putJsonObject("initializeUploadRequest") {
+                        put("owner", owner)
+                        put("fileSizeBytes", file.length())
+                        put("uploadCaptions", false)
+                        put("uploadThumbnail", false)
+                    }
+                }.toString().toRequestBody(JSON),
+            )
+            .build()
+        val plan = call(initialize) { _, json -> parseVideoUpload(json) }
+        val upload = when (plan) {
+            is ApiResult.Failed -> return plan
+            is ApiResult.Ok -> plan.value
+        }
+        val bytes = file.readBytes()
+        val etags = upload.parts.map { part ->
+            val request = Request.Builder()
+                .url(part.url)
+                .header("Authorization", "Bearer $token")
+                .put(bytes.copyOfRange(part.firstByte.toInt(), part.lastByte.toInt() + 1).toRequestBody(OCTET_STREAM))
+                .build()
+            val sent = call(request) { response, _ ->
+                response.header("ETag")?.let { ApiResult.Ok(it) } ?: ApiResult.Failed(ApiError.BadResponse("no ETag for a video part"))
+            }
+            when (sent) {
+                is ApiResult.Failed -> return sent
+                is ApiResult.Ok -> sent.value
+            }
+        }
+        val finalize = Request.Builder()
+            .url(postsUrl.resolve("/rest/videos?action=finalizeUpload")!!)
+            .restliHeaders(token)
+            .post(
+                buildJsonObject {
+                    putJsonObject("finalizeUploadRequest") {
+                        put("video", upload.video)
+                        put("uploadToken", upload.token)
+                        putJsonArray("uploadedPartIds") { etags.forEach { add(it) } }
+                    }
+                }.toString().toRequestBody(JSON),
+            )
+            .build()
+        return call(finalize) { _, _ -> ApiResult.Ok(upload.video) }
+    }
+
+    private class VideoPart(val url: HttpUrl, val firstByte: Long, val lastByte: Long)
+    private class VideoUpload(val video: String, val token: String, val parts: List<VideoPart>)
+
+    private fun parseVideoUpload(json: JsonObject?): ApiResult<VideoUpload> {
+        val value = json?.path("value") as? JsonObject
+        val video = value?.path("video")?.textOrNull
+        val token = value?.path("uploadToken")?.textOrNull.orEmpty()
+        val parts = (value?.path("uploadInstructions") as? JsonArray)?.map { instruction ->
+            VideoPart(
+                url = instruction.path("uploadUrl")?.textOrNull?.toHttpUrlOrNull() ?: return ApiResult.Failed(ApiError.BadResponse("bad video upload URL")),
+                firstByte = instruction.path("firstByte")?.textOrNull?.toLongOrNull() ?: return ApiResult.Failed(ApiError.BadResponse("bad video byte range")),
+                lastByte = instruction.path("lastByte")?.textOrNull?.toLongOrNull() ?: return ApiResult.Failed(ApiError.BadResponse("bad video byte range")),
+            )
+        }
+        return if (video.isNullOrBlank() || parts.isNullOrEmpty()) {
+            ApiResult.Failed(ApiError.BadResponse("no video upload URL"))
+        } else {
+            ApiResult.Ok(VideoUpload(video, token, parts))
+        }
     }
 
     /** `urn:li:person:{sub}` from OpenID userinfo on the same host, cached per token. */
