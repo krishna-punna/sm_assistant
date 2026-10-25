@@ -4,6 +4,9 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+// Release builds (the Release workflow) pass the version and the signing key in the environment.
+val releaseKeystore: String? = System.getenv("SM_KEYSTORE_FILE")?.takeIf { it.isNotBlank() }
+
 android {
     namespace = "com.smassistant.app"
     compileSdk = 36
@@ -12,14 +15,27 @@ android {
         applicationId = "com.smassistant.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = System.getenv("SM_VERSION_CODE")?.toIntOrNull() ?: 1
+        versionName = System.getenv("SM_VERSION_NAME")?.takeIf { it.isNotBlank() } ?: "0.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        releaseKeystore?.let { path ->
+            create("release") {
+                storeFile = file(path)
+                storePassword = System.getenv("SM_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("SM_KEY_ALIAS")
+                keyPassword = System.getenv("SM_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            // Without a keystore the release APK is signed with the debug key, so it still installs for testing.
+            signingConfig = signingConfigs.getByName(if (releaseKeystore != null) "release" else "debug")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

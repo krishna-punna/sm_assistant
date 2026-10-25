@@ -36,7 +36,7 @@ Cross-cutting work that the feature tasks depend on. Do these first: today there
 
 | ID | Type | Task | Depends on | Status |
 |----|------|------|-----------|--------|
-| REL-1 | Impl | Release build: R8 on, keep rules for serialization/SnakeYAML, signing config from CI secrets, `assembleRelease` job. | FND-2 | todo |
+| REL-1 | Impl | Release build: R8 on, keep rules for serialization/SnakeYAML, signing config from CI secrets, `assembleRelease` job. | FND-2 | partial — the Release workflow (`.github/workflows/release.yml`) builds a signed `SMAssistant-<version>-release.apk` from a `v*` tag or manual run and attaches it to a GitHub Release; signing uses the `SM_KEYSTORE_*` secrets. R8 is still off |
 | REL-2 | Impl | Accessibility: content descriptions on icon buttons (copy, expand, images), 48 dp touch targets, TalkBack order on chat screens. | GEN-* | done — Copy/Expand are text buttons (48 dp by Material default); thumbnails say "Image n" with an "Open preview" action, checkboxes say "Post image n", the preview says "Image n of m", spinners say "Loading image"; "Generating…" and error cards are polite live regions |
 | REL-3 | Impl | App icon, name, version from tag. | — | todo |
 | REL-V1 | Val | Install the release APK on a clean device; walk the full flow topic → prompt → content → post. | P4 | todo |
