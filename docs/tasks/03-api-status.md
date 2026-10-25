@@ -20,7 +20,7 @@ Current code: `ApiStatusScreen.kt`, `data/ApiConnectionCheck.kt` (PR #4).
 | ID | Task | Depends on | Status |
 |----|------|-----------|--------|
 | AS-5-I | Move checks into `ApiStatusViewModel`; cancel the previous round's jobs when Test again is tapped; disable the button while all four are Checking. | FND-3 | todo |
-| AS-I2 | Port `ApiConnectionCheck` to the shared HTTP layer and error model (FND-5/6) with injectable base URL. | FND-5, FND-6 | todo |
+| AS-I2 | Port `ApiConnectionCheck` to the shared HTTP layer and error model (FND-5/6) with injectable base URL. | FND-5, FND-6 | done |
 | AS-3-I | If Q-21/Q-03 changes the LinkedIn auth, switch the LinkedIn check endpoint (e.g. token introspection or `/rest/me`). | Q-21 | blocked |
 | AS-7-I | Reuse the check on settings screens: "Test" next to SAVE shows the status inline. | Q-22, LI-2-I | todo (optional) |
 
@@ -37,9 +37,9 @@ Current code: `ApiStatusScreen.kt`, `data/ApiConnectionCheck.kt` (PR #4).
 
 | ID | Kind | Test | Status |
 |----|------|------|--------|
-| AS-T1 | unit | MockWebServer per service: 200 → Connected, 400/401 → InvalidKey, 403 → NoPermission, 500 → Error(500), timeout → Unreachable. | todo |
-| AS-T2 | unit | Correct path and auth header per service (`/v1/models` + `x-api-key` + `anthropic-version`, `/v1beta/models` + `x-goog-api-key`, `/openai/v1/models` + Bearer, `/v2/userinfo` + Bearer). | todo |
-| AS-T3 | unit | Blank API or key → NotConfigured with zero requests recorded. | todo |
-| AS-T4 | unit | Origin extraction: path dropped, port kept, invalid URL → Unreachable. | todo |
+| AS-T1 | unit | MockWebServer per service: 200 → Connected, 400/401 → InvalidKey, 403 → NoPermission, 500 → Error(500), timeout → Unreachable. | done (`ApiConnectionCheckTest`) |
+| AS-T2 | unit | Correct path and auth header per service (`/v1/models` + `x-api-key` + `anthropic-version`, `/v1beta/models` + `x-goog-api-key`, `/openai/v1/models` + Bearer, `/v2/userinfo` + Bearer). | done (`ApiConnectionCheckTest`) |
+| AS-T3 | unit | Blank API or key → NotConfigured with zero requests recorded. | done (`ApiConnectionCheckTest`) |
+| AS-T4 | unit | Origin extraction: path dropped, port kept, invalid URL → Unreachable. | done (`ApiConnectionCheckTest`) |
 | AS-T5 | unit | ViewModel: Test again cancels the previous round; final state matches the second round. | todo |
 | AS-T6 | UI | Status cards render label, detail and colour for each `ConnectionStatus`; no key text appears in the tree. | todo |
