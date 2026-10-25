@@ -20,22 +20,22 @@ Current code: one placeholder `FeatureScreen` shared by all six hub features; Su
 
 | ID | Requirement | Status |
 |----|-------------|--------|
-| GEN-1 | Use configured agent(s); prompt to set one up if none | todo |
-| GEN-2 | Prompt cards support copy and expand | todo |
-| GEN-3 | Results scroll; header, input and footer fixed | partial — frame is fixed, no scrolling result list yet |
-| GEN-4 | Progress while generating; clear error with Retry (Q-09) | todo |
+| GEN-1 | Use configured agent(s); prompt to set one up if none | partial — set-up card done; each generator wires it |
+| GEN-2 | Prompt cards support copy and expand | done |
+| GEN-3 | Results scroll; header, input and footer fixed | done |
+| GEN-4 | Progress while generating; clear error with Retry (Q-09) | done — spinner + Cancel, error card + Retry |
 | GEN-5 *(new, Q-13)* | Where conversations/media are stored | todo — interim: in memory, media in cache dir |
 | GEN-6 *(new, Q-23)* | Warn when the agent's last status isn't Connected | todo (optional) |
 
 | ID | Type | Task | Depends on | Status |
 |----|------|------|-----------|--------|
-| GEN-I1 | Impl | `ChatScreen` scaffold replacing `FeatureScreen`: `LazyColumn` of items (`UserPrompt` shown as `PromptCard`, `Loading`, `Error(retry)`, `Result(content)`), `ChatInputBar`, Back to Home. Each feature supplies a `Generator` and a result renderer. Covers GEN-2, GEN-3. | UI-2-I, UI-4-I, FND-3 | todo |
-| GEN-I2 | Not-configured state: if `AGC-4` returns NotConfigured, show a card "Set up an AI agent" with a button to AI Agent settings. Covers GEN-1. | AGC-4, GEN-I1 | todo |
-| GEN-I3 | Loading item with spinner + "Generating…" and Cancel; error item with message from `ApiError` and Retry. Covers GEN-4. | GEN-I1, FND-6 | todo |
+| GEN-I1 | Impl | `ChatScreen` scaffold replacing `FeatureScreen`: `LazyColumn` of items (`UserPrompt` shown as `PromptCard`, `Loading`, `Error(retry)`, `Result(content)`), `ChatInputBar`, Back to Home. Each feature supplies a `Generator` and a result renderer. Covers GEN-2, GEN-3. | UI-2-I, UI-4-I | done — `ChatScreen`, `ChatViewModel` |
+| GEN-I2 | Not-configured state: if `AGC-4` returns NotConfigured, show a card "Set up an AI agent" with a button to AI Agent settings. Covers GEN-1. | AGC-4, GEN-I1 | done (UI); wired per feature |
+| GEN-I3 | Loading item with spinner + "Generating…" and Cancel; error item with message from `ApiError` and Retry. Covers GEN-4. | GEN-I1, FND-6 | done |
 | GEN-I4 | Media files written under `cacheDir/generated/`, cleared on app start older than 7 days (GEN-5 interim). | AGC-2 | todo |
 | GEN-V1 | Val | On each feature: submit shows prompt card + spinner, then result; airplane mode shows error with Retry that works once online; no agent configured shows the setup card. | GEN-I1…3 | todo |
-| GEN-T1 | UI | Chat scaffold renders each item type; Retry calls the generator again; input/footer remain visible while the list scrolls. | GEN-I1 | todo |
-| GEN-T2 | unit | Generic chat ViewModel state machine (idle → loading → result/error → retry), cancel. | GEN-I1 | todo |
+| GEN-T1 | UI | Chat scaffold renders each item type; Retry calls the generator again; input/footer remain visible while the list scrolls. | GEN-I1 | done (`ChatScreenTest`) |
+| GEN-T2 | unit | Generic chat ViewModel state machine (idle → loading → result/error → retry), cancel. | GEN-I1 | done (`ChatViewModelTest`) |
 
 ## 6.1 Generate Technical Content (P3; posting in P4)
 

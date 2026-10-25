@@ -31,11 +31,11 @@ Requirements: [02 Screens and navigation](../requirements/02-screens-and-navigat
 
 | ID | Type | Task | Depends on | Status |
 |----|------|------|-----------|--------|
-| UI-2-I | Impl | `PostInLinkedInButton` (blue, full width) and `PromptCard` (dark, title, copy + expand icons) in `SmComponents.kt`. | — | todo |
+| UI-2-I | Impl | `PostInLinkedInButton` (blue, full width) and `PromptCard` (dark, title, copy + expand icons) in `ChatComponents.kt`. | — | done |
 | UI-3-I | Impl | Make the body slot of `SmScreen` scrollable by default (opt-out for chat screens that use a `LazyColumn`). Keep IME padding so the input bar stays above the keyboard. | — | todo |
-| UI-4-I | Impl | `ChatInputBar`: multi-line field that grows to ~6 lines then scrolls, green Submit on the right, disabled when blank or busy. | — | todo |
+| UI-4-I | Impl | `ChatInputBar`: multi-line field that grows to ~6 lines then scrolls, green Submit on the right, disabled when blank or busy. | — | done |
 | UI-V1 | Val | Compare each screen with its wireframe slide (colours, order chip → body → action → footer). List differences in the PR. | UI-2-I, UI-4-I | todo |
 | UI-T1 | UI | `SmScreen` shows title, chip text and Back to Home; omits footer when `onBackToHome` is null. | FND-1 | todo |
-| UI-T2 | UI | `PromptCard` copy puts the full text on the clipboard; expand opens a full-screen dialog. | UI-2-I | todo |
-| UI-T3 | UI | `ChatInputBar` Submit disabled for blank input and while busy. | UI-4-I | todo |
+| UI-T2 | UI | `PromptCard` copy puts the full text on the clipboard; expand opens a full-screen dialog. | UI-2-I | done (`PromptCardTest`) |
+| UI-T3 | UI | `ChatInputBar` Submit disabled for blank input and while busy. | UI-4-I | done (`ChatScreenTest`) |
 | UI-T4 | UI | Screenshot tests (Roborazzi or Paparazzi) for Home, a settings screen, API Status, hashtags, a chat screen with a result. | FND-1 | todo |
