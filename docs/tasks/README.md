@@ -67,7 +67,7 @@ P1 and P2 can run in parallel once P0 is in.
 | Navigation & UI | 3 | 5 | 0 | 1 |
 | Settings (LI, AG) | 5 | 3 | 2 | 2 |
 | API Status (AS) | 5 | 1 | 1 | 0 |
-| Default hashtags (HT) | 1 | 3 | 13 | 0 |
+| Default hashtags (HT) | 10 | 0 | 7 | 0 |
 | Prepare prompt (PP) | 1 | 1 | 6 | 0 |
 | Content generation | 0 | 1 | 16 | 4 |
 | Post to LinkedIn (LP) | 0 | 0 | 4 | 3 |
@@ -78,7 +78,7 @@ Counts are per requirement row in each file (including the new rows this plan ad
 
 | # | Where | Problem | Fixed by |
 |---|-------|---------|----------|
-| D-1 | `DefaultHashtagsScreen.kt` | Toggle starts **on**; HT-8 says it starts **off** until the first non-empty save. Toggle and list aren't persisted. | HT-7-I, HT-8-I |
+| D-1 | `DefaultHashtagsScreen.kt` | ~~Toggle starts **on**; HT-8 says it starts **off** until the first non-empty save. Toggle and list aren't persisted.~~ Fixed. | HT-I2, HT-I3 |
 | D-2 | `ApiSettingsStore` | API keys are in plain `SharedPreferences` (excluded from backup, but not encrypted). Requirement 03/04 NFR asks for Keystore-backed storage. | FND-4 |
 | D-3 | `ApiSettingsForm` | No validation for empty fields, and saving an empty API URL overwrites the `app.yml` default with `""`. | LI-2-I, AG-2-I |
 | D-4 | `FeatureScreen` | One generic screen for all six features with a TODO Submit; no chat history, prompt cards, or result view. | GEN-*, PP-* |
