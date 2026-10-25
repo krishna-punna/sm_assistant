@@ -68,7 +68,7 @@ P1 and P2 can run in parallel once P0 is in.
 | Settings (LI, AG) | 5 | 3 | 2 | 2 |
 | API Status (AS) | 6 | 0 | 1 | 0 |
 | Default hashtags (HT) | 10 | 0 | 7 | 0 |
-| Prepare prompt (PP) | 1 | 1 | 6 | 0 |
+| Prepare prompt (PP) | 7 | 0 | 1 | 0 |
 | Content generation | 0 | 1 | 16 | 4 |
 | Post to LinkedIn (LP) | 0 | 0 | 4 | 3 |
 
@@ -81,7 +81,7 @@ Counts are per requirement row in each file (including the new rows this plan ad
 | D-1 | `DefaultHashtagsScreen.kt` | ~~Toggle starts **on**; HT-8 says it starts **off** until the first non-empty save. Toggle and list aren't persisted.~~ Fixed. | HT-I2, HT-I3 |
 | D-2 | `ApiSettingsStore` | ~~API keys are in plain `SharedPreferences` (excluded from backup, but not encrypted).~~ Fixed: encrypted with a Keystore key. | FND-4 |
 | D-3 | `ApiSettingsForm` | ~~No validation for empty fields, and saving an empty API URL overwrites the `app.yml` default with `""`.~~ Fixed. | LI-2-I, AG-2-I |
-| D-4 | `FeatureScreen` | One generic screen for all six features with a TODO Submit; no chat history, prompt cards, or result view. | GEN-*, PP-* |
+| D-4 | `FeatureScreen` | One generic screen for all six features with a TODO Submit; no chat history, prompt cards, or result view. Prepare Prompt now has its own screen; the other five still use it. | GEN-*, PP-* |
 | D-5 | `.github/workflows/android.yml` | ~~CI builds only; no unit tests or lint.~~ Fixed: CI runs lint and unit tests. | FND-2 |
 | D-6 | Settings screens | `model` from `app.yml` is loaded but can't be viewed or changed in the app. | AG-6 (Q-04) |
 

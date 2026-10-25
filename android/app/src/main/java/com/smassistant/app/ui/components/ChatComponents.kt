@@ -103,6 +103,20 @@ fun PromptCard(title: String, text: String, modifier: Modifier = Modifier, colla
     }
 }
 
+/** The user's message, right-aligned (slides 5 to 11). */
+@Composable
+fun UserBubble(text: String) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+        Surface(
+            color = InputBarColor,
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.padding(start = 48.dp),
+        ) {
+            Text(text, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
+        }
+    }
+}
+
 /** Light input with a green Submit, pinned above the footer; grows to six lines for pasted prompts (UI-4). */
 @Composable
 fun ChatInputBar(
