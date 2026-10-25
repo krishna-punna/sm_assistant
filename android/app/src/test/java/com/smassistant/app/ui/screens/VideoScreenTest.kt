@@ -5,6 +5,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import com.smassistant.app.generate.GenerateContentAndMediaUseCase
 import com.smassistant.app.generate.GeneratedVideo
 import java.io.File
 import org.junit.Assert.assertEquals
@@ -40,7 +41,7 @@ class VideoScreenTest {
         compose.onNodeWithText("Submit").performClick()
         compose.waitForIdle()
 
-        compose.onNodeWithText(VIDEO_NOT_SET_UP).assertExists()
+        compose.onNodeWithText(GenerateContentAndMediaUseCase.VIDEO_NOT_SET_UP).assertExists()
         compose.onNodeWithText("Set up an AI agent").performClick()
         assertEquals(1, setUp)
     }

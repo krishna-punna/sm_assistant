@@ -36,7 +36,7 @@ class ContentAndImagesResultTest {
 
     @Test
     fun textThenImagesThenPost() {
-        show(ContentAndImages(markdown = "System Design: Short URL", images = images))
+        show(ContentAndImages(markdown = "System Design: Short URL", media = images))
 
         val text = compose.onNodeWithText("System Design: Short URL").getUnclippedBoundsInRoot()
         val strip = compose.onNodeWithTag("imageStrip").getUnclippedBoundsInRoot()
@@ -49,7 +49,7 @@ class ContentAndImagesResultTest {
 
     @Test
     fun failedHalvesOfferTheirOwnRetry() {
-        show(ContentAndImages(markdown = "Body", imageError = "Gemini is rate limiting requests."))
+        show(ContentAndImages(markdown = "Body", mediaError = "Gemini is rate limiting requests."))
         compose.onNodeWithText("Retry images").performClick()
         compose.onNodeWithText("Post in LinkedIn").performClick()
         assertEquals(listOf("retryImages", "post:0"), events)
@@ -57,7 +57,7 @@ class ContentAndImagesResultTest {
 
     @Test
     fun textErrorStillShowsImages() {
-        show(ContentAndImages(textError = "No text agent is set up.", images = images))
+        show(ContentAndImages(textError = "No text agent is set up.", media = images))
         compose.onNodeWithText("Retry text").performClick()
         compose.onNodeWithTag("imageStrip").assertExists()
         assertEquals(listOf("retryText"), events)

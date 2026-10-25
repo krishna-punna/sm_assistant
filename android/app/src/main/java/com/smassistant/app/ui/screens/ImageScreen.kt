@@ -12,7 +12,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.smassistant.app.chat.ChatViewModel
-import com.smassistant.app.generate.GenerateContentAndImagesUseCase
+import com.smassistant.app.generate.GenerateContentAndMediaUseCase
 import com.smassistant.app.generate.appGenerateImages
 import com.smassistant.app.linkedin.PostState
 import com.smassistant.app.linkedin.PostViewModel
@@ -58,7 +58,7 @@ fun ImageScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToH
                 onBackToHome = onBackToHome,
             )
         },
-        noAgentMessage = GenerateContentAndImagesUseCase.IMAGES_NOT_SET_UP,
+        noAgentMessage = GenerateContentAndMediaUseCase.IMAGES_NOT_SET_UP,
     )
     PostDialogs(
         state = postState,
