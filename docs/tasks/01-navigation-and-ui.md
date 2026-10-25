@@ -9,15 +9,15 @@ Requirements: [02 Screens and navigation](../requirements/02-screens-and-navigat
 | NAV-1 | Home (S1) shows LinkedIn API, AI Agent, SM Assistant, Default Hash Tags, API Status | done | One AI Agent button (Q-01 interim) |
 | NAV-2 | All screens S1–S15 exist and are reachable per the navigation map | done | S8–S13 each have their own screen; the S10 preview is a full-screen dialog |
 | NAV-3 | Back to Home on every screen except Home returns to Home and clears the back stack | done | Hub also has it (Q-02 interim); system back pops one level |
-| NAV-4 | Survive rotation / process death without losing typed input or results | partial | Inputs use `rememberSaveable`; results will need ViewModel + `SavedStateHandle` |
+| NAV-4 | Survive rotation / process death without losing typed input or results | done | `ChatViewModel` keeps the typed input and the conversation in `SavedStateHandle`; media results come back while their files are still in the cache, otherwise as an error with Retry |
 
 | ID | Type | Task | Depends on | Status |
 |----|------|------|-----------|--------|
 | NAV-2-I | Impl | Split `FeatureScreen` into the chat screen (GEN-I1) and add the image preview route `hub/IMAGE/preview/{index}`. | GEN-I1 | done — every feature has its own screen and `FeatureScreen` is gone; the preview is a full-screen dialog rather than a route, so the generated files don't need to go through nav arguments |
-| NAV-4-I | Impl | Keep chat history and results in the ViewModel; restore input from `SavedStateHandle`. | FND-3 | todo |
+| NAV-4-I | Impl | Keep chat history and results in the ViewModel; restore input from `SavedStateHandle`. | FND-3 | done (`ResultSaver` per feature) |
 | NAV-V1 | Val | Walk the navigation map: every arrow in [02](../requirements/02-screens-and-navigation.md#navigation-map) works, every Back to Home lands on S1, system back from S1 exits. | — | todo |
 | NAV-T1 | UI | Nav test with `TestNavHostController`: each Home button opens the right route; Back to Home from each route returns to `home` with a one-entry back stack. | FND-1 | done (`NavigationTest`, with the app's own `NavHostController`; API Status is left out because it calls the services) |
-| NAV-T2 | UI | Rotation test on a feature screen keeps typed input and results. | NAV-4-I | todo |
+| NAV-T2 | UI | Rotation test on a feature screen keeps typed input and results. | NAV-4-I | done (`RotationTest`; process death is covered in `ChatViewModelTest`) |
 
 ## UI conventions
 

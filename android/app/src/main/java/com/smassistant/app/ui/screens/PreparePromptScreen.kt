@@ -4,12 +4,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.smassistant.app.agents.appAgentSelector
 import com.smassistant.app.chat.ChatViewModel
+import com.smassistant.app.chat.PreparedPromptSaver
 import com.smassistant.app.navigation.Feature
 import com.smassistant.app.prompt.PreparePromptUseCase
-import com.smassistant.app.prompt.PreparedPrompt
 import com.smassistant.app.prompt.loadPromptAsset
 import com.smassistant.app.ui.components.PromptCard
 import com.smassistant.app.ui.components.UserBubble
@@ -21,7 +22,7 @@ fun PreparePromptScreen(onSetUpAgent: () -> Unit, onBackToHome: () -> Unit) {
     val viewModel = viewModel {
         val selector = appAgentSelector(appContext)
         val useCase = PreparePromptUseCase(loadPromptAsset(appContext, "prepare_prompt"), selector::textAgent)
-        ChatViewModel<PreparedPrompt> { topic -> useCase(topic) }
+        ChatViewModel(createSavedStateHandle(), PreparedPromptSaver) { topic -> useCase(topic) }
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
 
