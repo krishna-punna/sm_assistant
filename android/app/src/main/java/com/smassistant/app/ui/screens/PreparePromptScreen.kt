@@ -12,6 +12,7 @@ import com.smassistant.app.chat.PreparedPromptSaver
 import com.smassistant.app.navigation.Feature
 import com.smassistant.app.prompt.PreparePromptUseCase
 import com.smassistant.app.prompt.loadPromptAsset
+import com.smassistant.app.ui.components.TextAgentDropdown
 import com.smassistant.app.ui.components.PromptCard
 import com.smassistant.app.ui.components.UserBubble
 
@@ -36,6 +37,7 @@ fun PreparePromptScreen(onSetUpAgent: () -> Unit, onBackToHome: () -> Unit) {
         onCancel = viewModel::cancel,
         onSetUpAgent = onSetUpAgent,
         onBackToHome = onBackToHome,
+        header = { TextAgentDropdown() },
         inputContent = { UserBubble(it) },
         resultContent = { PromptCard(it.title, it.prompt) },
     )

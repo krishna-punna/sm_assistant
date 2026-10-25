@@ -9,12 +9,14 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -24,13 +26,16 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.smassistant.app.agents.AgentPreferences
 import com.smassistant.app.agents.TEXT_AGENTS
+import com.smassistant.app.data.AiModel
 import com.smassistant.app.data.ApiService
 import com.smassistant.app.data.ApiSettingsStore
+import com.smassistant.app.data.ModelCatalog
 import com.smassistant.app.navigation.AiAgent
 import com.smassistant.app.settings.ApiSettingsUiState
 import com.smassistant.app.settings.ApiSettingsViewModel
 import com.smassistant.app.ui.components.MenuButton
 import com.smassistant.app.ui.components.PrimaryButton
+import com.smassistant.app.ui.components.SelectDropdown
 import com.smassistant.app.ui.components.SmScreen
 
 /** S2 LinkedIn settings. */
@@ -94,7 +99,9 @@ fun AgentSettingsScreen(agent: AiAgent, onBackToHome: () -> Unit) {
 @Composable
 private fun ColumnScope.ApiSettingsForm(service: ApiService) {
     val appContext = LocalContext.current.applicationContext
-    val viewModel = viewModel(key = service.name) { ApiSettingsViewModel(service, ApiSettingsStore(appContext)) }
+    val viewModel = viewModel(key = service.name) {
+        ApiSettingsViewModel(service, ApiSettingsStore(appContext), catalog = if (service in TEXT_AGENTS) ModelCatalog() else null)
+    }
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     LaunchedEffect(state.message) {
@@ -110,6 +117,9 @@ private fun ColumnScope.ApiSettingsForm(service: ApiService) {
         onApiChange = viewModel::onApiChange,
         onKeyChange = viewModel::onKeyChange,
         onSave = viewModel::onSave,
+        onModelChange = viewModel::onModelChange,
+        onImageModelChange = viewModel::onImageModelChange,
+        onRefreshModels = viewModel::refreshModels,
     )
 }
 
@@ -121,6 +131,9 @@ fun ColumnScope.ApiSettingsFields(
     onApiChange: (String) -> Unit,
     onKeyChange: (String) -> Unit,
     onSave: () -> Unit,
+    onModelChange: (String) -> Unit = {},
+    onImageModelChange: (String) -> Unit = {},
+    onRefreshModels: () -> Unit = {},
 ) {
     val apiError = state.apiError
     val keyError = state.keyError
@@ -156,5 +169,44 @@ fun ColumnScope.ApiSettingsFields(
             .fillMaxWidth()
             .testTag("keyField"),
     )
+    if (state.showModels) {
+        ModelPickers(state, onModelChange, onImageModelChange, onRefreshModels)
+    }
     PrimaryButton("SAVE", onClick = onSave)
+}
+
+/** Model dropdowns (Q-04) with the list's status and a Refresh that fetches it again. */
+@Composable
+private fun ModelPickers(
+    state: ApiSettingsUiState,
+    onModelChange: (String) -> Unit,
+    onImageModelChange: (String) -> Unit,
+    onRefreshModels: () -> Unit,
+) {
+    val labelOf = { options: List<AiModel> -> { id: String -> options.firstOrNull { it.id == id }?.label ?: id.ifBlank { "Choose a model" } } }
+    val text = state.textOptions
+    SelectDropdown("Model", state.model, text.map { it.id }, labelOf(text), onModelChange, "modelPicker")
+    if (state.showImageModel) {
+        val image = state.imageOptions
+        SelectDropdown("Image model", state.imageModel, image.map { it.id }, labelOf(image), onImageModelChange, "imageModelPicker")
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        val status = when {
+            state.loadingModels -> "Updating the model list…"
+            state.modelsError != null -> state.modelsError
+            state.models.text.isEmpty() -> "Save your API key to load the models."
+            else -> "${state.models.text.size} models available"
+        }
+        Text(
+            status,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (state.modelsError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .weight(1f)
+                .testTag("modelStatus"),
+        )
+        TextButton(onClick = onRefreshModels, enabled = !state.loadingModels && state.key.isNotBlank()) {
+            Text("Refresh models")
+        }
+    }
 }

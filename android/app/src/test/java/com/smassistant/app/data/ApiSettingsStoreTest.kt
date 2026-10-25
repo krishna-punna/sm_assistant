@@ -75,4 +75,24 @@ class ApiSettingsStoreTest {
         prefs.edit().putString("GROQ.key_enc", "garbage").commit()
         assertEquals("", store.load(ApiService.GROQ).key)
     }
+
+    @Test
+    fun `chosen models override the defaults until cleared`() {
+        store.saveModels(ApiService.GEMINI, " gemini-3-pro ", "gemini-3-pro-image")
+        assertEquals("gemini-3-pro", store.load(ApiService.GEMINI).model)
+        assertEquals("gemini-3-pro-image", store.load(ApiService.GEMINI).imageModel)
+
+        store.saveModels(ApiService.GEMINI, "", "")
+        assertEquals("gemini-2.5-flash", store.load(ApiService.GEMINI).model)
+        assertEquals("gemini-2.5-flash-image", store.load(ApiService.GEMINI).imageModel)
+    }
+
+    @Test
+    fun `fetched model lists are cached with their time`() {
+        assertNull(store.cachedModels(ApiService.CLAUDE))
+        val lists = ModelLists(text = listOf(AiModel("claude-sonnet-5-5", "Claude Sonnet 5.5")), image = listOf(AiModel("x")))
+        store.saveCachedModels(ApiService.CLAUDE, lists, fetchedAt = 1234L)
+        assertEquals(CachedModels(lists, 1234L), ApiSettingsStore(context, FakeCipher()).cachedModels(ApiService.CLAUDE))
+        assertNull(store.cachedModels(ApiService.GROQ))
+    }
 }
