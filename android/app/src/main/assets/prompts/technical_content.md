@@ -8,7 +8,7 @@ Follow this format:
 4. Summary: end with a line "📌 In short:" followed by one or two sentences that sum up the takeaway.
 
 Rules:
-- Stay under 3,000 characters in total, the LinkedIn post limit. Prefer fewer, sharper points to covering everything.
+- Stay within the length budget given at the end of these instructions. LinkedIn allows at most 3,000 characters per post, including the user's hashtags, so prefer fewer, sharper points to covering everything.
 - Be specific and correct: name real technologies, numbers and trade-offs. No filler, no marketing tone.
 - Use Markdown only for lists, tables, code blocks and **bold** key terms. Do not use # headings; the emoji lines are the headings.
 - Do not add hashtags. The app appends the user's default hashtags when posting.

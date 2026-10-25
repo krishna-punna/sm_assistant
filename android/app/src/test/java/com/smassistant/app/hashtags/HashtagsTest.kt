@@ -105,3 +105,24 @@ class HashtagsAppendTest {
         assertTrue(Hashtags.appendTo(body, listOf("#A"), enabled = true).fitsLimit)
     }
 }
+
+class PostLengthTest {
+    @Test
+    fun `counts emoji as one character and line breaks as characters`() {
+        assertEquals(1, postLength("🔧"))
+        assertEquals(5, postLength("a\n\n📌b"))
+    }
+
+    @Test
+    fun `an emoji-heavy post is measured in code points, not UTF-16 units`() {
+        val post = Hashtags.appendTo("🚀".repeat(3_000), emptyList(), enabled = false)
+        assertTrue(post.fitsLimit)
+    }
+
+    @Test
+    fun `reserved length is the tags plus the blank line, only when on`() {
+        assertEquals("#Java #AI".length + 2, Hashtags.reservedLength(listOf("#Java", "#AI"), enabled = true))
+        assertEquals(0, Hashtags.reservedLength(listOf("#Java"), enabled = false))
+        assertEquals(0, Hashtags.reservedLength(emptyList(), enabled = true))
+    }
+}

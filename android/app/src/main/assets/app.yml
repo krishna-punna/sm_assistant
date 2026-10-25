@@ -24,3 +24,10 @@ apis:
     api: https://api.groq.com/openai/v1/chat/completions
     model: llama-3.3-70b-versatile
     key: ""
+
+# LinkedIn post length (docs/requirements/12-post-length.md).
+# max_characters: LinkedIn's limit, including the default hashtags, spaces, emoji and line breaks.
+# shorten_attempts: how many times the AI agent is asked to shorten a post that comes back too long.
+linkedin_post:
+  max_characters: 3000
+  shorten_attempts: 2

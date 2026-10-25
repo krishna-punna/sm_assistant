@@ -35,7 +35,7 @@ Slide 12 is a screenshot of a real LinkedIn post by the product owner, showing t
 
 ## Content constraints *(inferred, to confirm)*
 
-- LinkedIn post commentary is limited to about 3,000 characters, so long technical write-ups (6.1) must be condensed into post format like slide 12, not posted verbatim. Generation prompts should target that format (Q-11).
+- LinkedIn post commentary is limited to 3,000 characters including the default hashtags, so long technical write-ups (6.1) must be condensed into post format like slide 12, not posted verbatim. Generation writes to a budget and shortens posts that go over: see [12 Post length](12-post-length.md).
 - LinkedIn renders plain text only: Markdown headings/tables must be converted (emoji headers, line breaks), and tables turned into an image as in slide 12.
 - Multi-image posts and video posts have their own size/count limits on LinkedIn.
 - A preview/edit step before publishing is recommended (Q-12). If added, it should show the default hashtags that will be appended.
