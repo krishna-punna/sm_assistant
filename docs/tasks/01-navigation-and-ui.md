@@ -13,7 +13,7 @@ Requirements: [02 Screens and navigation](../requirements/02-screens-and-navigat
 
 | ID | Type | Task | Depends on | Status |
 |----|------|------|-----------|--------|
-| NAV-2-I | Impl | Split `FeatureScreen` into the chat screen (GEN-I1) and add the image preview route `hub/IMAGE/preview/{index}`. | GEN-I1 | todo |
+| NAV-2-I | Impl | Split `FeatureScreen` into the chat screen (GEN-I1) and add the image preview route `hub/IMAGE/preview/{index}`. | GEN-I1 | partial — Prepare Prompt, Technical Content and Image have their own screens; the preview is a full-screen dialog rather than a route, so the generated files don't need to go through nav arguments |
 | NAV-4-I | Impl | Keep chat history and results in the ViewModel; restore input from `SavedStateHandle`. | FND-3 | todo |
 | NAV-V1 | Val | Walk the navigation map: every arrow in [02](../requirements/02-screens-and-navigation.md#navigation-map) works, every Back to Home lands on S1, system back from S1 exits. | — | todo |
 | NAV-T1 | UI | Nav test with `TestNavHostController`: each Home button opens the right route; Back to Home from each route returns to `home` with a one-entry back stack. | FND-1 | todo |

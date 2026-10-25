@@ -38,6 +38,7 @@ fun <R> ChatScreen(
     onBackToHome: () -> Unit,
     inputContent: @Composable (String) -> Unit,
     resultContent: @Composable (R) -> Unit,
+    noAgentMessage: String = "No AI agent is set up yet. Add an API key for Claude, Gemini or Groq.",
 ) {
     val listState = rememberLazyListState()
     LaunchedEffect(state.items.size) {
@@ -71,7 +72,7 @@ fun <R> ChatScreen(
                         is ChatItem.Loading -> GeneratingRow(onCancel)
                         is ChatItem.Failure -> ErrorCard(item.message, "Retry") { onRetry(item) }
                         is ChatItem.NoAgent -> ErrorCard(
-                            "No AI agent is set up yet. Add an API key for Claude, Gemini or Groq.",
+                            noAgentMessage,
                             "Set up an AI agent",
                             onSetUpAgent,
                         )

@@ -60,21 +60,21 @@ Current code: one placeholder `FeatureScreen` shared by all six hub features; Su
 
 | ID | Requirement | Status |
 |----|-------------|--------|
-| IM-1 | Generate one or more images | todo |
-| IM-2 | Thumbnail strip / carousel with count badge (Q-10) | todo |
-| IM-3 | Tap opens full preview (slide 8) | todo |
+| IM-1 | Generate one or more images | done |
+| IM-2 | Thumbnail strip / carousel with count badge (Q-10) | done |
+| IM-3 | Tap opens full preview (slide 8) | done |
 | IM-4 | Post in LinkedIn from result and preview | todo |
-| IM-5 | Choose which image(s) to post (Q-10) | todo — interim: all selected, user can deselect |
+| IM-5 | Choose which image(s) to post (Q-10) | done (interim) — all selected, user can deselect; posting uses it next |
 
 | ID | Type | Task | Depends on | Status |
 |----|------|------|-----------|--------|
-| IM-I1 | Impl | Image generator: optional text agent step turns the prompt into an image prompt (diagram style), then `ImageAgent` with count = 4 (Q-10 interim). | AGC-2, AGC-1 | todo |
-| IM-I2 | Impl | `ImageStrip`: horizontal pager of thumbnails (Coil), count badge "n/N", selection checkmarks (IM-5). | IM-I1 | todo |
-| IM-I3 | Impl | Full preview route (NAV-2-I): zoomable image, swipe between images, Post in LinkedIn + Back to Home. | IM-I2, NAV-2-I | todo |
+| IM-I1 | Impl | Image generator: optional text agent step turns the prompt into an image prompt (diagram style), then `ImageAgent` with count = 4 (Q-10 interim). | AGC-2, AGC-1 | done — `GenerateImagesUseCase` wraps the prompt in a diagram style template (`prompts/image.md`) instead of an extra text-agent call |
+| IM-I2 | Impl | `ImageStrip`: horizontal pager of thumbnails (Coil), count badge "n/N", selection checkmarks (IM-5). | IM-I1 | done — `ImageStrip`; local files decoded with `BitmapFactory` (no Coil) |
+| IM-I3 | Impl | Full preview route (NAV-2-I): zoomable image, swipe between images, Post in LinkedIn + Back to Home. | IM-I2, NAV-2-I | done — `ImagePreview` full-screen dialog (pager + pinch zoom); Post in LinkedIn with IM-I4 |
 | IM-I4 | Impl | Post selected images (LP-2 image path). | LP-2-I | todo |
 | IM-V1 | Val | Short URL prompt yields architecture-style diagrams; badge count matches; preview opens the tapped image; posting 1 and 3 images both work on LinkedIn. | IM-I1…4 | todo |
-| IM-T1 | unit | Generator: requested count, cache files created, error when Gemini not configured. | IM-I1 | todo |
-| IM-T2 | UI | Strip shows N thumbnails and badge; deselecting updates selection; tap navigates to preview with index. | IM-I2 | todo |
+| IM-T1 | unit | Generator: requested count, cache files created, error when Gemini not configured. | IM-I1 | done (`GenerateImagesTest`, `ImageAgentTest`) |
+| IM-T2 | UI | Strip shows N thumbnails and badge; deselecting updates selection; tap navigates to preview with index. | IM-I2 | done (`ImageStripTest`) |
 | IM-T3 | UI | Preview shows Post in LinkedIn and swipes between images. | IM-I3 | todo |
 
 ## 6.3 Generate Video (P6) — blocked on Q-08
