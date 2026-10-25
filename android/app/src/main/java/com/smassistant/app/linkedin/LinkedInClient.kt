@@ -35,8 +35,8 @@ data class LinkedInPost(val urn: String) {
 }
 
 /**
- * LinkedIn Posts API (docs/tasks LP-1-I). The key is the member's OAuth access token, pasted
- * on the LinkedIn settings screen for now (interim answer to Q-03); it needs `w_member_social`
+ * LinkedIn Posts API (docs/tasks LP-1-I). The key is the member's OAuth access token, from
+ * Sign in with LinkedIn or pasted on the LinkedIn settings screen (Q-03); it needs `w_member_social`
  * to post and `openid profile` for the member id. Settings are read at call time (LI-4-I).
  */
 class LinkedInClient(

@@ -7,7 +7,7 @@ Nothing is built yet. The auth model (**Q-03**) decides how the token is obtaine
 
 | ID | Requirement | Status | Gap |
 |----|-------------|--------|-----|
-| LP-1 | Post current result using saved LinkedIn settings | done (pasted token, Q-03 interim) | All five posting features |
+| LP-1 | Post current result using saved LinkedIn settings | done | All five posting features; token from Sign in with LinkedIn or pasted (Q-03) |
 | LP-2 | Text-only → text post; media → text as commentary with media attached | done | Text, image and video posts |
 | LP-3 | Missing/invalid settings → tell user, link to LinkedIn settings | done | |
 | LP-4 | Success (with link) or clear error | done | |

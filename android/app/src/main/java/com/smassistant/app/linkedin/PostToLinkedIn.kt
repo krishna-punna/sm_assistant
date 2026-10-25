@@ -110,8 +110,8 @@ class PostViewModel(private val useCase: PostToLinkedInUseCase) : ViewModel() {
     }
 
     private fun failure(error: ApiError) = when (error) {
-        ApiError.NotConfigured -> PostState.Failed("Set up LinkedIn first: paste your access token in LinkedIn settings.", openSettings = true)
-        ApiError.InvalidKey -> PostState.Failed("LinkedIn token expired or invalid. Paste a new access token in LinkedIn settings.", openSettings = true)
+        ApiError.NotConfigured -> PostState.Failed("Set up LinkedIn first: sign in or paste an access token in LinkedIn settings.", openSettings = true)
+        ApiError.InvalidKey -> PostState.Failed("LinkedIn token expired or invalid. Sign in again in LinkedIn settings.", openSettings = true)
         ApiError.NoAccess -> PostState.Failed("This LinkedIn token can't post. It needs the w_member_social permission.", openSettings = true)
         else -> PostState.Failed(error.userMessage(ApiService.LINKEDIN.displayName), openSettings = false)
     }

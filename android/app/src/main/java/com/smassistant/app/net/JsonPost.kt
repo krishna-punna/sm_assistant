@@ -29,6 +29,11 @@ suspend fun OkHttpClient.postJson(url: String, headers: Map<String, String>, bod
     } catch (e: IllegalArgumentException) {
         return ApiResult.Failed(ApiError.Unreachable("Invalid API URL"))
     }
+    return sendJson(request)
+}
+
+/** Sends [request] and returns the parsed JSON response, with errors mapped as for [postJson]. */
+suspend fun OkHttpClient.sendJson(request: Request): ApiResult<JsonObject> {
     return try {
         newCall(request).await().use { response ->
             val text = response.body?.string().orEmpty()

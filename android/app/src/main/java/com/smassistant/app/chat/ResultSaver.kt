@@ -1,0 +1,92 @@
+package com.smassistant.app.chat
+
+import com.smassistant.app.generate.ContentAndMedia
+import com.smassistant.app.generate.GeneratedVideo
+import com.smassistant.app.net.path
+import com.smassistant.app.net.textOrNull
+import com.smassistant.app.prompt.PreparedPrompt
+import java.io.File
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+
+/** Turns a feature's result into JSON and back, so the conversation survives process death (NAV-4). */
+interface ResultSaver<R> {
+    fun save(value: R): JsonElement
+
+    /** Null when the result can't come back, e.g. its media was cleared from the cache. */
+    fun restore(json: JsonElement): R?
+}
+
+const val MEDIA_GONE = "The media for this result is no longer on the phone. Tap Retry to make it again."
+const val STOPPED = "Stopped when the app was closed. Tap Retry."
+
+object TextSaver : ResultSaver<String> {
+    override fun save(value: String) = JsonPrimitive(value)
+    override fun restore(json: JsonElement) = json.textOrNull
+}
+
+object PreparedPromptSaver : ResultSaver<PreparedPrompt> {
+    override fun save(value: PreparedPrompt) = buildJsonObject {
+        put("title", value.title)
+        put("prompt", value.prompt)
+    }
+
+    override fun restore(json: JsonElement): PreparedPrompt? {
+        val title = json.path("title")?.textOrNull ?: return null
+        val prompt = json.path("prompt")?.textOrNull ?: return null
+        return PreparedPrompt(title, prompt)
+    }
+}
+
+private fun files(json: JsonElement?): List<File>? =
+    (json as? JsonArray)?.map { File(it.textOrNull ?: return null) }?.takeIf { list -> list.all { it.exists() } }
+
+private fun paths(files: List<File>) = JsonArray(files.map { JsonPrimitive(it.path) })
+
+/** Images are files in the media cache; the result is gone once any of them is. */
+object ImagesSaver : ResultSaver<List<File>> {
+    override fun save(value: List<File>) = paths(value)
+    override fun restore(json: JsonElement) = files(json)?.takeIf { it.isNotEmpty() }
+}
+
+object VideoSaver : ResultSaver<GeneratedVideo> {
+    override fun save(value: GeneratedVideo) = buildJsonObject {
+        put("file", value.file.path)
+        put("slides", paths(value.slides))
+    }
+
+    override fun restore(json: JsonElement): GeneratedVideo? {
+        val file = File(json.path("file")?.textOrNull ?: return null).takeIf { it.exists() } ?: return null
+        return GeneratedVideo(file, files(json.path("slides")) ?: emptyList())
+    }
+}
+
+/**
+ * Saves both halves of a Content & Image / Content & Video result. A half that was being
+ * retried, or whose media has gone, comes back as an error with its own Retry.
+ */
+class ContentAndMediaSaver<M>(private val media: ResultSaver<M>) : ResultSaver<ContentAndMedia<M>> {
+    override fun save(value: ContentAndMedia<M>) = buildJsonObject {
+        put("markdown", value.markdown)
+        put("textError", if (value.retryingText) STOPPED else value.textError)
+        put("media", value.media?.let(media::save) ?: JsonNull)
+        put("mediaError", if (value.retryingMedia) STOPPED else value.mediaError)
+    }
+
+    override fun restore(json: JsonElement): ContentAndMedia<M>? {
+        if (json !is JsonObject) return null
+        val savedMedia = json["media"]?.takeIf { it !is JsonNull }
+        val restoredMedia = savedMedia?.let(media::restore)
+        return ContentAndMedia(
+            markdown = json.path("markdown")?.textOrNull,
+            textError = json.path("textError")?.textOrNull,
+            media = restoredMedia,
+            mediaError = json.path("mediaError")?.textOrNull ?: if (savedMedia != null && restoredMedia == null) MEDIA_GONE else null,
+        )
+    }
+}

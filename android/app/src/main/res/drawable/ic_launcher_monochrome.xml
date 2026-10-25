@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Themed-icon layer (Android 13+): same shapes, sparkle cut out of the bubble. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M38,36H62A10,10 0,0 1,72 46V60A10,10 0,0 1,62 70H45L34,78V69.2A10,10 0,0 1,28 60V46A10,10 0,0 1,38 36Z M50,41Q50,53 62,53Q50,53 50,65Q50,53 38,53Q50,53 50,41Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M74,28Q74,34 80,34Q74,34 74,40Q74,34 68,34Q74,34 74,28Z" />
+</vector>
