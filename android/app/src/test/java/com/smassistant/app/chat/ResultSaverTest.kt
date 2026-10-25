@@ -37,7 +37,7 @@ class ResultSaverTest {
     @Test
     fun `content and media keep each half and its error`() {
         val saver = ContentAndMediaSaver(ImagesSaver)
-        val value = ContentAndMedia(markdown = "Post", media = null, mediaError = "Gemini is down")
+        val value = ContentAndMedia<List<File>>(markdown = "Post", media = null, mediaError = "Gemini is down")
         assertEquals(value, roundTrip(saver, value))
     }
 
