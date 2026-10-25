@@ -17,43 +17,43 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.smassistant.app.data.ApiConnectionCheck
 import com.smassistant.app.data.ApiService
 import com.smassistant.app.data.ApiSettingsStore
 import com.smassistant.app.data.ConnectionStatus
+import com.smassistant.app.status.ApiStatusViewModel
 import com.smassistant.app.ui.components.PrimaryButton
 import com.smassistant.app.ui.components.SmScreen
 import com.smassistant.app.ui.theme.SmGreen
-import kotlinx.coroutines.launch
 
 /** S15 API Status: tests every API with its current settings (docs/requirements/11-api-status.md). */
 @Composable
 fun ApiStatusScreen(onBackToHome: () -> Unit) {
-    val context = LocalContext.current
-    val store = remember { ApiSettingsStore(context) }
-    val checker = remember { ApiConnectionCheck() }
-    val statuses = remember { mutableStateMapOf<ApiService, ConnectionStatus>() }
-    val scope = rememberCoroutineScope()
-
-    fun testAll() {
-        ApiService.entries.forEach { service ->
-            statuses[service] = ConnectionStatus.Checking
-            scope.launch { statuses[service] = checker.check(service, store.load(service)) }
-        }
+    val appContext = LocalContext.current.applicationContext
+    val viewModel = viewModel {
+        val store = ApiSettingsStore(appContext)
+        val checker = ApiConnectionCheck()
+        ApiStatusViewModel(store::load, checker::check)
     }
+    val statuses by viewModel.statuses.collectAsStateWithLifecycle()
+    ApiStatusContent(statuses, onTestAgain = viewModel::testAll, onBackToHome = onBackToHome)
+}
 
-    LaunchedEffect(Unit) { testAll() }
-
+@Composable
+fun ApiStatusContent(
+    statuses: Map<ApiService, ConnectionStatus>,
+    onTestAgain: () -> Unit,
+    onBackToHome: () -> Unit,
+) {
     SmScreen(sectionTitle = "API Status", onBackToHome = onBackToHome) {
         Column(
             modifier = Modifier
@@ -67,8 +67,9 @@ fun ApiStatusScreen(onBackToHome: () -> Unit) {
         }
         PrimaryButton(
             "Test again",
-            onClick = { testAll() },
+            onClick = onTestAgain,
             modifier = Modifier.fillMaxWidth(),
+            enabled = statuses.values.none { it == ConnectionStatus.Checking },
         )
     }
 }

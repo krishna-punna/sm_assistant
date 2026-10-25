@@ -82,9 +82,16 @@ fun SectionChip(text: String) {
 }
 
 @Composable
-fun SmButton(label: String, color: Color, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun SmButton(
+    label: String,
+    color: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
     Button(
         onClick = onClick,
+        enabled = enabled,
         colors = ButtonDefaults.buttonColors(containerColor = color, contentColor = Color.White),
         shape = RoundedCornerShape(6.dp),
         modifier = modifier
@@ -101,5 +108,5 @@ fun MenuButton(label: String, onClick: () -> Unit) = SmButton(label, SmBlue, onC
 
 /** Full-width green button for commit actions (SAVE, Submit). */
 @Composable
-fun PrimaryButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) =
-    SmButton(label, SmGreen, onClick, modifier)
+fun PrimaryButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) =
+    SmButton(label, SmGreen, onClick, modifier, enabled)
