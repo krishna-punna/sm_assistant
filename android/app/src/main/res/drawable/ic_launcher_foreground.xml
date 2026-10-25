@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Chat bubble with an AI sparkle, in the app's blue/amber palette. 108dp adaptive-icon canvas. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M38,36H62A10,10 0,0 1,72 46V60A10,10 0,0 1,62 70H45L34,78V69.2A10,10 0,0 1,28 60V46A10,10 0,0 1,38 36Z" />
+    <path
+        android:fillColor="#4472C4"
+        android:pathData="M50,41Q50,53 62,53Q50,53 50,65Q50,53 38,53Q50,53 50,41Z" />
+    <path
+        android:fillColor="#FFC000"
+        android:pathData="M74,28Q74,34 80,34Q74,34 74,40Q74,34 68,34Q74,34 74,28Z" />
+</vector>

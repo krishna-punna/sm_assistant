@@ -49,6 +49,11 @@ android {
     }
 }
 
+// APKs are named after the app, e.g. SMAssistant-0.1.0-debug.apk.
+base {
+    archivesName.set("SMAssistant-${android.defaultConfig.versionName}")
+}
+
 kotlin {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
