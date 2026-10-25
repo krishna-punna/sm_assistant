@@ -61,6 +61,7 @@ fun SmNavHost(navController: NavHostController = rememberNavController()) {
                 )
                 Feature.TECHNICAL_CONTENT -> TechnicalContentScreen(
                     onSetUpAgent = { navController.navigate(Routes.AI_AGENTS) },
+                    onSetUpLinkedIn = { navController.navigate(Routes.LINKEDIN_SETTINGS) },
                     onBackToHome = backToHome,
                 )
                 else -> FeatureScreen(feature = feature, onBackToHome = backToHome)

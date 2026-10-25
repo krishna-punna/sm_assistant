@@ -43,14 +43,14 @@ Current code: one placeholder `FeatureScreen` shared by all six hub features; Su
 |----|-------------|--------|
 | TC-1 | Render Markdown: headings, lists, tables, inline code, code blocks | done |
 | TC-2 | Result scrolls for long output | done |
-| TC-3 | Post in LinkedIn publishes the text (see 07) | todo |
+| TC-3 | Post in LinkedIn publishes the text (see 07) | done |
 
 | ID | Type | Task | Depends on | Status |
 |----|------|------|-----------|--------|
 | TC-I1 | Impl | Technical content system prompt (`assets/prompts/technical_content.md`). Per Q-11 interim: produce a LinkedIn-ready post (hook line with emoji, emoji sections, "📌 In short:", ≤ 3,000 chars) like slide 12. | Q-11 (interim), AGC-1 | done — `technical_content.md`, `GenerateTextUseCase` |
 | TC-I2 | Impl | Markdown renderer composable (e.g. `com.mikepenz:multiplatform-markdown-renderer-m3`) with table and code-block support. | GEN-I1 | done — `MarkdownText` on the in-app parser (no new library) |
 | TC-I3 | Impl | `MarkdownToLinkedIn` converter (pure): headings → bold-ish lines/emoji, lists → "• ", code blocks kept as plain text, tables → text rows (until tables become images). Used by TC-3. | — | done — `MarkdownToLinkedIn` on a small shared parser (`parseMarkdown`, `parseInline`) |
-| TC-I4 | Impl | Post in LinkedIn under the result → posting use case (LP-1-I) with converted text. | LP-1-I, TC-I3 | todo (P4) |
+| TC-I4 | Impl | Post in LinkedIn under the result → posting use case (LP-1-I) with converted text. | LP-1-I, TC-I3 | done |
 | TC-V1 | Val | "System Design: Short URL Service" prompt renders headings, numbered list and the NFR table like slide 6; long output scrolls. | TC-I2 | todo |
 | TC-V2 | Val | Posted result on LinkedIn reads cleanly (no `#`/`|` Markdown artefacts) and is ≤ 3,000 chars. | TC-I4 | todo |
 | TC-T1 | unit | `MarkdownToLinkedIn`: each Markdown construct; output never contains `**`, `##`, table pipes; length preserved within limits. | TC-I3 | done (`MarkdownTest`, `MarkdownToLinkedInTest`) |
