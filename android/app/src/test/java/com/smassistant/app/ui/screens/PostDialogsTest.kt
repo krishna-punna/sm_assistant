@@ -1,13 +1,13 @@
 package com.smassistant.app.ui.screens
 
-import androidx.compose.ui.test.assertIsEnabled
-import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.smassistant.app.linkedin.PostState
+import com.smassistant.app.ui.components.ConfirmPostContent
 import com.smassistant.app.ui.components.PostDialogs
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -31,20 +31,21 @@ class PostDialogsTest {
         )
     }
 
+    // The confirm body is tested outside its AlertDialog: a text field inside a dialog window
+    // never lets Robolectric go idle (AppNotIdleException, then OutOfMemoryError).
     @Test
     fun confirmShowsAddedHashtagsAndCount() {
-        show(PostState.Confirm("Hello\n\n#java", listOf("#java")))
+        compose.setContent { ConfirmPostContent(PostState.Confirm("Hello\n\n#java", listOf("#java"))) { events += "text" } }
         compose.onNodeWithText("Default hashtags added: #java").assertExists()
         compose.onNodeWithText("12 / 3000 characters").assertExists()
-        compose.onNodeWithText("Post").assertIsEnabled().performClick()
-        assertEquals(listOf("confirm"), events)
     }
 
     @Test
-    fun overLimitDisablesPost() {
-        show(PostState.Confirm("a".repeat(3_005), emptyList()))
+    fun overLimitShowsHowMuchToCut() {
+        val state = PostState.Confirm("a".repeat(3_005), emptyList())
+        compose.setContent { ConfirmPostContent(state) { events += "text" } }
         compose.onNodeWithText("5 characters over LinkedIn's 3000 limit. Shorten the text to post.").assertExists()
-        compose.onNodeWithText("Post").assertIsNotEnabled()
+        assertFalse(state.canPost)
     }
 
     @Test
