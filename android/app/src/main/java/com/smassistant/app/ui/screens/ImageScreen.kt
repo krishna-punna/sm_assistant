@@ -21,7 +21,7 @@ import com.smassistant.app.ui.components.ImagePreview
 import com.smassistant.app.ui.components.ImageStrip
 import com.smassistant.app.ui.components.PromptCard
 import com.smassistant.app.ui.components.SmButton
-import com.smassistant.app.ui.theme.SmGreen
+import com.smassistant.app.ui.theme.SmBlack
 import java.io.File
 
 /** S10 Generate Image (docs/requirements/06 §6.2): prompt card, image strip, full preview. */
@@ -70,10 +70,10 @@ fun ImageResult(images: List<File>, onBackToHome: () -> Unit) {
     )
     previewIndex?.let { start ->
         ImagePreview(images, start, onDismiss = { previewIndex = null }) {
-            SmButton("Back to Home", SmGreen) {
+            SmButton("Back to Home", SmBlack, onClick = {
                 previewIndex = null
                 onBackToHome()
-            }
+            })
         }
     }
 }
