@@ -1,0 +1,121 @@
+# SM Assistant — Implementation task breakdown
+
+Tasks to implement every requirement in [`docs/requirements/`](../requirements/README.md) in the Android app (`android/`).
+Status is measured against `f-mobile-app` after PR #4 (Android skeleton, `app.yml` config, API Status screen, CI APK build) was merged on 2026-10-25.
+
+## How to read the task files
+
+Each requirement ID (e.g. `HT-4`) has up to three kinds of task:
+
+| Type | Prefix | Meaning |
+|------|--------|---------|
+| Implementation | `…-I` | Write the code that delivers the requirement. |
+| Validation | `…-V` | Check the built app against the requirement and wireframe on a device/emulator, using the acceptance criteria listed. Done by a person (or a scripted UI walk-through) before the requirement is marked done. |
+| Test | `…-T` | Automated tests that keep the requirement working: **unit** (JVM, `app/src/test`) or **UI** (Compose instrumented, `app/src/androidTest`). |
+
+Status values: **done** (implemented and matches the requirement), **partial** (some code exists, gaps listed), **todo**, **blocked** (needs an answer to an open question first; an interim choice may let work start).
+
+"Depends on" lists task IDs that must be finished first.
+
+## Files
+
+| File | Covers | Requirement IDs |
+|------|--------|-----------------|
+| [00-foundation.md](00-foundation.md) | Test setup, CI, architecture, secure storage, HTTP layer | NFRs from 03, 04 |
+| [01-navigation-and-ui.md](01-navigation-and-ui.md) | Screens S1–S15, navigation, shared components, UI conventions | 02, 08 |
+| [02-settings.md](02-settings.md) | LinkedIn and AI agent settings | LI-1…4, AG-1…5 |
+| [03-api-status.md](03-api-status.md) | API Status screen | AS-1…6 |
+| [04-default-hashtags.md](04-default-hashtags.md) | Default hashtags list, toggle, appending | HT-1…16 |
+| [05-prepare-prompt.md](05-prepare-prompt.md) | Prepare LinkedIn Post Prompt | PP-1…7 |
+| [06-content-generation.md](06-content-generation.md) | Shared generation, Technical Content, Image, Video, Content & Image, Content & Video | GEN-1…4, TC-1…3, IM-1…5, VI-1…3, CI-1…2, CV-1…2 |
+| [07-post-to-linkedin.md](07-post-to-linkedin.md) | Post in LinkedIn | LP-1…5 |
+
+## Phases
+
+Phases are ordered so each one ships something usable and later phases build on earlier ones.
+
+| Phase | Goal | Main tasks | Needs answers to |
+|-------|------|-----------|------------------|
+| **P0 Foundation** | Make the code testable and CI-checked before adding features | FND-1…8 | Q-14 (only for FND-4 long-term) |
+| **P1 Settings and status hardening** | Finish and test what PR #4 started | NAV-*, UI-*, LI-*, AG-1…4, AS-* | Q-03, Q-04 (interim choices possible) |
+| **P2 Default hashtags** | Fully local feature, no external APIs | HT-1…9, HT-10…14 logic | Q-17, Q-18 (interim choices in place) |
+| **P3 AI text** | Agent clients and the two text features | AGC-*, GEN-1…4, PP-*, TC-1…2 | Q-05, Q-09, Q-11 |
+| **P4 Post text to LinkedIn** | First end-to-end flow: topic → prompt → content → post | LP-1…5, TC-3, HT-10…16 wiring | **Q-03** (auth), Q-12 |
+| **P5 Images** | Image generation and image posts | IM-*, CI-* | Q-10 |
+| **P6 Video** | Video generation and video posts | VI-*, CV-* | **Q-08** (hard block) |
+| **P7 Release polish** | Accessibility, release build, signing | REL-* in [00-foundation.md](00-foundation.md) | Q-15 (iOS?) |
+
+```mermaid
+flowchart LR
+    P0[P0 Foundation] --> P1[P1 Settings + status]
+    P0 --> P2[P2 Default hashtags]
+    P1 --> P3[P3 AI text]
+    P3 --> P4[P4 Post text to LinkedIn]
+    P2 --> P4
+    P4 --> P5[P5 Images]
+    P5 --> P6[P6 Video]
+    P4 & P5 & P6 --> P7[P7 Release]
+```
+
+P1 and P2 can run in parallel once P0 is in.
+
+## Status summary (after PR #4)
+
+| Area | Done | Partial | Todo | Blocked |
+|------|------|---------|------|---------|
+| Foundation | 0 | 2 | 6 | 0 |
+| Navigation & UI | 3 | 5 | 0 | 1 |
+| Settings (LI, AG) | 5 | 3 | 2 | 2 |
+| API Status (AS) | 5 | 1 | 1 | 0 |
+| Default hashtags (HT) | 1 | 3 | 13 | 0 |
+| Prepare prompt (PP) | 1 | 1 | 6 | 0 |
+| Content generation | 0 | 1 | 16 | 4 |
+| Post to LinkedIn (LP) | 0 | 0 | 4 | 3 |
+
+Counts are per requirement row in each file (including the new rows this plan adds), not per task. Nothing has automated tests yet: the `test`/`androidTest` dependencies are declared but there are no test sources, and CI only builds the APK.
+
+## Defects found in the current code
+
+| # | Where | Problem | Fixed by |
+|---|-------|---------|----------|
+| D-1 | `DefaultHashtagsScreen.kt` | Toggle starts **on**; HT-8 says it starts **off** until the first non-empty save. Toggle and list aren't persisted. | HT-7-I, HT-8-I |
+| D-2 | `ApiSettingsStore` | API keys are in plain `SharedPreferences` (excluded from backup, but not encrypted). Requirement 03/04 NFR asks for Keystore-backed storage. | FND-4 |
+| D-3 | `ApiSettingsForm` | No validation for empty fields, and saving an empty API URL overwrites the `app.yml` default with `""`. | LI-2-I, AG-2-I |
+| D-4 | `FeatureScreen` | One generic screen for all six features with a TODO Submit; no chat history, prompt cards, or result view. | GEN-*, PP-* |
+| D-5 | `.github/workflows/android.yml` | CI builds only; no unit tests or lint. | FND-2 |
+| D-6 | Settings screens | `model` from `app.yml` is loaded but can't be viewed or changed in the app. | AG-6 (Q-04) |
+
+## Blocked on open questions
+
+| Question | Blocks | Interim choice so work can start | Hard block? |
+|----------|--------|----------------------------------|-------------|
+| Q-01 Duplicate AI Agent button | NAV-1 final layout | One button (already done) | No |
+| Q-02 Back on hub / one-level back | NAV-3 | Back to Home on hub + system back pops one level (done) | No |
+| **Q-03 LinkedIn auth** | LI-*, LP-1, LP-2, AS LinkedIn check | Treat the key field as a pasted OAuth access token with `w_member_social` | **Yes for P4** — pasted tokens expire in 60 days; a real sign-in flow changes the settings screen |
+| Q-04 What "APIs" holds; model choice | AG-6 | API = endpoint URL, model from `app.yml` | No |
+| Q-05 Which agent per feature | GEN-1, AGC-4 | Default agent setting + capability filter (text: any; image: Gemini) | No, but affects UI |
+| Q-06 Prompt hand-off | PP-8 | Copy/paste only | No |
+| Q-07 Hub vs Home | NAV-2 | Separate hub (done) | No |
+| **Q-08 Video** | VI-*, CV-* | None sensible | **Yes for P6** |
+| Q-09 Loading/error states | GEN-4 | Spinner + inline error card with Retry | No |
+| Q-10 Image count / selection | IM-2, IM-5 | Up to 4 images, user can deselect | No |
+| Q-11 Post format | TC-1, TC-3, LP-2 | Generators produce LinkedIn-ready text ≤ 3,000 chars | No, but changes prompts |
+| Q-12 Preview/edit before posting | LP-6, HT-15 | Confirmation dialog showing final text | No |
+| Q-13 Storage of conversations | GEN-5 | In-memory only per screen | No |
+| Q-14 Direct calls vs backend | FND-4, all API clients | Direct calls from the device | No (rework if backend chosen) |
+| Q-15 Platforms | REL-* | Android only | No |
+| Q-16 Accounts | — | Single-user, no login | No |
+| Q-17 Toggle location | HT-7 | On the Default Hash Tags screen (done) | No |
+| Q-18 Clear behaviour | HT-5 | Clear empties the box only | No |
+| Q-19 Per-post skip | HT-17 | Global toggle only | No |
+| Q-20 AI-suggested hashtags | — (future) | Not built | No |
+| Q-21 LinkedIn status endpoint | AS-3 LinkedIn | Keep `/v2/userinfo`, show No access | No |
+| Q-22 Test button on settings | AS-7 | Not built | No |
+| Q-23 Warn when agent not Connected | GEN-6 | Not built | No |
+
+## Traceability
+
+Every requirement ID in `docs/requirements/` appears in exactly one task file:
+LI-1…4 and AG-1…5 in 02, AS-1…6 in 03, HT-1…16 in 04, PP-1…7 in 05, GEN-1…4 / TC / IM / VI / CI / CV in 06, LP-1…5 in 07.
+Screen IDs S1–S15 and the UI conventions are in 01. Inferred NFRs (secure storage, never log keys, generic agent screen) are in 00 and 02.
+IDs not in the requirements (FND, NAV, UI, AGC, REL, AG-6, AS-7, PP-8, GEN-5/6, LP-6, HT-17) are new tasks this plan adds; each says which question or NFR it comes from.
