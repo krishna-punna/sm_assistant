@@ -66,7 +66,7 @@ P1 and P2 can run in parallel once P0 is in.
 | Foundation | 2 | 3 | 3 | 0 |
 | Navigation & UI | 3 | 5 | 0 | 1 |
 | Settings (LI, AG) | 5 | 3 | 2 | 2 |
-| API Status (AS) | 5 | 1 | 1 | 0 |
+| API Status (AS) | 6 | 0 | 1 | 0 |
 | Default hashtags (HT) | 10 | 0 | 7 | 0 |
 | Prepare prompt (PP) | 1 | 1 | 6 | 0 |
 | Content generation | 0 | 1 | 16 | 4 |
