@@ -82,17 +82,17 @@ Current code: one placeholder `FeatureScreen` shared by all six hub features; Su
 | ID | Requirement | Status |
 |----|-------------|--------|
 | VI-1 | Generate a short video from the prompt | **blocked (Q-08)** |
-| VI-2 | Inline playback with standard controls | todo (independent of provider) |
+| VI-2 | Inline playback with standard controls | done (`VideoPlayer`) |
 | VI-3 | Post in LinkedIn publishes the video | blocked (needs VI-1 + LP-2 video path) |
 
 | ID | Type | Task | Depends on | Status |
 |----|------|------|-----------|--------|
 | VI-I1 | Impl | Video generator via AGC-3 (long-running; show progress, allow leaving the screen and returning). | AGC-3, Q-08 | blocked |
-| VI-I2 | Impl | Inline player (Media3 ExoPlayer) for a local file URI. Can be built with a sample MP4 before Q-08. | GEN-I1 | todo |
+| VI-I2 | Impl | Inline player (Media3 ExoPlayer) for a local file URI. Can be built with a sample MP4 before Q-08. | GEN-I1 | done — `VideoPlayer` (Media3 1.8 ExoPlayer + PlayerView) |
 | VI-I3 | Impl | Post video (LP-2 video path: register upload, upload parts, finalize). | LP-2-I, VI-I1 | blocked |
 | VI-V1 | Val | Generated video plays inline, length/format within LinkedIn limits, posts successfully. | VI-I1…3 | blocked |
 | VI-T1 | unit | Polling generator: pending → done → file saved; timeout → error. | VI-I1 | blocked |
-| VI-T2 | UI | Player shows controls for a sample file. | VI-I2 | todo |
+| VI-T2 | UI | Player shows controls for a sample file. | VI-I2 | done (`VideoPlayerTest`) |
 
 ## 6.4 Generate Content & Image (P5)
 
