@@ -120,7 +120,7 @@ class ProviderImageAgentsTest {
         json("""{"request_id":"r1","response_url":"${server.url("/fal-ai/qwen-image/requests/r1")}"}""")
         json("""{"status":"FAILED"}""")
 
-        assertEquals(ApiResult.Failed(ApiError.BadResponse("image request failed")), hfAgent("Qwen/Qwen-Image").run())
+        assertEquals(ApiResult.Failed(ApiError.BadResponse("the request failed")), hfAgent("Qwen/Qwen-Image").run())
     }
 
     @Test

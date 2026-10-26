@@ -2,11 +2,15 @@ package com.smassistant.app.generate
 
 import android.content.Context
 import com.smassistant.app.agents.AgentPreferences
+import com.smassistant.app.agents.HuggingFaceVideoAgent
 import com.smassistant.app.agents.ImageAgent
 import com.smassistant.app.agents.TextAgent
+import com.smassistant.app.agents.VideoClipAgent
 import com.smassistant.app.agents.appAgentSelector
 import com.smassistant.app.agents.appImageAgentSelector
 import com.smassistant.app.chat.Outcome
+import com.smassistant.app.data.ApiService
+import com.smassistant.app.data.ApiSettingsStore
 import com.smassistant.app.data.MediaPurpose
 import com.smassistant.app.infographic.InfographicPipeline
 import com.smassistant.app.infographic.InfographicRenderer
@@ -35,7 +39,10 @@ const val ILLUSTRATIONS_PER_SLIDE = 1
 /** Name used in video errors, e.g. "Unexpected response from the video maker: …". */
 const val VIDEO_MAKER = "the video maker"
 
-/** A generated video, [seconds] long. */
+/**
+ * A generated video: a slideshow of [slides], [seconds] long, or an AI clip from a text-to-video
+ * model when [slides] is empty (its length is the model's, so [seconds] is 0).
+ */
 data class GeneratedVideo(val file: File, val slides: List<File>, val seconds: Int = DEFAULT_VIDEO_SECONDS)
 
 /** The video pipeline's parts: the text agent that plans the deck, and how each slide is drawn. */
@@ -63,9 +70,20 @@ class GenerateVideoUseCase(
     private val newVideoFile: () -> File,
     private val seconds: () -> Int = { DEFAULT_VIDEO_SECONDS },
     private val decks: SlideDecks? = null,
+    private val clips: () -> VideoClipAgent? = { null },
+    private val clipTemplate: String = "{{prompt}}",
 ) {
     suspend operator fun invoke(prompt: String): Outcome<GeneratedVideo> {
         val topic = prompt.trim()
+        // A text-to-video model (Hugging Face, e.g. Wan 2.2) makes a real clip; anything else makes a slideshow.
+        // The clip is as long as the model makes it (a few seconds); the picked length applies to slideshows.
+        clips()?.let { clipAgent ->
+            when (val clip = clipAgent.generate(clipTemplate.replace("{{prompt}}", topic))) {
+                null -> Unit
+                is ApiResult.Ok -> return Outcome.Ok(GeneratedVideo(clip.value, slides = emptyList(), seconds = 0))
+                is ApiResult.Failed -> return Outcome.Failed(clip.error, clipAgent.service.displayName)
+            }
+        }
         val length = seconds()
         val slides = slidesFor(length)
         val drawn = decks?.let { parts -> parts.textAgent()?.let { writer -> deckSlides(parts, writer, topic, slides, length / slides) } }
@@ -130,9 +148,11 @@ class GenerateVideoUseCase(
  */
 fun appGenerateVideo(context: Context): GenerateVideoUseCase {
     val cache = MediaCache(context)
+    val selector = appImageAgentSelector(context, cache, MediaPurpose.VIDEO, illustrations = true)
+    val store = ApiSettingsStore(context)
     return GenerateVideoUseCase(
         slideTemplate = loadPromptAsset(context, "video"),
-        agent = appImageAgentSelector(context, cache, MediaPurpose.VIDEO, illustrations = true)::imageAgent,
+        agent = selector::imageAgent,
         maker = Media3SlideshowMaker(context.applicationContext),
         newVideoFile = { cache.newFile("mp4") },
         seconds = AgentPreferences(context)::videoSeconds,
@@ -148,5 +168,13 @@ fun appGenerateVideo(context: Context): GenerateVideoUseCase {
                 composer = AndroidInfographicComposer(cache, scale = 1f),
             ),
         ),
+        clips = {
+            if (selector.imageAgent()?.service == ApiService.HUGGINGFACE) {
+                HuggingFaceVideoAgent({ store.load(ApiService.HUGGINGFACE) }, cache)
+            } else {
+                null
+            }
+        },
+        clipTemplate = loadPromptAsset(context, "video_clip"),
     )
 }
