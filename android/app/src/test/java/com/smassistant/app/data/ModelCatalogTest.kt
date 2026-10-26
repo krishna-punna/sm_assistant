@@ -105,7 +105,7 @@ class ModelCatalogTest {
         )
         assertEquals("/v1/models", server.takeRequest().path)
         val hub = server.takeRequest()
-        assertEquals("/api/models?pipeline_tag=text-to-image&inference_provider=hf-inference&sort=likes&limit=100", hub.path)
+        assertEquals("/api/models?pipeline_tag=text-to-image&inference_provider=hf-inference%2Cfal-ai%2Ctogether&sort=likes&limit=100", hub.path)
         assertEquals("Bearer hf", hub.getHeader("Authorization"))
     }
 
