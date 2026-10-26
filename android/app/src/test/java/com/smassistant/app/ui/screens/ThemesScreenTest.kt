@@ -50,6 +50,7 @@ class ThemesScreenTest {
         compose.onNodeWithTag("applyTheme").performScrollTo().assertIsEnabled()
             .assertTextEquals("Apply Midnight Neon").performClick()
 
+        compose.waitForIdle()
         assertEquals(listOf(ThemeId.MIDNIGHT_NEON), applied)
         assertEquals(ThemeId.MIDNIGHT_NEON, inUse)
         compose.onNodeWithTag("applyTheme").assertTextEquals("Midnight Neon is in use").assertIsNotEnabled()
