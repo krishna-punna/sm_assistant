@@ -34,7 +34,7 @@ Home → **API Status** *(S15 in the [screen inventory](02-screens-and-navigatio
   | LinkedIn | `GET /v2/userinfo` with the access token as Bearer |
   | Hugging Face | `GET https://huggingface.co/api/whoami-v2` with the token as Bearer (the router lists models without a key) |
   | Cloudflare | `GET {api}/models/search?per_page=1` with the token as Bearer, so the account id is checked too |
-  | Pollinations.AI | `GET /account/integrations` with the key as Bearer (its model lists are public) |
+  | Pollinations.AI | `GET /account/key` with the key as Bearer (its model lists are public; this key-info endpoint needs no account permission) |
 
   The request goes to the host of the configured API URL. Cloudflare shows *Not set up* until both the account ID and the token are saved.
 - **AS-4** Results map to these statuses:
