@@ -54,7 +54,8 @@ class GenerateTextUseCase(
 
 /**
  * The technical post generator the screens use (TC-I1): `technical_content.md` with the selected
- * text agent, kept within LinkedIn's limit including the saved default hashtags.
+ * text agent, kept within LinkedIn's limit including the saved default hashtags, and ending with
+ * a few AI-suggested hashtags when that toggle is on (HT-21).
  */
 fun appGenerateTechnicalContent(context: Context): GenerateTextUseCase {
     val hashtags = HashtagSettingsStore(context)
@@ -62,6 +63,12 @@ fun appGenerateTechnicalContent(context: Context): GenerateTextUseCase {
     return GenerateTextUseCase(
         loadPromptAsset(context, "technical_content"),
         appAgentSelector(context)::textAgent,
-        PostLengthGuard({ rules.maxCharacters }, { hashtags.tags }, { hashtags.enabled }, rules.shortenAttempts),
+        PostLengthGuard(
+            { rules.maxCharacters },
+            { hashtags.tags },
+            { hashtags.enabled },
+            rules.shortenAttempts,
+            aiHashtags = { if (hashtags.aiEnabled) rules.aiHashtags else 0 },
+        ),
     )
 }

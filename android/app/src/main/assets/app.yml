@@ -28,6 +28,8 @@ apis:
 # LinkedIn post length (docs/requirements/12-post-length.md).
 # max_characters: LinkedIn's limit, including the default hashtags, spaces, emoji and line breaks.
 # shorten_attempts: how many times the AI agent is asked to shorten a post that comes back too long.
+# ai_hashtags: the most hashtags the AI agent adds when "AI-suggested hashtags" is on (1 to 10).
 linkedin_post:
   max_characters: 3000
   shorten_attempts: 3
+  ai_hashtags: 3

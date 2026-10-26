@@ -106,6 +106,44 @@ class HashtagsAppendTest {
     }
 }
 
+class AiHashtagsTest {
+    private val tags = listOf("#JavaDeveloper", "#AIEngineer")
+
+    @Test
+    fun `defaults join the agent's hashtag line, first and without duplicates`() {
+        val post = Hashtags.appendTo("📌 In short: use YAML.\n\n#SpringBoot #aiengineer #Java", tags, enabled = true)
+        assertEquals("📌 In short: use YAML.\n\n#JavaDeveloper #AIEngineer #SpringBoot #Java", post.text)
+        assertEquals(listOf("#JavaDeveloper"), post.addedTags)
+    }
+
+    @Test
+    fun `the agent's line is kept as is when the defaults are off`() {
+        val body = "Body\n\n#SpringBoot #Java"
+        assertEquals(body, Hashtags.appendTo(body, tags, enabled = false).text)
+    }
+
+    @Test
+    fun `characters LinkedIn doesn't allow are dropped from the agent's tags`() {
+        assertEquals(
+            "Body\n\n#SpringBoot #CPP",
+            Hashtags.appendTo("Body\n#Spring-Boot #CPP.", emptyList(), enabled = false).text,
+        )
+    }
+
+    @Test
+    fun `a last line with words is not a hashtag line`() {
+        assertEquals("Body\nI love #Java" to emptyList<String>(), Hashtags.splitTrailingTags("Body\nI love #Java"))
+        assertEquals("Body\n\n" to listOf("#A", "#B"), Hashtags.splitTrailingTags("Body\n\n#A, #B #a\n"))
+    }
+
+    @Test
+    fun `merged hashtags count towards the limit`() {
+        val body = "x".repeat(2_980) + "\n\n#Java"
+        val post = Hashtags.appendTo(body, tags, enabled = true)
+        assertEquals(2_980 + 2 + "#JavaDeveloper #AIEngineer #Java".length - LINKEDIN_POST_LIMIT, post.overLimitBy)
+    }
+}
+
 class PostLengthTest {
     @Test
     fun `counts emoji as one character and line breaks as characters`() {

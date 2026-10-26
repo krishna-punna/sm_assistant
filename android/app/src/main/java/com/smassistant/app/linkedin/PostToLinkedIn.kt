@@ -135,8 +135,10 @@ class PostViewModel(
         val confirm = _state.value as? PostState.Confirm ?: return
         val trim = smartTrim ?: return
         if (confirm.trimming || confirm.text.isBlank()) return
-        val tail = Hashtags.format(confirm.addedTags).takeIf { it.isNotEmpty() && confirm.text.trimEnd().endsWith(it) }
-        val body = tail?.let { confirm.text.trimEnd().removeSuffix(it).trimEnd() } ?: confirm.text
+        // The last line of hashtags (defaults merged with any the agent suggested, HT-22) stays as it is.
+        val (rest, trailing) = Hashtags.splitTrailingTags(confirm.text)
+        val tail = Hashtags.format(trailing).takeIf { it.isNotEmpty() }
+        val body = if (tail != null) rest.trimEnd() else confirm.text
         if (body.isBlank()) return
         fun join(text: String) = if (tail == null) text else text.trimEnd() + "\n\n" + tail
         val budget = confirm.limit - (tail?.let { postLength(it) + 2 } ?: 0)

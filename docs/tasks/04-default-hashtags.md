@@ -37,6 +37,7 @@ Fully local, so it can be built and tested in parallel with P1. The appending lo
 | HT-I4 | `HashtagAppender.apply(body, tags, enabled): PostText` (pure): HT-10 format, HT-11 skip existing (match whole tags, case-insensitive), HT-12 media-only → tags only, HT-14 returns `overLimitBy` when body + tags > 3,000. | HT-I1 | done — `Hashtags.appendTo` |
 | HT-I5 | Call `HashtagAppender` inside the posting use case for every posting feature, never on Prepare Prompt; show over-limit message; feed the final text to the preview (LP-6). Covers HT-12…16. | HT-I4, LP-1-I, LP-6-I | done — `PostToLinkedInUseCase.prepare` |
 | HT-17-I *(Q-19)* | Per-post "Skip hashtags" in the preview. | Q-19, LP-6-I | blocked (optional) |
+| HT-20-I *(Q-20)* | "AI-suggested hashtags" toggle (`HashtagSettingsStore.aiEnabled`); `PostLengthGuard` asks the agent for up to `linkedin_post.ai_hashtags` topic hashtags on a last line; `Hashtags.appendTo` merges the defaults into that line (dedupe, sanitise). Covers HT-20…23. | HT-I4, PL | done |
 
 ## Validation
 
@@ -48,6 +49,7 @@ Fully local, so it can be built and tested in parallel with P1. The appending lo
 | HT-V4 | Six tags → warning shown, save still succeeds. | todo |
 | HT-V5 (P4) | Post technical content with toggle on: LinkedIn post ends with a blank line + tags; a tag already in the body isn't repeated. Toggle off: no tags. Image-only post: text is just the tags. | todo |
 | HT-V6 (P4) | Body of 2,990 chars + tags: user is told to shorten, nothing posted. | todo |
+| HT-V7 | AI-suggested hashtags on: generated post ends with ≤ 3 topic tags; posting merges defaults onto that line, no duplicates, still ≤ 3,000. Off: no AI tags. | todo |
 
 ## Tests
 
@@ -58,3 +60,4 @@ Fully local, so it can be built and tested in parallel with P1. The appending lo
 | HT-T3 | unit | Appender: format (`body\n\n#A #B`), skip existing (`#ai` in body skips `#AI`, but `#AIEngineer` in body doesn't skip `#AI`), disabled/empty → body unchanged, media-only → tags only, over-limit detection at 3,000. | done (`HashtagsAppendTest`) |
 | HT-T4 | UI | Prepare Prompt screen has no Post in LinkedIn button, so its output can never get hashtags (HT-16). | done (`PreparePromptScreenTest`) |
 | HT-T5 | UI | Screen: pre-fills saved tags, Clear empties box without changing store, Save shows error text for invalid input, toggle reflects store. | done (`DefaultHashtagsScreenTest`, Robolectric) |
+| HT-T6 | unit | AI hashtags: toggle persistence, prompt asks for N tags and lists defaults only when on, shorten request keeps the line, merge order/dedupe/sanitise, merged line counts to the limit, `ai_hashtags` config. | done (`AiHashtagsTest`, `GenerateTextTest`, `HashtagSettingsTest`, `AppConfigTest`) |

@@ -43,9 +43,9 @@ class PostToLinkedInTest {
     @After fun tearDown() = Dispatchers.resetMain()
 
     @Test
-    fun `prepare converts Markdown and appends hashtags that aren't already there`() {
+    fun `prepare converts Markdown and merges hashtags that aren't already there into the last hashtag line`() {
         val prepared = useCase.prepare("## Caching\n- **Redis** for hot keys\n\n#java")
-        assertEquals("Caching\n\n• Redis for hot keys\n\n#java\n\n#systemdesign", prepared.text)
+        assertEquals("Caching\n\n• Redis for hot keys\n\n#systemdesign #java", prepared.text)
         assertEquals(listOf("#systemdesign"), prepared.addedTags)
     }
 
