@@ -93,16 +93,35 @@ class GenerateTextTest {
     }
 
     @Test
-    fun `stops after the set attempts and keeps the shortest version`() = runTest {
-        val agent = FakeAgent(listOf(ApiResult.Ok("x".repeat(90)), ApiResult.Ok("x".repeat(80)), ApiResult.Ok("x".repeat(85))))
-        assertEquals(Outcome.Ok("x".repeat(80)), GenerateTextUseCase("S", { agent }, guard(attempts = 2))("p"))
-        assertEquals(3, agent.calls.size)
+    fun `each shorten attempt aims lower`() = runTest {
+        val agent = FakeAgent(listOf(ApiResult.Ok("x".repeat(90)), ApiResult.Ok("x".repeat(85)), ApiResult.Ok("x".repeat(60))))
+        GenerateTextUseCase("S", { agent }, guard(attempts = 3))("p")
+        // Budget 72: 80% then 70% of it.
+        assertTrue(agent.calls[1].second.contains("aim for about 57"))
+        assertTrue(agent.calls[2].second.contains("aim for about 50"))
     }
 
     @Test
-    fun `a failed shorten keeps the first post`() = runTest {
-        val agent = FakeAgent(listOf(ApiResult.Ok("x".repeat(90)), ApiResult.Failed(ApiError.RateLimited)))
-        assertEquals(Outcome.Ok("x".repeat(90)), GenerateTextUseCase("S", { agent }, guard())("p"))
+    fun `stops after the set attempts and cuts the shortest version to fit`() = runTest {
+        val hook = "Hook line"
+        val section = "✅ Points\n- one\n- two\n- three"
+        val summary = "📌 In short: done."
+        val long = listOf(hook, section, summary).joinToString("\n\n") + "\n\n" + "filler ".repeat(20).trim()
+        val shorter = listOf(hook, section, summary).joinToString("\n\n")
+        val agent = FakeAgent(listOf(ApiResult.Ok(long), ApiResult.Ok(shorter + " and more words here"), ApiResult.Ok(long)))
+        val result = (GenerateTextUseCase("S", { agent }, guard(limit = 75, attempts = 2))("p") as Outcome.Ok).value
+        assertEquals(3, agent.calls.size)
+        assertTrue(guard(limit = 75).fits(result))
+        assertTrue(result.startsWith(hook))
+    }
+
+    @Test
+    fun `a failed shorten still returns a post that fits`() = runTest {
+        val agent = FakeAgent(listOf(ApiResult.Ok("word ".repeat(30).trim()), ApiResult.Failed(ApiError.RateLimited)))
+        val result = (GenerateTextUseCase("S", { agent }, guard())("p") as Outcome.Ok).value
+        assertTrue(guard().fits(result))
+        assertTrue(result.startsWith("word word"))
+        assertTrue(result.endsWith("word…"))
     }
 
     @Test

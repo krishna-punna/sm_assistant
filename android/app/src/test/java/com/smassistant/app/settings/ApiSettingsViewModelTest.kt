@@ -189,4 +189,73 @@ class ApiSettingsViewModelTest {
         assertEquals(listOf("claude-sonnet-5-5", "claude-opus-5-5"), state.textOptions.map { it.id })
         assertEquals(listOf("claude-opus-5-5"), state.copy(model = "claude-opus-5-5").textOptions.map { it.id })
     }
+
+    @Test
+    fun `cloudflare asks for an account id and saves it with the key`() {
+        val vm = ApiSettingsViewModel(ApiService.CLOUDFLARE, store, catalog)
+        assertTrue(vm.state.value.showAccountId)
+        assertTrue(vm.state.value.showImageModel)
+        assertEquals(0, fetches)
+
+        vm.onKeyChange("cf-token")
+        vm.onSave()
+        assertEquals("Enter your Cloudflare account ID", vm.state.value.accountIdError)
+        assertEquals("", store.load(ApiService.CLOUDFLARE).key)
+
+        vm.onAccountIdChange("abc/123")
+        vm.onSave()
+        assertEquals("Use only letters and numbers", vm.state.value.accountIdError)
+
+        vm.onAccountIdChange(" abc123 ")
+        assertNull(vm.state.value.accountIdError)
+        vm.onSave()
+        assertEquals("Cloudflare settings saved", vm.state.value.message)
+        val saved = store.load(ApiService.CLOUDFLARE)
+        assertEquals("abc123", saved.accountId)
+        assertEquals("cf-token", saved.key)
+        assertEquals("https://api.cloudflare.com/client/v4/accounts/abc123/ai", saved.apiUrl)
+        assertEquals(1, fetches)
+    }
+
+    @Test
+    fun `the cloudflare url with its placeholder is a valid url`() {
+        val vm = ApiSettingsViewModel(ApiService.CLOUDFLARE, store, catalog)
+        vm.onApiChange("https://api.cloudflare.com/client/v4/accounts/{account_id}/ai")
+        vm.onKeyChange("t")
+        vm.onAccountIdChange("abc")
+        vm.onSave()
+        assertNull(vm.state.value.apiError)
+    }
+
+    @Test
+    fun `only agents that make images show an image model picker`() {
+        listOf(ApiService.GEMINI, ApiService.CLAUDE, ApiService.HUGGINGFACE, ApiService.CLOUDFLARE, ApiService.POLLINATIONS).forEach {
+            assertTrue(it.name, ApiSettingsViewModel(it, store, catalog).state.value.showImageModel)
+        }
+        assertFalse(ApiSettingsViewModel(ApiService.GROQ, store, catalog).state.value.showImageModel)
+        assertFalse(ApiSettingsViewModel(ApiService.GROQ, store, catalog).state.value.showAccountId)
+    }
+
+    @Test
+    fun `Claude picks image and video models from its text models and saves them`() {
+        val vm = agentViewModel()
+        assertTrue(vm.state.value.showImageModel)
+        assertTrue(vm.state.value.mediaFromTextModels)
+        vm.onKeyChange("sk-ant-1")
+        vm.onImageModelChange("claude-opus-5-5")
+        vm.onVideoModelChange("claude-haiku-5-5")
+        vm.onSave()
+        assertEquals("claude-opus-5-5", store.load(ApiService.CLAUDE).imageModel)
+        assertEquals("claude-haiku-5-5", store.load(ApiService.CLAUDE).videoModel)
+    }
+
+    @Test
+    fun `image and video options come from the image list for Gemini and the text list for Claude`() {
+        val lists = ModelLists(text = listOf(AiModel("text-a")), image = listOf(AiModel("image-a")))
+        val gemini = ApiSettingsUiState(models = lists, videoModel = "image-b")
+        assertEquals(listOf("image-a"), gemini.imageOptions.map { it.id })
+        assertEquals(listOf("image-b", "image-a"), gemini.videoOptions.map { it.id })
+        val claude = gemini.copy(mediaFromTextModels = true, videoModel = "")
+        assertEquals(listOf("text-a"), claude.videoOptions.map { it.id })
+    }
 }

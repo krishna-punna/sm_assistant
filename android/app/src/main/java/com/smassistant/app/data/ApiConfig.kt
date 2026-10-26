@@ -9,10 +9,53 @@ enum class ApiService(val displayName: String, val configKey: String) {
     CLAUDE("Claude", "claude"),
     GEMINI("Gemini", "gemini"),
     GROQ("Groq", "groq"),
+    HUGGINGFACE("Hugging Face", "huggingface"),
+    CLOUDFLARE("Cloudflare", "cloudflare"),
+    POLLINATIONS("Pollinations.AI", "pollinations"),
 }
 
-/** [imageModel] is only used by Gemini, for image generation (AGC-2). */
-data class ApiConfig(val api: String, val key: String, val model: String = "", val imageModel: String = "")
+/**
+ * [imageModel] and [videoModel] are used by the image agents: [imageModel] for Generate Image,
+ * [videoModel] for the video slides. A blank one falls back as [forMedia] describes.
+ * [accountId] fills the `{account_id}` placeholder in [api], which only Cloudflare's URL has.
+ */
+data class ApiConfig(
+    val api: String,
+    val key: String,
+    val model: String = "",
+    val imageModel: String = "",
+    val videoModel: String = "",
+    val accountId: String = "",
+) {
+    /** [api] with the account id filled in. */
+    val apiUrl: String get() = api.trim().replace(ACCOUNT_ID_PLACEHOLDER, accountId.trim())
+
+    /** True when the URL needs an account id that hasn't been entered. */
+    val missingAccountId: Boolean get() = ACCOUNT_ID_PLACEHOLDER in api && accountId.isBlank()
+
+    /** True when there's an API URL, a key and (where the URL needs one) an account id. */
+    fun isConfigured() = api.isNotBlank() && key.isNotBlank() && !missingAccountId
+
+    companion object {
+        const val ACCOUNT_ID_PLACEHOLDER = "{account_id}"
+    }
+}
+
+/** What an image agent is drawing: images for a post, or the slides of a video. */
+enum class MediaPurpose { IMAGE, VIDEO }
+
+/** The model chosen for [purpose]: the video model falls back to the image model. Blank when neither is set. */
+fun ApiConfig.mediaModel(purpose: MediaPurpose): String =
+    if (purpose == MediaPurpose.VIDEO) videoModel.ifBlank { imageModel } else imageModel
+
+/**
+ * This config with [imageModel] and [model] set to the model for [purpose], so an image agent
+ * can read whichever it uses. Claude draws with its text [model] when no media model is chosen.
+ */
+fun ApiConfig.forMedia(purpose: MediaPurpose): ApiConfig {
+    val chosen = mediaModel(purpose)
+    return copy(imageModel = chosen, model = chosen.ifBlank { model })
+}
 
 /**
  * Parses app.yml, in this shape:
@@ -26,6 +69,7 @@ data class ApiConfig(val api: String, val key: String, val model: String = "", v
  *   gemini:
  *     model: gemini-2.5-flash
  *     image_model: gemini-2.5-flash-image
+ *     video_model: ""
  * ```
  *
  * Every [ApiService] gets an entry; missing services or fields become empty strings.
@@ -40,6 +84,8 @@ fun parseAppConfig(input: InputStream): Map<ApiService, ApiConfig> {
             key = entry["key"]?.toString().orEmpty(),
             model = entry["model"]?.toString().orEmpty(),
             imageModel = entry["image_model"]?.toString().orEmpty(),
+            accountId = entry["account_id"]?.toString().orEmpty(),
+            videoModel = entry["video_model"]?.toString().orEmpty(),
         )
     }
 }
@@ -50,7 +96,7 @@ fun parseAppConfig(input: InputStream): Map<ApiService, ApiConfig> {
  * ```yaml
  * linkedin_post:
  *   max_characters: 3000
- *   shorten_attempts: 2
+ *   shorten_attempts: 3
  *   ai_hashtags: 3
  * ```
  *
@@ -58,7 +104,7 @@ fun parseAppConfig(input: InputStream): Map<ApiService, ApiConfig> {
  * [aiHashtags] is the most hashtags the agent adds when AI-suggested hashtags are on (1 to 10, HT-21).
  * Missing or invalid values fall back to the defaults.
  */
-data class PostRules(val maxCharacters: Int = 3_000, val shortenAttempts: Int = 2, val aiHashtags: Int = 3)
+data class PostRules(val maxCharacters: Int = 3_000, val shortenAttempts: Int = 3, val aiHashtags: Int = 3)
 
 fun parsePostRules(input: InputStream): PostRules {
     val root = Yaml().load<Any?>(input) as? Map<*, *> ?: emptyMap<String, Any?>()

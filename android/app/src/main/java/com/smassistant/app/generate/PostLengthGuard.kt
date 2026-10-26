@@ -20,8 +20,11 @@ class PostLengthGuard(
     /** Characters left for the post body: the limit minus the hashtags and the blank line before them (PL-3). */
     fun budget(): Int = (limit() - Hashtags.reservedLength(tags(), tagsEnabled())).coerceAtLeast(0)
 
-    /** What the agent should aim for: models overshoot, so a little under the budget (PL-4). */
-    fun target(): Int = budget() * 9 / 10
+    /**
+     * What the agent should aim for: models overshoot, so a little under the budget (PL-4), and
+     * further under on each shorten [attempt] after the first generation (PL-6): 90%, 80%, 70%, then 60%.
+     */
+    fun target(attempt: Int = 0): Int = budget() * (90 - 10 * attempt.coerceAtMost(3)) / 100
 
     /** [markdown] as it would be posted: plain text with the hashtags that would be added (PL-5). */
     fun measure(markdown: String): PostText =
@@ -53,10 +56,13 @@ class PostLengthGuard(
             "That line counts towards the length budget.$defaults"
     }
 
-    /** The follow-up message asking the agent to cut [markdown] down to the budget (PL-6). */
-    fun shortenRequest(markdown: String, measured: PostText): String = listOf(
+    /** True when [markdown] can be posted as it is, hashtags included (PL-5). */
+    fun fits(markdown: String): Boolean = measure(markdown).fitsLimit
+
+    /** The follow-up message asking the agent to cut [markdown] down to the budget, stricter on each [attempt] (PL-6). */
+    fun shortenRequest(markdown: String, measured: PostText, attempt: Int = 1): String = listOf(
         "This LinkedIn post is too long. As posted, with any default hashtags, it is ${measured.overLimitBy} characters over LinkedIn's ${limit()}-character limit.",
-        "Rewrite it to at most ${budget()} characters (aim for about ${target()}), counting every letter, space, emoji and line break.",
+        "Rewrite it to at most ${budget()} characters (aim for about ${target(attempt)}), counting every letter, space, emoji and line break. It must be well under the limit, so cut hard.",
         "Keep the same format: the hook line, the emoji section headings and the \"📌 In short:\" summary. Cut the least important points and tighten the wording rather than dropping the summary.",
         if (aiHashtags() > 0) {
             "Keep the last line of hashtags as it is and add no others. Reply with the shortened post only."

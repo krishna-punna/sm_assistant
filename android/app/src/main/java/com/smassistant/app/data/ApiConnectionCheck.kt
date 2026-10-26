@@ -27,7 +27,7 @@ sealed interface ConnectionStatus {
 class ApiConnectionCheck(private val client: OkHttpClient = Http.client) {
 
     suspend fun check(service: ApiService, config: ApiConfig): ConnectionStatus {
-        if (config.api.isBlank() || config.key.isBlank()) return ConnectionStatus.NotConfigured
+        if (!config.isConfigured()) return ConnectionStatus.NotConfigured
         val request = request(service, config) ?: return ConnectionStatus.Unreachable("Invalid API URL")
         return try {
             client.newCall(request).await().use { response ->
@@ -43,9 +43,12 @@ class ApiConnectionCheck(private val client: OkHttpClient = Http.client) {
         }
     }
 
-    /** The check request for [service], sent to the scheme, host and port of the configured API URL. */
+    /**
+     * The check request for [service], sent to the scheme, host and port of the configured API URL
+     * (for Cloudflare, under the URL itself, since the account id is in its path).
+     */
     internal fun request(service: ApiService, config: ApiConfig): Request? {
-        val origin = origin(config.api) ?: return null
+        val origin = origin(config.apiUrl) ?: return null
         val builder = Request.Builder().get()
         when (service) {
             ApiService.CLAUDE -> builder.url(origin.resolve("/v1/models")!!)
@@ -57,6 +60,16 @@ class ApiConnectionCheck(private val client: OkHttpClient = Http.client) {
                 .header("Authorization", "Bearer ${config.key}")
             ApiService.LINKEDIN -> builder.url(origin.resolve("/v2/userinfo")!!)
                 .header("Authorization", "Bearer ${config.key}")
+            // The router lists models without a key, so check the token with the Hub instead.
+            ApiService.HUGGINGFACE -> builder.url(huggingFaceHub(origin).resolve("/api/whoami-v2")!!)
+                .header("Authorization", "Bearer ${config.key}")
+            ApiService.CLOUDFLARE -> builder.url(
+                config.apiUrl.trimEnd('/').toHttpUrlOrNull()?.newBuilder()
+                    ?.addPathSegments("models/search")?.addQueryParameter("per_page", "1")?.build() ?: return null,
+            ).header("Authorization", "Bearer ${config.key}")
+            // Model lists are public, so check the key with an account endpoint.
+            ApiService.POLLINATIONS -> builder.url(origin.resolve("/account/integrations")!!)
+                .header("Authorization", "Bearer ${config.key}")
         }
         return builder.build()
     }
@@ -65,3 +78,7 @@ class ApiConnectionCheck(private val client: OkHttpClient = Http.client) {
     private fun origin(api: String): HttpUrl? =
         api.trim().toHttpUrlOrNull()?.newBuilder()?.encodedPath("/")?.query(null)?.fragment(null)?.build()
 }
+
+/** Hugging Face's Hub (huggingface.co) for the router's URL, or the same host for any other URL, e.g. a test server. */
+internal fun huggingFaceHub(origin: HttpUrl): HttpUrl =
+    if (origin.host == "router.huggingface.co") origin.newBuilder().host("huggingface.co").build() else origin

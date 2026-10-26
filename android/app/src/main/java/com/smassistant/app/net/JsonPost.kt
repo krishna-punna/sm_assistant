@@ -53,9 +53,71 @@ suspend fun OkHttpClient.sendJson(request: Request): ApiResult<JsonObject> {
     }
 }
 
-/** `error.message` from an error body, if present. */
+/** Like [sendJson], for endpoints whose reply is a JSON array (the Hugging Face Hub's model search). */
+suspend fun OkHttpClient.sendJsonArray(request: Request): ApiResult<JsonArray> {
+    return try {
+        newCall(request).await().use { response ->
+            val text = response.body?.string().orEmpty()
+            val json = try {
+                Json.parseToJsonElement(text)
+            } catch (e: SerializationException) {
+                null
+            }
+            when {
+                !response.isSuccessful -> ApiResult.Failed(ApiError.fromHttp(response.code, (json as? JsonObject)?.errorMessage()))
+                json is JsonArray -> ApiResult.Ok(json)
+                else -> ApiResult.Failed(ApiError.BadResponse("not a JSON list"))
+            }
+        }
+    } catch (e: IOException) {
+        ApiResult.Failed(ApiError.fromException(e))
+    }
+}
+
+/**
+ * The provider's message from an error body, if present: `error.message` (Anthropic, Google,
+ * OpenAI-compatible), `error` as a string (Hugging Face) or `errors[0].message` (Cloudflare).
+ */
 fun JsonObject.errorMessage(): String? =
     path("error", "message")?.textOrNull
+        ?: path("error")?.textOrNull
+        ?: path("errors", 0, "message")?.textOrNull
+
+/** A binary reply: the body and its Content-Type (null if the server sent none). */
+class BinaryReply(val bytes: ByteArray, val contentType: String?)
+
+/**
+ * POSTs [body] as JSON and returns the raw reply, for APIs that answer with image bytes.
+ * Non-2xx answers become an [ApiError] as for [postJson].
+ */
+suspend fun OkHttpClient.postForBytes(url: String, headers: Map<String, String>, body: JsonElement): ApiResult<BinaryReply> {
+    val request = try {
+        Request.Builder()
+            .url(url)
+            .apply { headers.forEach { (name, value) -> header(name, value) } }
+            .post(body.toString().toRequestBody(JSON_MEDIA_TYPE))
+            .build()
+    } catch (e: IllegalArgumentException) {
+        return ApiResult.Failed(ApiError.Unreachable("Invalid API URL"))
+    }
+    return try {
+        newCall(request).await().use { response ->
+            val bytes = response.body?.bytes() ?: ByteArray(0)
+            if (response.isSuccessful) {
+                ApiResult.Ok(BinaryReply(bytes, response.header("Content-Type")))
+            } else {
+                val json = try {
+                    Json.parseToJsonElement(bytes.decodeToString()) as? JsonObject
+                } catch (e: SerializationException) {
+                    null
+                }
+                ApiResult.Failed(ApiError.fromHttp(response.code, json?.errorMessage()))
+            }
+        }
+    } catch (e: IOException) {
+        ApiResult.Failed(ApiError.fromException(e))
+    }
+}
 
 /** Follows object keys and array indexes, e.g. `path("choices", 0, "message")`; null if anything is missing. */
 fun JsonElement.path(vararg keys: Any): JsonElement? = keys.fold(this as JsonElement?) { element, key ->

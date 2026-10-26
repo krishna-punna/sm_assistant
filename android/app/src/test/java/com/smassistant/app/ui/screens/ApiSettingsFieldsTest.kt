@@ -6,6 +6,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import com.smassistant.app.data.AiModel
 import com.smassistant.app.data.ModelLists
 import com.smassistant.app.settings.ApiSettingsUiState
@@ -93,5 +94,30 @@ class ApiSettingsFieldsTest {
             }
         }
         compose.onNodeWithTag("modelPicker").assertDoesNotExist()
+    }
+
+    @Test
+    fun cloudflareShowsTheAccountIdField() {
+        var typed = ""
+        compose.setContent {
+            Column {
+                ApiSettingsFields(
+                    serviceName = "Cloudflare",
+                    state = ApiSettingsUiState(
+                        api = "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai",
+                        showAccountId = true,
+                        accountIdError = "Enter your Cloudflare account ID",
+                    ),
+                    onApiChange = {},
+                    onKeyChange = {},
+                    onSave = {},
+                    onAccountIdChange = { typed = it },
+                )
+            }
+        }
+
+        compose.onNodeWithTag("accountIdField").performTextInput("abc")
+        compose.onNodeWithText("Enter your Cloudflare account ID").assertExists()
+        assertEquals("abc", typed)
     }
 }

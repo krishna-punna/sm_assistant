@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.smassistant.app.data.ApiConfig
 import com.smassistant.app.data.ApiService
+import com.smassistant.app.data.MediaPurpose
 import com.smassistant.app.net.ApiResult
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -81,6 +82,16 @@ class ImageAgentSelectorTest {
         assertEquals(true, ApiConfig("https://x", "k", "m").isUsableImageAgent(ApiService.CLAUDE))
         assertEquals(false, ApiConfig("https://x", "k", "m", "img").isUsableImageAgent(ApiService.GROQ))
     }
+    @Test
+    fun `new agents can make images once they have an image model`() {
+        listOf(ApiService.HUGGINGFACE, ApiService.CLOUDFLARE, ApiService.POLLINATIONS).forEach { service ->
+            assertEquals(service.name, true, ApiConfig("https://x", "k", "", "img").isUsableImageAgent(service))
+            assertEquals(service.name, false, ApiConfig("https://x", "k", "m", "").isUsableImageAgent(service))
+            assertEquals(service.name, false, ApiConfig("https://x", "", "m", "img").isUsableImageAgent(service))
+        }
+        assertEquals(false, ApiConfig("https://x/{account_id}/ai", "k", "m", "img").isUsableImageAgent(ApiService.CLOUDFLARE))
+        assertEquals(true, ApiConfig("https://x/{account_id}/ai", "k", "m", "img", accountId = "id").isUsableImageAgent(ApiService.CLOUDFLARE))
+    }
 }
 
 @RunWith(RobolectricTestRunner::class)
@@ -113,5 +124,19 @@ class AgentPreferencesTest {
         context.getSharedPreferences("agent_settings", Context.MODE_PRIVATE).edit()
             .putString("default_image_agent", "GROQ").commit()
         assertNull(AgentPreferences(context).defaultImageAgent)
+    }
+
+    @Test
+    fun `default video agent follows the image agent until it is chosen`() {
+        val context: Context = ApplicationProvider.getApplicationContext()
+        val prefs = AgentPreferences(context)
+        assertNull(prefs.defaultVideoAgent)
+
+        prefs.defaultImageAgent = ApiService.CLAUDE
+        assertEquals(ApiService.CLAUDE, prefs.defaultMediaAgent(MediaPurpose.VIDEO))
+
+        prefs.setDefaultMediaAgent(MediaPurpose.VIDEO, ApiService.GEMINI)
+        assertEquals(ApiService.GEMINI, AgentPreferences(context).defaultVideoAgent)
+        assertEquals(ApiService.CLAUDE, AgentPreferences(context).defaultMediaAgent(MediaPurpose.IMAGE))
     }
 }

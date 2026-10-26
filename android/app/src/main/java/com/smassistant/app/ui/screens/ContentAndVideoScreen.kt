@@ -12,18 +12,20 @@ import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.smassistant.app.chat.ChatItem
 import com.smassistant.app.chat.ChatViewModel
+import com.smassistant.app.data.MediaPurpose
 import com.smassistant.app.chat.ContentAndMediaSaver
 import com.smassistant.app.chat.VideoSaver
 import com.smassistant.app.generate.ContentAndVideo
 import com.smassistant.app.generate.GenerateContentAndMediaUseCase
 import com.smassistant.app.generate.appGenerateTechnicalContent
 import com.smassistant.app.generate.appGenerateVideo
+import com.smassistant.app.generate.appSmartTrim
 import com.smassistant.app.linkedin.PostState
 import com.smassistant.app.linkedin.PostViewModel
 import com.smassistant.app.linkedin.appPostToLinkedIn
 import com.smassistant.app.navigation.Feature
 import com.smassistant.app.ui.components.TextAgentDropdown
-import com.smassistant.app.ui.components.ImageAgentDropdown
+import com.smassistant.app.ui.components.MediaAgentDropdown
 import com.smassistant.app.ui.components.ErrorCard
 import com.smassistant.app.ui.components.GeneratingRow
 import com.smassistant.app.ui.components.MarkdownText
@@ -46,7 +48,7 @@ fun ContentAndVideoScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit,
     }
     val viewModel = viewModel { ChatViewModel(createSavedStateHandle(), ContentAndMediaSaver(VideoSaver)) { prompt -> useCase(prompt) } }
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val postViewModel = viewModel { PostViewModel(appPostToLinkedIn(appContext)) }
+    val postViewModel = viewModel { PostViewModel(appPostToLinkedIn(appContext), appSmartTrim(appContext)) }
     val postState by postViewModel.state.collectAsStateWithLifecycle()
 
     ChatScreen(
@@ -61,7 +63,7 @@ fun ContentAndVideoScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit,
         onBackToHome = onBackToHome,
         header = {
             TextAgentDropdown()
-            ImageAgentDropdown()
+            MediaAgentDropdown(MediaPurpose.VIDEO)
         },
         inputContent = { PromptCard("Your prompt", it, collapsedLines = 4) },
         resultContent = { result ->
@@ -84,6 +86,8 @@ fun ContentAndVideoScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit,
     PostDialogs(
         state = postState,
         onTextChange = postViewModel::onTextChange,
+        onTrimWithAi = postViewModel::trimWithAi,
+        onCutToFit = postViewModel::cutToFit,
         onConfirm = postViewModel::confirm,
         onDismiss = postViewModel::dismiss,
         onOpenSettings = onSetUpLinkedIn,

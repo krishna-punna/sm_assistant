@@ -6,7 +6,10 @@ import com.smassistant.app.data.ApiService
 enum class AiAgent(val service: ApiService) {
     CLAUDE(ApiService.CLAUDE),
     GEMINI(ApiService.GEMINI),
-    GROQ(ApiService.GROQ);
+    GROQ(ApiService.GROQ),
+    HUGGINGFACE(ApiService.HUGGINGFACE),
+    CLOUDFLARE(ApiService.CLOUDFLARE),
+    POLLINATIONS(ApiService.POLLINATIONS);
 
     val displayName get() = service.displayName
 }
@@ -30,6 +33,7 @@ object Routes {
     const val FEATURE = "hub/{feature}"
     const val DEFAULT_HASHTAGS = "settings/hashtags"
     const val API_STATUS = "settings/status"
+    const val THEMES = "settings/themes"
 
     fun agentSettings(agent: AiAgent) = "settings/agents/${agent.name}"
     fun feature(feature: Feature) = "hub/${feature.name}"

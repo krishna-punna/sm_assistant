@@ -1,5 +1,6 @@
 package com.smassistant.app.ui.screens
 
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -45,8 +46,26 @@ class PostDialogsTest {
     fun overLimitShowsHowMuchToCut() {
         val state = PostState.Confirm("a".repeat(3_005), emptyList())
         compose.setContent { ConfirmPostContent(state) { events += "text" } }
-        compose.onNodeWithText("5 characters over LinkedIn's 3000 limit. Shorten the text to post.").assertExists()
+        compose.onNodeWithText("5 characters over LinkedIn's 3000 limit. Trim or edit the text to post.").assertExists()
         assertFalse(state.canPost)
+    }
+
+    @Test
+    fun trimPostOffersAiAndCutToFit() {
+        val state = PostState.Confirm("a".repeat(3_005), emptyList())
+        compose.setContent {
+            ConfirmPostContent(state, onTrimWithAi = { events += "ai" }, onCutToFit = { events += "cut" }) { events += "text" }
+        }
+        compose.onNodeWithText("✂ Trim with AI").performClick()
+        compose.onNodeWithText("Cut to fit").performClick()
+        assertEquals(listOf("ai", "cut"), events)
+    }
+
+    @Test
+    fun cutToFitIsOffOnlyWhenThePostFits() {
+        compose.setContent { ConfirmPostContent(PostState.Confirm("Hello", emptyList())) { events += "text" } }
+        compose.onNodeWithText("Cut to fit").assertIsNotEnabled()
+        compose.onNodeWithText("✂ Trim with AI").assertDoesNotExist()
     }
 
     @Test

@@ -3,6 +3,7 @@ package com.smassistant.app.ui.screens
 import android.content.ClipboardManager
 import android.content.Context
 import androidx.compose.material3.Text
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -90,7 +91,7 @@ class ChatScreenTest {
     fun submitEnabledWithText() {
         show(ChatUiState(input = "topic"))
         compose.onNodeWithText("Submit").assertIsEnabled().performClick()
-        compose.onNodeWithText("Back to Home").performClick()
+        compose.onNodeWithContentDescription("Back to Home").performClick()
         assertEquals(listOf("submit", "home"), events)
     }
 }

@@ -19,6 +19,7 @@ Current code: `SettingsScreens.kt` (`ApiSettingsForm`), `data/ApiSettings.kt` (`
 | AG-4 | Agents configured independently | done | Separate keys per service |
 | AG-5 | Generators use the configured agent(s) | done | `AgentSelector` for text, Gemini for images and video slides |
 | AG-6 *(new, Q-04)* | Show/edit the model per agent | done | Model dropdown on S4–S6 (and Image model on Gemini), filled from the provider's `GET /models`; fetched on open when the saved list is over a day old, on Refresh, and after a new key. Krishna asked for it on 2026-10-25 |
+| AG-7 *(new)* | Separate agent and model for images and for video | done | Default agent for images and for video on S3 (video follows the image agent until chosen). Image model and Video model on the Gemini and Claude screens (`image_model` / `video_model` in app.yml); a blank video model uses the image model, a blank Claude image model the text model. The Generate Image / Video screens show the agent and model pickers for their purpose. Krishna asked for it on 2026-10-26 |
 
 ## Implementation
 

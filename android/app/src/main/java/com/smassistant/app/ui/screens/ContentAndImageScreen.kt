@@ -18,12 +18,13 @@ import com.smassistant.app.generate.ContentAndImages
 import com.smassistant.app.generate.GenerateContentAndMediaUseCase
 import com.smassistant.app.generate.appGenerateImages
 import com.smassistant.app.generate.appGenerateTechnicalContent
+import com.smassistant.app.generate.appSmartTrim
 import com.smassistant.app.linkedin.PostState
 import com.smassistant.app.linkedin.PostViewModel
 import com.smassistant.app.linkedin.appPostToLinkedIn
 import com.smassistant.app.navigation.Feature
 import com.smassistant.app.ui.components.TextAgentDropdown
-import com.smassistant.app.ui.components.ImageAgentDropdown
+import com.smassistant.app.ui.components.MediaAgentDropdown
 import com.smassistant.app.ui.components.ErrorCard
 import com.smassistant.app.ui.components.GeneratingRow
 import com.smassistant.app.ui.components.MarkdownText
@@ -46,7 +47,7 @@ fun ContentAndImageScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit,
     }
     val viewModel = viewModel { ChatViewModel(createSavedStateHandle(), ContentAndMediaSaver(ImagesSaver)) { prompt -> useCase(prompt) } }
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val postViewModel = viewModel { PostViewModel(appPostToLinkedIn(appContext)) }
+    val postViewModel = viewModel { PostViewModel(appPostToLinkedIn(appContext), appSmartTrim(appContext)) }
     val postState by postViewModel.state.collectAsStateWithLifecycle()
 
     ChatScreen(
@@ -61,7 +62,7 @@ fun ContentAndImageScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit,
         onBackToHome = onBackToHome,
         header = {
             TextAgentDropdown()
-            ImageAgentDropdown()
+            MediaAgentDropdown()
         },
         inputContent = { PromptCard("Your prompt", it, collapsedLines = 4) },
         resultContent = { result ->
@@ -85,6 +86,8 @@ fun ContentAndImageScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit,
     PostDialogs(
         state = postState,
         onTextChange = postViewModel::onTextChange,
+        onTrimWithAi = postViewModel::trimWithAi,
+        onCutToFit = postViewModel::cutToFit,
         onConfirm = postViewModel::confirm,
         onDismiss = postViewModel::dismiss,
         onOpenSettings = onSetUpLinkedIn,
