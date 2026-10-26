@@ -3,6 +3,7 @@ package com.smassistant.app.ui.screens
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import com.smassistant.app.navigation.AiAgent
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -21,9 +22,10 @@ class AiAgentListScreenTest {
         val opened = mutableListOf<AiAgent>()
         compose.setContent { AiAgentListScreen(onAgentSelected = { opened += it }, onBackToHome = {}) }
 
-        listOf("Claude", "Gemini", "Groq").forEach { compose.onNodeWithText("$it AI Agent").performClick() }
+        AiAgent.entries.forEach { compose.onNodeWithText("${it.displayName} AI Agent").performScrollTo().performClick() }
 
-        assertEquals(listOf(AiAgent.CLAUDE, AiAgent.GEMINI, AiAgent.GROQ), opened)
+        assertEquals(AiAgent.entries.toList(), opened)
+        assertEquals(listOf("Claude", "Gemini", "Groq", "Hugging Face", "Cloudflare", "Pollinations.AI"), opened.map { it.displayName })
     }
 
     @Test

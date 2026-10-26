@@ -64,7 +64,27 @@ class AppConfigTest {
         ApiService.entries.forEach { service ->
             assertEquals("${service.configKey} key must be empty in app.yml", "", config.getValue(service).key)
             assertTrue("${service.configKey} api", config.getValue(service).api.startsWith("https://"))
+            assertEquals("${service.configKey} account_id must be empty in app.yml", "", config.getValue(service).accountId)
         }
+    }
+
+    @Test
+    fun `reads cloudflare's account id and fills it into the api url`() {
+        val config = parse(
+            """
+            apis:
+              cloudflare:
+                api: https://api.cloudflare.com/client/v4/accounts/{account_id}/ai
+                account_id: abc123
+                model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+            """.trimIndent()
+        ).getValue(ApiService.CLOUDFLARE)
+
+        assertEquals("abc123", config.accountId)
+        assertEquals("https://api.cloudflare.com/client/v4/accounts/abc123/ai", config.apiUrl)
+        assertEquals(false, config.copy(accountId = "").isConfigured())
+        assertEquals(false, config.isConfigured())
+        assertEquals(true, config.copy(key = "token").isConfigured())
     }
 
     @Test

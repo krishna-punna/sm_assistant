@@ -6,7 +6,10 @@ import com.smassistant.app.data.ApiService
 enum class AiAgent(val service: ApiService) {
     CLAUDE(ApiService.CLAUDE),
     GEMINI(ApiService.GEMINI),
-    GROQ(ApiService.GROQ);
+    GROQ(ApiService.GROQ),
+    HUGGINGFACE(ApiService.HUGGINGFACE),
+    CLOUDFLARE(ApiService.CLOUDFLARE),
+    POLLINATIONS(ApiService.POLLINATIONS);
 
     val displayName get() = service.displayName
 }

@@ -32,7 +32,8 @@ fun textAgentFor(
 ): TextAgent = when (service) {
     ApiService.CLAUDE -> ClaudeAgent(config, client)
     ApiService.GEMINI -> GeminiAgent(config, client)
-    ApiService.GROQ -> GroqAgent(config, client)
+    ApiService.GROQ, ApiService.HUGGINGFACE, ApiService.POLLINATIONS -> OpenAiChatAgent(service, config, client) { it.apiUrl }
+    ApiService.CLOUDFLARE -> OpenAiChatAgent(service, config, client) { "${it.apiUrl.trimEnd('/')}/v1/chat/completions" }
     ApiService.LINKEDIN -> error("LinkedIn is not an AI agent")
 }
 
@@ -40,7 +41,7 @@ fun textAgentFor(
 fun claudeAgent(config: () -> ApiConfig, client: OkHttpClient, maxTokens: Int): TextAgent = ClaudeAgent(config, client, maxTokens)
 
 /** True when the agent has everything needed to make a call. */
-fun ApiConfig.isUsableAgent() = api.isNotBlank() && key.isNotBlank() && model.isNotBlank()
+fun ApiConfig.isUsableAgent() = isConfigured() && model.isNotBlank()
 
 private abstract class BaseAgent(private val config: () -> ApiConfig) : TextAgent {
     override suspend fun generate(system: String, user: String): ApiResult<String> {
@@ -118,12 +119,21 @@ private class GeminiAgent(config: () -> ApiConfig, private val client: OkHttpCli
     override fun refine(error: ApiError) = geminiKeyError(error)
 }
 
-/** Groq (OpenAI-compatible): POST {api} (e.g. https://api.groq.com/openai/v1/chat/completions). */
-private class GroqAgent(config: () -> ApiConfig, private val client: OkHttpClient) : BaseAgent(config) {
-    override val service = ApiService.GROQ
-
+/**
+ * OpenAI-compatible chat completions, POST to [urlOf] the settings with a Bearer key: Groq
+ * (https://api.groq.com/openai/v1/chat/completions), Hugging Face's router
+ * (https://router.huggingface.co/v1/chat/completions), Pollinations.AI
+ * (https://gen.pollinations.ai/v1/chat/completions) and Cloudflare Workers AI
+ * ({api}/v1/chat/completions, with the account id in {api}).
+ */
+private class OpenAiChatAgent(
+    override val service: ApiService,
+    config: () -> ApiConfig,
+    private val client: OkHttpClient,
+    private val urlOf: (ApiConfig) -> String,
+) : BaseAgent(config) {
     override suspend fun call(config: ApiConfig, system: String, user: String) = client.postJson(
-        url = config.api,
+        url = urlOf(config),
         headers = mapOf("Authorization" to "Bearer ${config.key}"),
         body = buildJsonObject {
             put("model", config.model)

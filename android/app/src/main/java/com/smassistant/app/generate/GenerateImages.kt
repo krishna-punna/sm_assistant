@@ -12,7 +12,7 @@ import java.io.File
 /**
  * Generate Image (docs/tasks IM-I1): wraps the user's prompt in the infographic style from
  * `assets/prompts/image.md`, with the few-shot [examples] closest to the topic, and asks
- * the selected image agent (Gemini or Claude) for [count] images.
+ * the selected image agent ([com.smassistant.app.agents.IMAGE_AGENTS]) for [count] images.
  */
 class GenerateImagesUseCase(
     private val styleTemplate: String,

@@ -90,4 +90,38 @@ class ApiConnectionCheckTest {
         assertEquals("https://example.com:8443/openai/v1/models", request.url.toString())
         assertNull(check.request(ApiService.GROQ, ApiConfig("not a url", "k")))
     }
+
+    @Test
+    fun `new agents check their keys with an authenticated request`() = runBlocking {
+        val expected = mapOf(
+            ApiService.HUGGINGFACE to "/api/whoami-v2",
+            ApiService.POLLINATIONS to "/account/integrations",
+        )
+        expected.forEach { (service, path) ->
+            server.enqueue(MockResponse())
+            assertEquals(service.name, ConnectionStatus.Connected, check.check(service, config()))
+            val request = server.takeRequest()
+            assertEquals(service.name, path, request.path)
+            assertEquals(service.name, "Bearer secret", request.getHeader("Authorization"))
+        }
+    }
+
+    @Test
+    fun `cloudflare checks the account's model list and needs an account id`() = runBlocking {
+        val api = server.url("/client/v4").toString().trimEnd('/') + "/accounts/{account_id}/ai"
+        assertEquals(ConnectionStatus.NotConfigured, check.check(ApiService.CLOUDFLARE, ApiConfig(api, "secret")))
+        assertEquals(0, server.requestCount)
+
+        server.enqueue(MockResponse())
+        assertEquals(ConnectionStatus.Connected, check.check(ApiService.CLOUDFLARE, ApiConfig(api, "secret", accountId = "acc1")))
+        val request = server.takeRequest()
+        assertEquals("/client/v4/accounts/acc1/ai/models/search?per_page=1", request.path)
+        assertEquals("Bearer secret", request.getHeader("Authorization"))
+    }
+
+    @Test
+    fun `hugging face router url is checked on the hub`() {
+        val request = check.request(ApiService.HUGGINGFACE, ApiConfig("https://router.huggingface.co/v1/chat/completions", "k"))!!
+        assertEquals("https://huggingface.co/api/whoami-v2", request.url.toString())
+    }
 }

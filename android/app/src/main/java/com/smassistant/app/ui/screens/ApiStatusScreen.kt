@@ -111,7 +111,11 @@ private fun describe(service: ApiService, status: ConnectionStatus): Triple<Stri
     when (status) {
         ConnectionStatus.Checking -> Triple("Checking", "Contacting ${service.displayName}…", Grey)
         ConnectionStatus.Connected -> Triple("Connected", "API key is valid", SmGreen)
-        ConnectionStatus.NotConfigured -> Triple("Not set up", "Add the API and key in settings", Grey)
+        ConnectionStatus.NotConfigured -> Triple(
+            "Not set up",
+            if (service == ApiService.CLOUDFLARE) "Add the account ID and API token in settings" else "Add the API and key in settings",
+            Grey,
+        )
         ConnectionStatus.InvalidKey -> Triple("Invalid key", "The API rejected the key", Red)
         ConnectionStatus.NoPermission ->
             Triple("No access", "The key works but lacks permission for this check", Amber)

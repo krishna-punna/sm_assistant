@@ -39,6 +39,7 @@ class ApiSettingsStore(context: Context, private val cipher: SecretCipher = Keys
             key = savedKey(service) ?: defaults.key,
             model = prefs.getString(modelPref(service), null) ?: defaults.model,
             imageModel = prefs.getString(imageModelPref(service), null) ?: defaults.imageModel,
+            accountId = prefs.getString(accountIdPref(service), null) ?: defaults.accountId,
         )
     }
 
@@ -47,6 +48,13 @@ class ApiSettingsStore(context: Context, private val cipher: SecretCipher = Keys
         prefs.edit().apply {
             if (model.isBlank()) remove(modelPref(service)) else putString(modelPref(service), model.trim())
             if (imageModel.isBlank()) remove(imageModelPref(service)) else putString(imageModelPref(service), imageModel.trim())
+        }.apply()
+    }
+
+    /** Saves the account id (Cloudflare). A blank one removes the override so the app.yml default applies again. */
+    fun saveAccountId(service: ApiService, accountId: String) {
+        prefs.edit().apply {
+            if (accountId.isBlank()) remove(accountIdPref(service)) else putString(accountIdPref(service), accountId.trim())
         }.apply()
     }
 
@@ -99,6 +107,7 @@ class ApiSettingsStore(context: Context, private val cipher: SecretCipher = Keys
     private fun apiPref(service: ApiService) = "${service.name}.api"
     private fun modelPref(service: ApiService) = "${service.name}.model"
     private fun imageModelPref(service: ApiService) = "${service.name}.image_model"
+    private fun accountIdPref(service: ApiService) = "${service.name}.account_id"
     private fun modelsPref(service: ApiService) = "${service.name}.models"
     private fun encryptedKeyPref(service: ApiService) = "${service.name}.key_enc"
     private fun legacyKeyPref(service: ApiService) = "${service.name}.key"

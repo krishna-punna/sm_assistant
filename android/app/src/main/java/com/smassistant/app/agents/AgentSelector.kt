@@ -11,15 +11,32 @@ import com.smassistant.app.prompt.loadPromptAsset
 import java.util.concurrent.TimeUnit
 
 /** Agents that can generate text, in fallback order. */
-val TEXT_AGENTS = listOf(ApiService.CLAUDE, ApiService.GEMINI, ApiService.GROQ)
+val TEXT_AGENTS = listOf(
+    ApiService.CLAUDE,
+    ApiService.GEMINI,
+    ApiService.GROQ,
+    ApiService.HUGGINGFACE,
+    ApiService.CLOUDFLARE,
+    ApiService.POLLINATIONS,
+)
 
-/** Agents that can make images, in fallback order: Gemini paints them, Claude writes them as SVG. */
-val IMAGE_AGENTS = listOf(ApiService.GEMINI, ApiService.CLAUDE)
+/**
+ * Agents that can make images, in fallback order: Gemini paints them, Claude writes them as SVG,
+ * and Hugging Face, Cloudflare and Pollinations.AI run diffusion models such as FLUX.
+ */
+val IMAGE_AGENTS = listOf(
+    ApiService.GEMINI,
+    ApiService.CLAUDE,
+    ApiService.HUGGINGFACE,
+    ApiService.CLOUDFLARE,
+    ApiService.POLLINATIONS,
+)
 
-/** True when [service] has what it needs to make images: Gemini an image model, Claude a text model. */
+/** True when [service] has what it needs to make images: Claude a text model, the others an image model. */
 fun ApiConfig.isUsableImageAgent(service: ApiService) = when (service) {
     ApiService.GEMINI -> key.isNotBlank() && imageModel.isNotBlank()
     ApiService.CLAUDE -> isUsableAgent()
+    ApiService.HUGGINGFACE, ApiService.CLOUDFLARE, ApiService.POLLINATIONS -> isConfigured() && imageModel.isNotBlank()
     else -> false
 }
 
@@ -82,7 +99,10 @@ fun appAgentSelector(context: Context): AgentSelector {
     )
 }
 
-/** The image selector the screens use: Gemini's image model, or Claude drawing SVG (`prompts/image_svg.md`) rendered on the device. */
+/**
+ * The image selector the screens use: Gemini's image model, Claude drawing SVG (`prompts/image_svg.md`)
+ * rendered on the device, or the image model of Hugging Face, Cloudflare or Pollinations.AI.
+ */
 fun appImageAgentSelector(context: Context, cache: MediaCache = MediaCache(context)): ImageAgentSelector {
     val store = ApiSettingsStore(context)
     val preferences = AgentPreferences(context)
@@ -98,6 +118,14 @@ fun appImageAgentSelector(context: Context, cache: MediaCache = MediaCache(conte
     return ImageAgentSelector(
         configOf = store::load,
         preferred = { preferences.defaultImageAgent },
-        agentFor = { service -> if (service == ApiService.CLAUDE) claude else gemini },
+        agentFor = { service ->
+            when (service) {
+                ApiService.CLAUDE -> claude
+                ApiService.HUGGINGFACE -> HuggingFaceImageAgent({ store.load(service) }, cache)
+                ApiService.CLOUDFLARE -> CloudflareImageAgent({ store.load(service) }, cache)
+                ApiService.POLLINATIONS -> PollinationsImageAgent({ store.load(service) }, cache)
+                else -> gemini
+            }
+        },
     )
 }

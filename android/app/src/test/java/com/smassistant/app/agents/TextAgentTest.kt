@@ -133,4 +133,47 @@ class TextAgentTest {
         val bad = textAgentFor(ApiService.GROQ, { ApiConfig("not a url", "k", "m") }, client)
         assertEquals(ApiResult.Failed(ApiError.Unreachable("Invalid API URL")), generate(bad))
     }
+
+    @Test
+    fun `hugging face and pollinations use openai chat completions with a bearer key`() {
+        listOf(ApiService.HUGGINGFACE to "/v1/chat/completions", ApiService.POLLINATIONS to "/v1/chat/completions").forEach { (service, path) ->
+            reply("""{"choices":[{"message":{"role":"assistant","content":"Hi"}}]}""")
+
+            assertEquals(service.name, ApiResult.Ok("Hi"), generate(agent(service, path, model = "openai/gpt-oss-120b")))
+            val request = server.takeRequest()
+            assertEquals(service.name, path, request.path)
+            assertEquals(service.name, "Bearer secret", request.getHeader("Authorization"))
+            assertEquals(service.name, "openai/gpt-oss-120b", request.json().path("model")?.textOrNull)
+        }
+    }
+
+    @Test
+    fun `cloudflare puts the account id in the url`() {
+        reply("""{"choices":[{"message":{"role":"assistant","content":"Hi"}}]}""")
+        val api = server.url("/client/v4").toString().trimEnd('/') + "/accounts/{account_id}/ai"
+        val cloudflare = textAgentFor(ApiService.CLOUDFLARE, { ApiConfig(api, "token", "@cf/meta/llama", accountId = "abc123") }, client)
+
+        assertEquals(ApiResult.Ok("Hi"), generate(cloudflare))
+        val request = server.takeRequest()
+        assertEquals("/client/v4/accounts/abc123/ai/v1/chat/completions", request.path)
+        assertEquals("Bearer token", request.getHeader("Authorization"))
+        assertEquals("@cf/meta/llama", request.json().path("model")?.textOrNull)
+    }
+
+    @Test
+    fun `cloudflare without an account id sends nothing`() {
+        val api = server.url("/").toString() + "accounts/{account_id}/ai"
+        val cloudflare = textAgentFor(ApiService.CLOUDFLARE, { ApiConfig(api, "token", "@cf/meta/llama") }, client)
+        assertEquals(ApiResult.Failed(ApiError.NotConfigured), generate(cloudflare))
+        assertEquals(0, server.requestCount)
+    }
+
+    @Test
+    fun `cloudflare and hugging face error messages are read`() {
+        reply("""{"success":false,"errors":[{"code":7003,"message":"No route for that URI"}]}""", 400)
+        assertEquals(ApiResult.Failed(ApiError.Server(400, "No route for that URI")), generate(agent(ApiService.HUGGINGFACE, "/x")))
+
+        reply("""{"error":"Model is loading"}""", 503)
+        assertEquals(ApiResult.Failed(ApiError.Server(503, "Model is loading")), generate(agent(ApiService.HUGGINGFACE, "/x")))
+    }
 }

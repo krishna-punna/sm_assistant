@@ -4,6 +4,8 @@ import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -208,7 +210,7 @@ private fun DefaultTextAgentPicker() {
 fun DefaultTextAgentChips(selected: ApiService, onSelect: (ApiService) -> Unit) =
     DefaultAgentChips("Default agent for text", TEXT_AGENTS, selected, onSelect)
 
-/** Which agent makes images and video slides: Gemini paints them, Claude draws them as SVG. */
+/** Which agent makes images and video slides: Gemini and the diffusion agents paint them, Claude draws them as SVG. */
 @Composable
 private fun DefaultImageAgentPicker() {
     val appContext = LocalContext.current.applicationContext
@@ -220,10 +222,11 @@ private fun DefaultImageAgentPicker() {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun DefaultAgentChips(title: String, agents: List<ApiService>, selected: ApiService, onSelect: (ApiService) -> Unit) {
     Text(title, style = MaterialTheme.typography.titleSmall)
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         agents.forEach { service ->
             FilterChip(
                 selected = service == selected,
@@ -272,6 +275,7 @@ private fun ColumnScope.ApiSettingsForm(service: ApiService, viewModel: ApiSetti
         state = state,
         onApiChange = viewModel::onApiChange,
         onKeyChange = viewModel::onKeyChange,
+        onAccountIdChange = viewModel::onAccountIdChange,
         onSave = viewModel::onSave,
         onModelChange = viewModel::onModelChange,
         onImageModelChange = viewModel::onImageModelChange,
@@ -287,6 +291,7 @@ fun ColumnScope.ApiSettingsFields(
     onApiChange: (String) -> Unit,
     onKeyChange: (String) -> Unit,
     onSave: () -> Unit,
+    onAccountIdChange: (String) -> Unit = {},
     onModelChange: (String) -> Unit = {},
     onImageModelChange: (String) -> Unit = {},
     onRefreshModels: () -> Unit = {},
@@ -308,6 +313,16 @@ fun ColumnScope.ApiSettingsFields(
             .fillMaxWidth()
             .testTag("apiField"),
     )
+    if (state.showAccountId) {
+        SettingsTextField(
+            state.accountId,
+            onAccountIdChange,
+            "$serviceName Account ID",
+            state.accountIdError ?: "On the Cloudflare dashboard: Workers AI, then Use REST API.",
+            "accountIdField",
+            isError = state.accountIdError != null,
+        )
+    }
     OutlinedTextField(
         value = state.key,
         onValueChange = onKeyChange,

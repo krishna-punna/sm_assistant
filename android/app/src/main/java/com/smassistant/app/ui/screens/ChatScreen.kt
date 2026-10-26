@@ -38,7 +38,7 @@ fun <R> ChatScreen(
     onBackToHome: () -> Unit,
     inputContent: @Composable (String) -> Unit,
     resultContent: @Composable (R) -> Unit,
-    noAgentMessage: String = "No AI agent is set up yet. Add an API key for Claude, Gemini or Groq.",
+    noAgentMessage: String = "No AI agent is set up yet. Add an API key for one of the agents in AI Agent settings.",
     header: @Composable () -> Unit = {},
 ) {
     val listState = rememberLazyListState()

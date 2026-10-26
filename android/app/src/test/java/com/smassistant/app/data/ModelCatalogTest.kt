@@ -79,4 +79,101 @@ class ModelCatalogTest {
         assertEquals(ApiResult.Failed(ApiError.NotConfigured), noKey)
         assertEquals(2, server.requestCount)
     }
+
+    @Test
+    fun `hugging face lists router chat models and hub text-to-image models`() = runBlocking {
+        server.enqueue(
+            MockResponse().setBody(
+                """{"object":"list","data":[
+                    {"id":"openai/gpt-oss-120b","architecture":{"input_modalities":["text"],"output_modalities":["text"]}},
+                    {"id":"Qwen/Qwen3-4B"}
+                ]}""",
+            ),
+        )
+        server.enqueue(MockResponse().setBody("""[{"id":"black-forest-labs/FLUX.1-schnell","likes":9},{"id":"stabilityai/sdxl"}]"""))
+
+        val result = catalog.fetch(ApiService.HUGGINGFACE, ApiConfig(server.url("/v1/chat/completions").toString(), "hf"))
+
+        assertEquals(
+            ApiResult.Ok(
+                ModelLists(
+                    text = listOf(AiModel("Qwen/Qwen3-4B"), AiModel("openai/gpt-oss-120b")),
+                    image = listOf(AiModel("black-forest-labs/FLUX.1-schnell"), AiModel("stabilityai/sdxl")),
+                ),
+            ),
+            result,
+        )
+        assertEquals("/v1/models", server.takeRequest().path)
+        val hub = server.takeRequest()
+        assertEquals("/api/models?pipeline_tag=text-to-image&inference_provider=hf-inference&sort=likes&limit=100", hub.path)
+        assertEquals("Bearer hf", hub.getHeader("Authorization"))
+    }
+
+    @Test
+    fun `hugging face keeps the text models when the hub list fails`() = runBlocking {
+        server.enqueue(MockResponse().setBody("""{"data":[{"id":"openai/gpt-oss-120b"}]}"""))
+        server.enqueue(MockResponse().setResponseCode(500))
+
+        val result = catalog.fetch(ApiService.HUGGINGFACE, ApiConfig(server.url("/v1/chat/completions").toString(), "hf"))
+
+        assertEquals(ApiResult.Ok(ModelLists(text = listOf(AiModel("openai/gpt-oss-120b")))), result)
+    }
+
+    @Test
+    fun `cloudflare splits models by task`() = runBlocking {
+        server.enqueue(
+            MockResponse().setBody(
+                """{"success":true,"result":[
+                    {"name":"@cf/meta/llama-3.3-70b-instruct-fp8-fast","task":{"name":"Text Generation"}},
+                    {"name":"@cf/black-forest-labs/flux-1-schnell","task":{"name":"Text-to-Image"}},
+                    {"name":"@cf/openai/whisper","task":{"name":"Automatic Speech Recognition"}}
+                ]}""",
+            ),
+        )
+        val api = server.url("/client/v4").toString().trimEnd('/') + "/accounts/{account_id}/ai"
+
+        val result = catalog.fetch(ApiService.CLOUDFLARE, ApiConfig(api, "cf", accountId = "acc1"))
+
+        assertEquals(
+            ApiResult.Ok(
+                ModelLists(
+                    text = listOf(AiModel("@cf/meta/llama-3.3-70b-instruct-fp8-fast")),
+                    image = listOf(AiModel("@cf/black-forest-labs/flux-1-schnell")),
+                ),
+            ),
+            result,
+        )
+        val request = server.takeRequest()
+        assertEquals("/client/v4/accounts/acc1/ai/models/search?per_page=1000", request.path)
+        assertEquals("Bearer cf", request.getHeader("Authorization"))
+    }
+
+    @Test
+    fun `cloudflare without an account id sends nothing`() = runBlocking {
+        val api = server.url("/").toString() + "accounts/{account_id}/ai"
+        assertEquals(ApiResult.Failed(ApiError.NotConfigured), catalog.fetch(ApiService.CLOUDFLARE, ApiConfig(api, "cf")))
+        assertEquals(0, server.requestCount)
+    }
+
+    @Test
+    fun `pollinations splits text and image models by output modality and skips video`() {
+        val result = fetch(
+            ApiService.POLLINATIONS,
+            """{"object":"list","data":[
+                {"id":"openai/gpt-4o-mini","title":"GPT-4o mini","output_modalities":["text"]},
+                {"id":"black-forest-labs/flux.1-schnell","title":"FLUX.1 schnell","output_modalities":["image"]},
+                {"id":"google/veo-3.1-fast","output_modalities":["video"]}
+            ]}""",
+        )
+        assertEquals(
+            ApiResult.Ok(
+                ModelLists(
+                    text = listOf(AiModel("openai/gpt-4o-mini", "GPT-4o mini")),
+                    image = listOf(AiModel("black-forest-labs/flux.1-schnell", "FLUX.1 schnell")),
+                ),
+            ),
+            result,
+        )
+        assertEquals("/v1/models", server.takeRequest().path)
+    }
 }

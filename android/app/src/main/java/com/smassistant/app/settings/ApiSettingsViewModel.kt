@@ -2,7 +2,9 @@ package com.smassistant.app.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.smassistant.app.agents.IMAGE_AGENTS
 import com.smassistant.app.data.AiModel
+import com.smassistant.app.data.ApiConfig
 import com.smassistant.app.data.ApiService
 import com.smassistant.app.data.ApiSettingsStore
 import com.smassistant.app.data.ModelCatalog
@@ -20,6 +22,10 @@ import kotlinx.coroutines.launch
 data class ApiSettingsUiState(
     val api: String = "",
     val key: String = "",
+    /** Cloudflare only: the account id that goes in the API URL. */
+    val showAccountId: Boolean = false,
+    val accountId: String = "",
+    val accountIdError: String? = null,
     val apiError: String? = null,
     val keyError: String? = null,
     /** One-off confirmation, cleared with [ApiSettingsViewModel.messageShown]. */
@@ -68,8 +74,10 @@ class ApiSettingsViewModel(
             ApiSettingsUiState(
                 api = it.api,
                 key = it.key,
+                showAccountId = ApiConfig.ACCOUNT_ID_PLACEHOLDER in it.api,
+                accountId = it.accountId,
                 showModels = catalog != null,
-                showImageModel = catalog != null && service == ApiService.GEMINI,
+                showImageModel = catalog != null && service in IMAGE_AGENTS && service != ApiService.CLAUDE,
                 model = it.model,
                 imageModel = it.imageModel,
                 models = store.cachedModels(service)?.lists ?: ModelLists(),
@@ -91,7 +99,7 @@ class ApiSettingsViewModel(
     fun refreshModels() {
         val catalog = catalog ?: return
         val config = store.load(service)
-        if (config.key.isBlank() || _state.value.loadingModels) return
+        if (!config.isConfigured() || _state.value.loadingModels) return
         _state.update { it.copy(loadingModels = true, modelsError = null) }
         viewModelScope.launch {
             when (val result = catalog.fetch(service, config)) {
@@ -110,23 +118,40 @@ class ApiSettingsViewModel(
 
     fun onKeyChange(key: String) = _state.update { it.copy(key = key, keyError = null) }
 
+    fun onAccountIdChange(accountId: String) = _state.update { it.copy(accountId = accountId, accountIdError = null) }
+
     fun onSave() {
         val api = _state.value.api.trim()
         val key = _state.value.key.trim()
-        val apiError = if (api.isNotEmpty() && !isValidHttpsUrl(api)) "Enter a full https:// URL" else null
+        val accountId = _state.value.accountId.trim()
+        // The {account_id} placeholder isn't valid in a URL until it's filled in.
+        val apiError = if (api.isNotEmpty() && !isValidHttpsUrl(api.replace(ApiConfig.ACCOUNT_ID_PLACEHOLDER, "id"))) {
+            "Enter a full https:// URL"
+        } else {
+            null
+        }
         val keyError = if (key.isEmpty()) "Enter your ${service.displayName} API key" else null
-        if (apiError != null || keyError != null) {
-            _state.update { it.copy(apiError = apiError, keyError = keyError) }
+        val accountIdError = when {
+            !_state.value.showAccountId -> null
+            accountId.isEmpty() -> "Enter your ${service.displayName} account ID"
+            !accountId.all { it.isLetterOrDigit() } -> "Use only letters and numbers"
+            else -> null
+        }
+        if (apiError != null || keyError != null || accountIdError != null) {
+            _state.update { it.copy(apiError = apiError, keyError = keyError, accountIdError = accountIdError) }
             return
         }
-        val keyChanged = key != store.load(service).key
+        val before = store.load(service)
+        val keyChanged = key != before.key || accountId != before.accountId
         store.save(service, api, key)
+        if (_state.value.showAccountId) store.saveAccountId(service, accountId)
         if (catalog != null) store.saveModels(service, _state.value.model, _state.value.imageModel)
         val saved = store.load(service)
         _state.update {
             it.copy(
                 api = saved.api,
                 key = saved.key,
+                accountId = saved.accountId,
                 message = if (api.isEmpty()) {
                     "${service.displayName} settings saved, using the default API"
                 } else {
