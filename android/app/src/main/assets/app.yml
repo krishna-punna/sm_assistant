@@ -37,6 +37,8 @@ apis:
     api: https://router.huggingface.co/v1/chat/completions
     model: openai/gpt-oss-120b
     image_model: Qwen/Qwen-Image
+    # A text-to-video model makes a real AI clip instead of a slideshow (runs on fal-ai).
+    video_model: Wan-AI/Wan2.2-T2V-A14B
     key: ""
 
   # Cloudflare Workers AI. {account_id} is filled in from the Account ID setting;

@@ -25,6 +25,8 @@ The three newer agents write text and make images:
 | Cloudflare | `POST {api}/v1/chat/completions` (OpenAI-compatible), with `{api}` = `https://api.cloudflare.com/client/v4/accounts/{account_id}/ai` | `POST {api}/run/{image model}` with `{"prompt": prompt}`; FLUX answers base64 JSON, Stable Diffusion the PNG | `GET {api}/models/search`, split by task (*Text Generation*, *Text-to-Image*) |
 | Pollinations.AI | `POST https://gen.pollinations.ai/v1/chat/completions` (OpenAI-compatible) | `POST https://gen.pollinations.ai/v1/images/generations` with `response_format: b64_json` | `GET /v1/models`, split by `output_modalities` |
 
+**AI video clips (Hugging Face).** When Hugging Face is the video agent and its video model is a text-to-video model (default `Wan-AI/Wan2.2-T2V-A14B`, Wan 2.2), Generate Video asks that model for a short clip instead of making a slideshow. The clip prompt comes from `assets/prompts/video_clip.md`, and the request runs on fal-ai through the router: the same queue as Qwen-Image, with the clip downloaded from `video.url`. The video model list holds text-to-video models served by fal-ai (`GET https://huggingface.co/api/models?pipeline_tag=text-to-video&inference_provider=fal-ai`), for example Wan 2.2, LTX-Video and HunyuanVideo. If the chosen video model isn't a text-to-video model, Generate Video makes a slideshow instead. Stable Video Diffusion XT animates an image rather than following a text prompt, so it isn't offered.
+
 Diffusion models read only the start of a prompt (and Cloudflare's FLUX takes at most 2,048 characters), so prompts over 2,000 characters keep their start (house style) and end (topic) and drop the few-shot examples in the middle.
 
 ## AI Agent list (S3)

@@ -70,7 +70,7 @@ class ApiSettingsStore(context: Context, private val cipher: SecretCipher = Keys
     fun cachedModels(service: ApiService): CachedModels? = runCatching {
         val json = Json.parseToJsonElement(prefs.getString(modelsPref(service), null) ?: return null) as JsonObject
         CachedModels(
-            ModelLists(models(json["text"]), models(json["image"])),
+            ModelLists(models(json["text"]), models(json["image"]), models(json["video"])),
             fetchedAt = json.getValue("fetchedAt").jsonPrimitive.content.toLong(),
         )
     }.getOrNull()
@@ -79,6 +79,7 @@ class ApiSettingsStore(context: Context, private val cipher: SecretCipher = Keys
         val json = buildJsonObject {
             put("text", models(lists.text))
             put("image", models(lists.image))
+            put("video", models(lists.video))
             put("fetchedAt", fetchedAt.toString())
         }
         prefs.edit().putString(modelsPref(service), json.toString()).apply()
