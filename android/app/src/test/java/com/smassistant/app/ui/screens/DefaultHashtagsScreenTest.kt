@@ -1,5 +1,6 @@
 package com.smassistant.app.ui.screens
 
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -58,7 +59,7 @@ class DefaultHashtagsScreenTest {
         compose.onNodeWithText("Save").performClick()
         compose.onNodeWithText("Clear").performClick()
         compose.onNodeWithTag("hashtagToggle").performClick()
-        compose.onNodeWithText("Back to Home").performClick()
+        compose.onNodeWithContentDescription("Back to Home").performClick()
 
         assertEquals(listOf("save", "clear", "toggle:true", "home"), calls)
     }

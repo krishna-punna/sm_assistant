@@ -1,7 +1,6 @@
 package com.smassistant.app.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.imePadding
@@ -17,6 +16,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -24,19 +25,23 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.smassistant.app.ui.theme.SmAmber
-import com.smassistant.app.ui.theme.SmBlack
 import com.smassistant.app.ui.theme.SmBlue
 import com.smassistant.app.ui.theme.SmGreen
 
 /**
- * Common screen frame: blue "SM Assistant" app bar, optional yellow section chip,
- * scrollable body, and an optional black "Back to Home" footer (UI-1, UI-3). Screens that
- * scroll a part of the body themselves (a chat list) pass [scrollable] = false. The body
- * stays above the keyboard.
+ * Common screen frame: blue "SM Assistant" app bar, optional yellow section chip and a
+ * scrollable body (UI-1, UI-3). When [onBackToHome] is set, the app bar shows a back arrow
+ * on its left ("Back to Home" for TalkBack) instead of a footer button, so nothing sits on
+ * top of the system navigation bar; the Scaffold pads the body for the status bar, the
+ * navigation bar and the keyboard. The system back gesture still goes back one screen.
+ * Screens that scroll a part of the body themselves (a chat list) pass [scrollable] = false.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,18 +55,19 @@ fun SmScreen(
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("SM Assistant", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    if (onBackToHome != null) {
+                        IconButton(onClick = onBackToHome, modifier = Modifier.testTag("backToHome")) {
+                            Icon(BackArrow, contentDescription = "Back to Home")
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = SmBlue,
                     titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White,
                 ),
             )
-        },
-        bottomBar = {
-            if (onBackToHome != null) {
-                Box(Modifier.padding(16.dp)) {
-                    SmButton("Back to Home", SmBlack, onBackToHome)
-                }
-            }
         },
     ) { padding ->
         Column(
@@ -80,6 +86,27 @@ fun SmScreen(
         }
     }
 }
+
+/** Material "arrow back" (mirrored for right-to-left), drawn here to avoid the icons library. */
+private val BackArrow: ImageVector = ImageVector.Builder(
+    name = "BackArrow",
+    defaultWidth = 24.dp,
+    defaultHeight = 24.dp,
+    viewportWidth = 24f,
+    viewportHeight = 24f,
+    autoMirror = true,
+).path(fill = SolidColor(Color.Black)) {
+    moveTo(20f, 11f)
+    horizontalLineTo(7.83f)
+    lineToRelative(5.59f, -5.59f)
+    lineTo(12f, 4f)
+    lineToRelative(-8f, 8f)
+    lineToRelative(8f, 8f)
+    lineToRelative(1.41f, -1.41f)
+    lineTo(7.83f, 13f)
+    horizontalLineTo(20f)
+    close()
+}.build()
 
 @Composable
 fun SectionChip(text: String) {
