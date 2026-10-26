@@ -72,7 +72,7 @@ P1 and P2 can run in parallel once P0 is in.
 | Prepare prompt (PP) | 7 | 0 | 1 | 0 |
 | Content generation | 20 | 0 | 1 | 0 |
 | Post to LinkedIn (LP) | 7 | 0 | 0 | 0 |
-| Scheduled posts (SC) | 1 | 5 | 6 | 0 |
+| Scheduled posts (SC) | 5 | 7 | 0 | 0 |
 
 Counts are per requirement row in each file (per task for Foundation). What's left: the optional rows waiting on Q-06, Q-22 and Q-23; the release tasks (REL-*); and the manual validation (`-V`) checks, which need a device. Unit and Robolectric UI tests run in CI on every PR.
 
