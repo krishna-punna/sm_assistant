@@ -4,6 +4,7 @@ import android.content.Context
 import com.smassistant.app.agents.ImageAgent
 import com.smassistant.app.agents.appImageAgentSelector
 import com.smassistant.app.chat.Outcome
+import com.smassistant.app.data.MediaPurpose
 import com.smassistant.app.media.Media3SlideshowMaker
 import com.smassistant.app.media.MediaCache
 import com.smassistant.app.media.SlideshowMaker
@@ -27,7 +28,7 @@ const val VIDEO_MAKER = "the video maker"
 data class GeneratedVideo(val file: File, val slides: List<File>)
 
 /**
- * Generate Video (docs/tasks VI-I1, Q-08 = slideshow): asks the image agent for [slides] diagram
+ * Generate Video (docs/tasks VI-I1, Q-08 = slideshow): asks the video agent for [slides] diagram
  * slides that explain the prompt step by step (`assets/prompts/video.md`), then encodes
  * them, in order, into an MP4 with [maker]. Slides that fail are left out.
  */
@@ -61,12 +62,12 @@ class GenerateVideoUseCase(
         .replace("{{slides}}", slides.toString())
 }
 
-/** The video generator the screens use: the selected image agent, the slide asset, on-device encoding. */
+/** The video generator the screens use: the selected video agent and model, the slide asset, on-device encoding. */
 fun appGenerateVideo(context: Context): GenerateVideoUseCase {
     val cache = MediaCache(context)
     return GenerateVideoUseCase(
         slideTemplate = loadPromptAsset(context, "video"),
-        agent = appImageAgentSelector(context, cache)::imageAgent,
+        agent = appImageAgentSelector(context, cache, MediaPurpose.VIDEO)::imageAgent,
         maker = Media3SlideshowMaker(context.applicationContext),
         newVideoFile = { cache.newFile("mp4") },
     )

@@ -12,6 +12,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.smassistant.app.chat.ChatViewModel
+import com.smassistant.app.data.MediaPurpose
 import com.smassistant.app.chat.VideoSaver
 import com.smassistant.app.generate.GenerateContentAndMediaUseCase
 import com.smassistant.app.generate.GeneratedVideo
@@ -21,7 +22,7 @@ import com.smassistant.app.linkedin.PostViewModel
 import com.smassistant.app.linkedin.appPostToLinkedIn
 import com.smassistant.app.media.SECONDS_PER_SLIDE
 import com.smassistant.app.navigation.Feature
-import com.smassistant.app.ui.components.ImageAgentDropdown
+import com.smassistant.app.ui.components.MediaAgentDropdown
 import com.smassistant.app.ui.components.PostDialogs
 import com.smassistant.app.ui.components.PostInLinkedInButton
 import com.smassistant.app.ui.components.PromptCard
@@ -49,7 +50,7 @@ fun VideoScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToH
         onCancel = viewModel::cancel,
         onSetUpAgent = onSetUpAgent,
         onBackToHome = onBackToHome,
-        header = { ImageAgentDropdown() },
+        header = { MediaAgentDropdown(MediaPurpose.VIDEO) },
         inputContent = { PromptCard("Your prompt", it, collapsedLines = 4) },
         resultContent = { video ->
             VideoResult(video, posting = postState == PostState.Posting, onPost = { postViewModel.start("", listOf(video.file)) })
