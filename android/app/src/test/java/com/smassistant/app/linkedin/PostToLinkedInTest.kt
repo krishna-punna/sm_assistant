@@ -1,5 +1,9 @@
 package com.smassistant.app.linkedin
 
+import com.smassistant.app.agents.TextAgent
+import com.smassistant.app.data.ApiService
+import com.smassistant.app.generate.SmartTrimUseCase
+import com.smassistant.app.hashtags.postLength
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
 import kotlinx.coroutines.CompletableDeferred
@@ -166,5 +170,70 @@ class PostToLinkedInTest {
             useCase.post("x", listOf(File("v.mp4"), File("a.png"))),
         )
         assertTrue(attached.isEmpty())
+    }
+
+    @Test
+    fun `cut to fit gets an over-limit post under the limit and keeps the hashtags`() {
+        val vm = PostViewModel(useCase)
+        vm.start("Hook\n\n" + "word ".repeat(700).trim())
+        vm.cutToFit()
+        val confirm = vm.state.value as PostState.Confirm
+        assertTrue(confirm.canPost)
+        assertTrue(confirm.text.startsWith("Hook"))
+        assertTrue(confirm.text.endsWith("…\n\n#systemdesign #java"))
+    }
+
+    private class TrimAgent(private val reply: suspend () -> ApiResult<String>) : TextAgent {
+        override val service = ApiService.CLAUDE
+        var request = ""
+        override suspend fun generate(system: String, user: String): ApiResult<String> {
+            request = user
+            return reply()
+        }
+    }
+
+    @Test
+    fun `trim with AI condenses the body and puts the hashtags back`() = runTest(dispatcher) {
+        val gate = CompletableDeferred<ApiResult<String>>()
+        val agent = TrimAgent { gate.await() }
+        val vm = PostViewModel(useCase, SmartTrimUseCase { agent })
+        vm.start("Hook\n\n" + "word ".repeat(700).trim())
+        vm.trimWithAi()
+        advanceUntilIdle()
+        val trimming = vm.state.value as PostState.Confirm
+        assertTrue(trimming.trimming)
+        assertFalse(trimming.canPost)
+        // The hashtags aren't sent, and their room is taken out of the budget.
+        assertFalse(agent.request.contains("#java"))
+        assertTrue(agent.request.contains("at most ${3_000 - postLength("#systemdesign #java") - 2} characters"))
+
+        gate.complete(ApiResult.Ok("Hook\n\nThe key points."))
+        advanceUntilIdle()
+        assertEquals("Hook\n\nThe key points.\n\n#systemdesign #java", (vm.state.value as PostState.Confirm).text)
+        assertTrue((vm.state.value as PostState.Confirm).canPost)
+    }
+
+    @Test
+    fun `trim with AI on a post that fits aims a fifth shorter`() = runTest(dispatcher) {
+        enabled = false
+        val agent = TrimAgent { ApiResult.Ok("Short") }
+        val vm = PostViewModel(useCase, SmartTrimUseCase { agent })
+        vm.start("a ".repeat(50).trim())
+        vm.trimWithAi()
+        advanceUntilIdle()
+        assertTrue(agent.request.contains("at most 79 characters"))
+        assertEquals("Short", (vm.state.value as PostState.Confirm).text)
+    }
+
+    @Test
+    fun `a failed trim keeps the text and says why`() = runTest(dispatcher) {
+        val vm = PostViewModel(useCase, SmartTrimUseCase { TrimAgent { ApiResult.Failed(ApiError.RateLimited) } })
+        vm.start("Hello")
+        vm.trimWithAi()
+        advanceUntilIdle()
+        val confirm = vm.state.value as PostState.Confirm
+        assertEquals("Hello\n\n#systemdesign #java", confirm.text)
+        assertFalse(confirm.trimming)
+        assertTrue(confirm.trimMessage != null)
     }
 }

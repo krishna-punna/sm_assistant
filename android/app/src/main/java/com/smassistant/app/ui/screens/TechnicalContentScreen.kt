@@ -12,6 +12,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.smassistant.app.chat.ChatViewModel
 import com.smassistant.app.chat.TextSaver
 import com.smassistant.app.generate.appGenerateTechnicalContent
+import com.smassistant.app.generate.appSmartTrim
 import com.smassistant.app.linkedin.PostState
 import com.smassistant.app.linkedin.PostViewModel
 import com.smassistant.app.linkedin.appPostToLinkedIn
@@ -32,7 +33,7 @@ fun TechnicalContentScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit
         ChatViewModel(createSavedStateHandle(), TextSaver) { prompt -> useCase(prompt) }
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val postViewModel = viewModel { PostViewModel(appPostToLinkedIn(appContext)) }
+    val postViewModel = viewModel { PostViewModel(appPostToLinkedIn(appContext), appSmartTrim(appContext)) }
     val postState by postViewModel.state.collectAsStateWithLifecycle()
 
     ChatScreen(
@@ -58,6 +59,8 @@ fun TechnicalContentScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit
     PostDialogs(
         state = postState,
         onTextChange = postViewModel::onTextChange,
+        onTrimWithAi = postViewModel::trimWithAi,
+        onCutToFit = postViewModel::cutToFit,
         onConfirm = postViewModel::confirm,
         onDismiss = postViewModel::dismiss,
         onOpenSettings = onSetUpLinkedIn,

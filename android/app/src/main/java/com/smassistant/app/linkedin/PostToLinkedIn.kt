@@ -3,9 +3,12 @@ package com.smassistant.app.linkedin
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.smassistant.app.chat.Outcome
 import com.smassistant.app.data.ApiService
 import com.smassistant.app.data.ApiSettingsStore
 import com.smassistant.app.data.AppConfig
+import com.smassistant.app.generate.PostCut
+import com.smassistant.app.generate.SmartTrimUseCase
 import com.smassistant.app.hashtags.HashtagSettingsStore
 import com.smassistant.app.hashtags.Hashtags
 import com.smassistant.app.hashtags.LINKEDIN_POST_LIMIT
@@ -62,16 +65,19 @@ sealed interface PostState {
     /**
      * Confirmation dialog with the final text and attached [images] (LP-6, HT-15).
      * [addedTags] are the defaults that were appended; [limit] is LinkedIn's character limit.
+     * [trimming] is true while the AI agent condenses the text (PL-10); [trimMessage] says why it couldn't.
      */
     data class Confirm(
         val text: String,
         val addedTags: List<String>,
         val images: List<File> = emptyList(),
         val limit: Int = LINKEDIN_POST_LIMIT,
+        val trimming: Boolean = false,
+        val trimMessage: String? = null,
     ) : PostState {
         val length get() = postLength(text)
         val overLimitBy get() = (length - limit).coerceAtLeast(0)
-        val canPost get() = (text.isNotBlank() || images.isNotEmpty()) && overLimitBy == 0
+        val canPost get() = (text.isNotBlank() || images.isNotEmpty()) && overLimitBy == 0 && !trimming
     }
 
     data object Posting : PostState
@@ -81,7 +87,11 @@ sealed interface PostState {
     data class Failed(val message: String, val openSettings: Boolean) : PostState
 }
 
-class PostViewModel(private val useCase: PostToLinkedInUseCase) : ViewModel() {
+/** [smartTrim] condenses the text with the selected text agent for Trim post (PL-10); null hides that option. */
+class PostViewModel(
+    private val useCase: PostToLinkedInUseCase,
+    private val smartTrim: SmartTrimUseCase? = null,
+) : ViewModel() {
     private val _state = MutableStateFlow<PostState>(PostState.Idle)
     val state: StateFlow<PostState> = _state.asStateFlow()
 
@@ -104,7 +114,44 @@ class PostViewModel(private val useCase: PostToLinkedInUseCase) : ViewModel() {
     /** Edits in the confirmation dialog (interim for Q-12), e.g. to get under the limit. */
     fun onTextChange(text: String) {
         val confirm = _state.value as? PostState.Confirm ?: return
-        _state.value = confirm.copy(text = text)
+        if (confirm.trimming) return
+        _state.value = confirm.copy(text = text, trimMessage = null)
+    }
+
+    val canSmartTrim get() = smartTrim != null
+
+    /** Cut to fit (PL-12): drops the least important lines, then words, until the text fits, keeping the hashtags. */
+    fun cutToFit() {
+        val confirm = _state.value as? PostState.Confirm ?: return
+        if (confirm.trimming) return
+        _state.value = confirm.copy(text = PostCut.toFit(confirm.text) { postLength(it) <= confirm.limit }, trimMessage = null)
+    }
+
+    /**
+     * Trim with AI (PL-10, PL-11): the agent condenses the body, keeping the key points and the
+     * hashtags, to fit the limit, or to about a fifth shorter when it already fits.
+     */
+    fun trimWithAi() {
+        val confirm = _state.value as? PostState.Confirm ?: return
+        val trim = smartTrim ?: return
+        if (confirm.trimming || confirm.text.isBlank()) return
+        val tail = Hashtags.format(confirm.addedTags).takeIf { it.isNotEmpty() && confirm.text.trimEnd().endsWith(it) }
+        val body = tail?.let { confirm.text.trimEnd().removeSuffix(it).trimEnd() } ?: confirm.text
+        if (body.isBlank()) return
+        fun join(text: String) = if (tail == null) text else text.trimEnd() + "\n\n" + tail
+        val budget = confirm.limit - (tail?.let { postLength(it) + 2 } ?: 0)
+        val maxChars = if (confirm.overLimitBy > 0) budget else minOf(budget, postLength(body) * 4 / 5)
+        _state.value = confirm.copy(trimming = true, trimMessage = null)
+        viewModelScope.launch {
+            val outcome = trim(body, maxChars) { postLength(join(it)) <= confirm.limit }
+            // Dismissed, or a new dialog opened, while the agent was working.
+            val current = (_state.value as? PostState.Confirm)?.takeIf { it.trimming } ?: return@launch
+            _state.value = when (outcome) {
+                is Outcome.Ok -> current.copy(text = join(outcome.value), trimming = false)
+                is Outcome.Failed -> current.copy(trimming = false, trimMessage = outcome.error.userMessage(outcome.serviceName))
+                Outcome.NoAgent -> current.copy(trimming = false, trimMessage = "Set up a text agent to trim with AI, or use Cut to fit.")
+            }
+        }
     }
 
     fun confirm() {

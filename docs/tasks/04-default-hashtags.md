@@ -22,7 +22,7 @@ Fully local, so it can be built and tested in parallel with P1. The appending lo
 | HT-11 | Skip tags already in the text (case-insensitive) | done | |
 | HT-12 | Applies to all five posting features; media-only posts get tags as the text | done | Image-only and video-only posts get the tags as text |
 | HT-13 | Applied at posting time, not stored in content | done | |
-| HT-14 | Counts towards 3,000 chars; keep tags, ask user to shorten body | done | Generation also leaves room for the tags and shortens long posts: PL-1…PL-8 in [12 Post length](../requirements/12-post-length.md) (`PostLengthGuard`) |
+| HT-14 | Counts towards 3,000 chars; keep tags, ask user to shorten body | done | Generation also leaves room for the tags and shortens long posts, cutting any that are still over, plus Trim post in the confirm dialog: PL-1…PL-12 in [12 Post length](../requirements/12-post-length.md) (`PostLengthGuard`, `PostCut`, `SmartTrimUseCase`) |
 | HT-15 | Preview/confirmation shows the tags (Q-12) | done | |
 | HT-16 | Never added to Prepare Prompt output | done | Prepare Prompt has no Post button (`PreparePromptScreenTest`) |
 | HT-NFR | Warn (not block) above 5 tags | done | |

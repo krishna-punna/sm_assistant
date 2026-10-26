@@ -12,7 +12,8 @@ import com.smassistant.app.prompt.loadPromptAsset
 /**
  * Sends the user's prompt with a feature's system prompt to the selected text agent (TC-I1, AGC-4).
  * With a [lengthGuard], the prompt carries the post's character budget and a reply that's still
- * over LinkedIn's limit is sent back to be shortened (docs/requirements/12-post-length.md).
+ * over LinkedIn's limit is sent back to be shortened, then cut, so the screen only ever gets a post
+ * that can be published (docs/requirements/12-post-length.md).
  */
 class GenerateTextUseCase(
     private val systemPrompt: String,
@@ -30,23 +31,24 @@ class GenerateTextUseCase(
     }
 
     /**
-     * Asks the agent to shorten [text] until it fits, up to [PostLengthGuard.shortenAttempts] times (PL-6).
-     * Returns the shortest version it got; if none fits, the screen shows how far over it is (PL-7).
+     * Asks the agent to shorten [text] until it fits, up to [PostLengthGuard.shortenAttempts] times,
+     * aiming lower each time (PL-6). If the shortest version it got is still over, or a shorten call
+     * fails, the post is cut to fit (PL-9), so what's returned can always be posted.
      */
     private suspend fun fit(agent: TextAgent, system: String, text: String, guard: PostLengthGuard): String {
         var best = text
         var bestOver = guard.measure(text).overLimitBy
-        repeat(guard.shortenAttempts) {
+        for (attempt in 1..guard.shortenAttempts) {
             if (bestOver == 0) return best
-            val shorter = agent.generate(system, guard.shortenRequest(best, guard.measure(best)))
-            if (shorter !is ApiResult.Ok) return best
+            val shorter = agent.generate(system, guard.shortenRequest(best, guard.measure(best), attempt))
+            if (shorter !is ApiResult.Ok) break
             val over = guard.measure(shorter.value).overLimitBy
             if (over < bestOver) {
                 best = shorter.value
                 bestOver = over
             }
         }
-        return best
+        return PostCut.toFit(best, guard::fits)
     }
 }
 

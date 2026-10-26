@@ -30,4 +30,4 @@ apis:
 # shorten_attempts: how many times the AI agent is asked to shorten a post that comes back too long.
 linkedin_post:
   max_characters: 3000
-  shorten_attempts: 2
+  shorten_attempts: 3

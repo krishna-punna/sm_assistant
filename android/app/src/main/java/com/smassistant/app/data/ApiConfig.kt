@@ -50,13 +50,13 @@ fun parseAppConfig(input: InputStream): Map<ApiService, ApiConfig> {
  * ```yaml
  * linkedin_post:
  *   max_characters: 3000
- *   shorten_attempts: 2
+ *   shorten_attempts: 3
  * ```
  *
  * [shortenAttempts] is how many times the agent is asked to shorten a post that's over the limit.
  * Missing or invalid values fall back to the defaults.
  */
-data class PostRules(val maxCharacters: Int = 3_000, val shortenAttempts: Int = 2)
+data class PostRules(val maxCharacters: Int = 3_000, val shortenAttempts: Int = 3)
 
 fun parsePostRules(input: InputStream): PostRules {
     val root = Yaml().load<Any?>(input) as? Map<*, *> ?: emptyMap<String, Any?>()
