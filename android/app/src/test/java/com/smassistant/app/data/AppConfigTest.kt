@@ -23,6 +23,7 @@ class AppConfigTest {
                 api: https://generativelanguage.googleapis.com/v1beta
                 model: gemini-2.5-flash
                 image_model: gemini-2.5-flash-image
+                video_model: gemini-3-pro-image
               groq:
                 api: https://api.groq.com/openai/v1/chat/completions
                 model: llama-3.3-70b-versatile
@@ -37,6 +38,7 @@ class AppConfigTest {
         )
         assertEquals("", config.getValue(ApiService.GEMINI).key)
         assertEquals("gemini-2.5-flash-image", config.getValue(ApiService.GEMINI).imageModel)
+        assertEquals("gemini-3-pro-image", config.getValue(ApiService.GEMINI).videoModel)
         assertEquals("gsk", config.getValue(ApiService.GROQ).key)
     }
 
@@ -83,5 +85,18 @@ class AppConfigTest {
         val rules = java.io.File("src/main/assets/app.yml").inputStream().use(::parsePostRules)
         assertEquals(3_000, rules.maxCharacters)
         assertEquals(3, rules.aiHashtags)
+    }
+
+    @Test
+    fun `the video model falls back to the image model, and Claude to its text model`() {
+        val gemini = ApiConfig("https://x", "k", "text", imageModel = "img")
+        assertEquals("img", gemini.forMedia(MediaPurpose.VIDEO).imageModel)
+        assertEquals("vid", gemini.copy(videoModel = "vid").forMedia(MediaPurpose.VIDEO).imageModel)
+        assertEquals("img", gemini.copy(videoModel = "vid").forMedia(MediaPurpose.IMAGE).imageModel)
+
+        val claude = ApiConfig("https://x", "k", "sonnet")
+        assertEquals("sonnet", claude.forMedia(MediaPurpose.IMAGE).model)
+        assertEquals("opus", claude.copy(imageModel = "opus").forMedia(MediaPurpose.VIDEO).model)
+        assertEquals("haiku", claude.copy(imageModel = "opus", videoModel = "haiku").forMedia(MediaPurpose.VIDEO).model)
     }
 }

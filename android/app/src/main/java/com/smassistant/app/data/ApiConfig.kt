@@ -11,8 +11,33 @@ enum class ApiService(val displayName: String, val configKey: String) {
     GROQ("Groq", "groq"),
 }
 
-/** [imageModel] is only used by Gemini, for image generation (AGC-2). */
-data class ApiConfig(val api: String, val key: String, val model: String = "", val imageModel: String = "")
+/**
+ * [imageModel] and [videoModel] are used by the image agents: [imageModel] for Generate Image,
+ * [videoModel] for the video slides. A blank one falls back as [forMedia] describes.
+ */
+data class ApiConfig(
+    val api: String,
+    val key: String,
+    val model: String = "",
+    val imageModel: String = "",
+    val videoModel: String = "",
+)
+
+/** What an image agent is drawing: images for a post, or the slides of a video. */
+enum class MediaPurpose { IMAGE, VIDEO }
+
+/** The model chosen for [purpose]: the video model falls back to the image model. Blank when neither is set. */
+fun ApiConfig.mediaModel(purpose: MediaPurpose): String =
+    if (purpose == MediaPurpose.VIDEO) videoModel.ifBlank { imageModel } else imageModel
+
+/**
+ * This config with [imageModel] and [model] set to the model for [purpose], so an image agent
+ * can read whichever it uses. Claude draws with its text [model] when no media model is chosen.
+ */
+fun ApiConfig.forMedia(purpose: MediaPurpose): ApiConfig {
+    val chosen = mediaModel(purpose)
+    return copy(imageModel = chosen, model = chosen.ifBlank { model })
+}
 
 /**
  * Parses app.yml, in this shape:
@@ -26,6 +51,7 @@ data class ApiConfig(val api: String, val key: String, val model: String = "", v
  *   gemini:
  *     model: gemini-2.5-flash
  *     image_model: gemini-2.5-flash-image
+ *     video_model: ""
  * ```
  *
  * Every [ApiService] gets an entry; missing services or fields become empty strings.
@@ -40,6 +66,7 @@ fun parseAppConfig(input: InputStream): Map<ApiService, ApiConfig> {
             key = entry["key"]?.toString().orEmpty(),
             model = entry["model"]?.toString().orEmpty(),
             imageModel = entry["image_model"]?.toString().orEmpty(),
+            videoModel = entry["video_model"]?.toString().orEmpty(),
         )
     }
 }

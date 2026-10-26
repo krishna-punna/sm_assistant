@@ -4,6 +4,8 @@ import android.content.Context
 import com.smassistant.app.data.ApiConfig
 import com.smassistant.app.data.ApiService
 import com.smassistant.app.data.ApiSettingsStore
+import com.smassistant.app.data.MediaPurpose
+import com.smassistant.app.data.forMedia
 import com.smassistant.app.media.AndroidSvgRenderer
 import com.smassistant.app.media.MediaCache
 import com.smassistant.app.net.Http
@@ -23,7 +25,7 @@ fun ApiConfig.isUsableImageAgent(service: ApiService) = when (service) {
     else -> false
 }
 
-/** The user's choice of default text and image agents (interim answer to Q-05). */
+/** The user's choice of default text, image and video agents (interim answer to Q-05). */
 class AgentPreferences(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences("agent_settings", Context.MODE_PRIVATE)
 
@@ -39,9 +41,25 @@ class AgentPreferences(context: Context) {
             prefs.edit().putString(KEY_DEFAULT_IMAGE, value?.name).apply()
         }
 
+    /** The agent for video slides. Until one is chosen, the video follows the image agent. */
+    var defaultVideoAgent: ApiService?
+        get() = prefs.getString(KEY_DEFAULT_VIDEO, null)?.let { name -> IMAGE_AGENTS.firstOrNull { it.name == name } }
+            ?: defaultImageAgent
+        set(value) {
+            prefs.edit().putString(KEY_DEFAULT_VIDEO, value?.name).apply()
+        }
+
+    fun defaultMediaAgent(purpose: MediaPurpose): ApiService? =
+        if (purpose == MediaPurpose.VIDEO) defaultVideoAgent else defaultImageAgent
+
+    fun setDefaultMediaAgent(purpose: MediaPurpose, service: ApiService) {
+        if (purpose == MediaPurpose.VIDEO) defaultVideoAgent = service else defaultImageAgent = service
+    }
+
     private companion object {
         const val KEY_DEFAULT_TEXT = "default_text_agent"
         const val KEY_DEFAULT_IMAGE = "default_image_agent"
+        const val KEY_DEFAULT_VIDEO = "default_video_agent"
     }
 }
 
@@ -82,22 +100,30 @@ fun appAgentSelector(context: Context): AgentSelector {
     )
 }
 
-/** The image selector the screens use: Gemini's image model, or Claude drawing SVG (`prompts/image_svg.md`) rendered on the device. */
-fun appImageAgentSelector(context: Context, cache: MediaCache = MediaCache(context)): ImageAgentSelector {
+/**
+ * The image selector the screens use: Gemini's image model, or Claude drawing SVG (`prompts/image_svg.md`)
+ * rendered on the device. [purpose] picks the default agent and model: images and video slides each have their own.
+ */
+fun appImageAgentSelector(
+    context: Context,
+    cache: MediaCache = MediaCache(context),
+    purpose: MediaPurpose = MediaPurpose.IMAGE,
+): ImageAgentSelector {
     val store = ApiSettingsStore(context)
     val preferences = AgentPreferences(context)
-    val gemini = GeminiImageAgent({ store.load(ApiService.GEMINI) }, cache)
+    val configOf = { service: ApiService -> store.load(service).forMedia(purpose) }
+    val gemini = GeminiImageAgent({ configOf(ApiService.GEMINI) }, cache)
     // A long SVG can take a few minutes to write.
     val svgClient = Http.generationClient.newBuilder().readTimeout(300, TimeUnit.SECONDS).build()
     val claude = ClaudeSvgImageAgent(
-        text = claudeAgent({ store.load(ApiService.CLAUDE) }, svgClient, SVG_MAX_TOKENS),
+        text = claudeAgent({ configOf(ApiService.CLAUDE) }, svgClient, SVG_MAX_TOKENS),
         systemPrompt = loadPromptAsset(context, "image_svg"),
         cache = cache,
         renderer = AndroidSvgRenderer(),
     )
     return ImageAgentSelector(
-        configOf = store::load,
-        preferred = { preferences.defaultImageAgent },
+        configOf = configOf,
+        preferred = { preferences.defaultMediaAgent(purpose) },
         agentFor = { service -> if (service == ApiService.CLAUDE) claude else gemini },
     )
 }
