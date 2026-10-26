@@ -76,6 +76,9 @@ Current code: one placeholder `FeatureScreen` shared by all six hub features; Su
 | IM-T1 | unit | Generator: requested count, cache files created, error when Gemini not configured. | IM-I1 | done (`GenerateImagesTest`, `ImageAgentTest`) |
 | IM-T2 | UI | Strip shows N thumbnails and badge; deselecting updates selection; tap navigates to preview with index. | IM-I2 | done (`ImageStripTest`) |
 | IM-T3 | UI | Preview shows Post in LinkedIn and swipes between images. | IM-I3 | done (`ImagePreviewTest`) |
+| IM-I5 | Impl | Infographic pipeline ([design](../design/image-video-pipeline.md)): JSON definition, parser and renderer (SVG cards, diagrams, icons, palettes, illustration slots). | IM-I1 | done — `infographic/` package |
+| IM-I6 | Impl | Generate Image through the pipeline: text agent writes the JSON, image agent paints the illustrations, composed into a 2x PNG; old flow as fallback without a text agent. | IM-I5 | todo |
+| IM-T4 | unit | Parser leniency and limits; renderer draws every section type inside the canvas, slots, formats, text wrapping. | IM-I5 | done (`InfographicSpecTest`, `InfographicRendererTest`) |
 
 ## 6.3 Generate Video (P6) — Q-08 answered: slideshow of generated diagrams
 
@@ -95,6 +98,7 @@ Current code: one placeholder `FeatureScreen` shared by all six hub features; Su
 | VI-T2 | UI | Player shows controls for a sample file. | VI-I2 | done (`VideoPlayerTest`) |
 | VI-T3 | UI | Generate Video: result shows the player and length; no Gemini key shows the set-up card. | VI-I1 | done (`VideoScreenTest`) |
 | VI-T4 | unit | Video upload: parts PUT by byte range, ETags finalized in order, URN attached as media; missing ETag stops; video can't share a post with images. | VI-I3 | done (`LinkedInClientTest`, `PostToLinkedInTest`) |
+| VI-I4 | Impl | Video through the pipeline: the text agent writes one slide deck (consistent story and palette), each slide rendered and composed like IM-I6, then encoded. | IM-I6 | todo |
 
 ## 6.4 Generate Content & Image (P5)
 
