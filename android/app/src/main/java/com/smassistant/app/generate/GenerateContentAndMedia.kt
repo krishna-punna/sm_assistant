@@ -67,6 +67,6 @@ class GenerateContentAndMediaUseCase<M>(
     companion object {
         const val TEXT_NOT_SET_UP = "No text agent is set up. Add an API key for one of the agents in AI Agent settings."
         const val IMAGES_NOT_SET_UP = "No AI agent is set up for images. Add an API key for one of the agents in AI Agent settings."
-        const val VIDEO_NOT_SET_UP = "Videos are made from image slides. Add a Gemini, Claude, Hugging Face, Cloudflare or Pollinations.AI key in AI Agent settings."
+        const val VIDEO_NOT_SET_UP = "No AI agent is set up for videos. Add an API key for one of the agents in AI Agent settings."
     }
 }

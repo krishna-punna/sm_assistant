@@ -99,7 +99,8 @@ Current code: one placeholder `FeatureScreen` shared by all six hub features; Su
 | VI-T2 | UI | Player shows controls for a sample file. | VI-I2 | done (`VideoPlayerTest`) |
 | VI-T3 | UI | Generate Video: result shows the player and length; no Gemini key shows the set-up card. | VI-I1 | done (`VideoScreenTest`) |
 | VI-T4 | unit | Video upload: parts PUT by byte range, ETags finalized in order, URN attached as media; missing ETag stops; video can't share a post with images. | VI-I3 | done (`LinkedInClientTest`, `PostToLinkedInTest`) |
-| VI-I4 | Impl | Video through the pipeline: the text agent writes one slide deck (consistent story and palette), each slide rendered and composed like IM-I6, then encoded. | IM-I6 | todo |
+| VI-I4 | Impl | Video through the pipeline: the text agent writes one slide deck (consistent story and palette), each slide rendered and composed like IM-I6, then encoded. | IM-I6 | done — `GenerateVideoUseCase` + `SlideDecks`, `SlideDeckWriter` (`prompts/video_deck.md`, with the few-shot examples), one illustration per slide, slides composed at 1080 px; old per-slide flow without a text agent |
+| VI-T5 | unit | Deck pipeline: one planning call, every slide drawn, undrawable slides left out, too few fail, errors name the agent, old flow without a text agent. | VI-I4 | done (`GenerateVideoTest`) |
 
 ## 6.4 Generate Content & Image (P5)
 

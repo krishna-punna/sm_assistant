@@ -2,7 +2,9 @@ package com.smassistant.app.generate
 
 import com.smassistant.app.agents.TextAgent
 import com.smassistant.app.infographic.InfographicSpec
+import com.smassistant.app.infographic.SlideDeck
 import com.smassistant.app.infographic.parseInfographic
+import com.smassistant.app.infographic.parseSlideDeck
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
 
@@ -29,15 +31,35 @@ class InfographicWriter(
 ) {
     suspend fun write(agent: TextAgent, topic: String, layoutIdea: String): ApiResult<InfographicSpec> {
         val system = systemPrompt.replace("{{examples}}", formatImageExamples(pickImageExamples(examples, topic)))
-        val user = "Topic: $topic\n\nLayout idea: $layoutIdea"
-        var problem = ""
-        repeat(2) {
-            val reply = when (val result = agent.generate(system, user)) {
-                is ApiResult.Failed -> return result
-                is ApiResult.Ok -> result.value
-            }
-            parseInfographic(reply).onSuccess { return ApiResult.Ok(it) }.onFailure { problem = it.message.orEmpty() }
-        }
-        return ApiResult.Failed(ApiError.BadResponse(problem.ifBlank { "no infographic in the reply" }))
+        return askTwice(agent, system, "Topic: $topic\n\nLayout idea: $layoutIdea", ::parseInfographic)
     }
+}
+
+/**
+ * The video's "LLM generates content" step: one call plans every slide ([systemPrompt] is
+ * `prompts/video_deck.md`, `{{slides}}` the slide count, `{{examples}}` the closest few-shot
+ * examples), so the slides tell one story in one palette. Asked once more if the reply isn't a usable deck.
+ */
+class SlideDeckWriter(
+    private val systemPrompt: String,
+    private val examples: List<ImageExample> = emptyList(),
+) {
+    suspend fun write(agent: TextAgent, topic: String, slides: Int): ApiResult<SlideDeck> {
+        val system = systemPrompt
+            .replace("{{slides}}", slides.toString())
+            .replace("{{examples}}", formatImageExamples(pickImageExamples(examples, topic)))
+        return askTwice(agent, system, "Topic: $topic", ::parseSlideDeck)
+    }
+}
+
+private suspend fun <T> askTwice(agent: TextAgent, system: String, user: String, parse: (String) -> Result<T>): ApiResult<T> {
+    var problem = ""
+    repeat(2) {
+        val reply = when (val result = agent.generate(system, user)) {
+            is ApiResult.Failed -> return result
+            is ApiResult.Ok -> result.value
+        }
+        parse(reply).onSuccess { return ApiResult.Ok(it) }.onFailure { problem = it.message.orEmpty() }
+    }
+    return ApiResult.Failed(ApiError.BadResponse(problem.ifBlank { "no infographic in the reply" }))
 }
