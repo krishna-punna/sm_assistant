@@ -1,5 +1,6 @@
 package com.smassistant.app.ui.screens
 
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -29,6 +30,7 @@ class DefaultHashtagsScreenTest {
             onSave = { calls += "save" },
             onClear = { calls += "clear" },
             onEnabledChange = { calls += "toggle:$it" },
+            onAiEnabledChange = { calls += "ai:$it" },
             onBackToHome = { calls += "home" },
         )
     }
@@ -40,6 +42,17 @@ class DefaultHashtagsScreenTest {
         compose.onNodeWithText("Default Hash Tags#").assertExists()
         compose.onNodeWithText("#JavaDeveloper #AIEngineer").assertExists()
         compose.onNodeWithTag("hashtagToggle").assertIsOn()
+        compose.onNodeWithText("AI-suggested hashtags").assertExists()
+        compose.onNodeWithTag("aiHashtagToggle").assertIsOff()
+    }
+
+    @Test
+    fun aiToggleShowsStateAndCallsBack() {
+        show(DefaultHashtagsUiState(aiEnabled = true))
+        compose.onNodeWithTag("aiHashtagToggle").assertIsOn()
+
+        compose.onNodeWithTag("aiHashtagToggle").performClick()
+        assertEquals(listOf("ai:false"), calls)
     }
 
     @Test
@@ -58,7 +71,7 @@ class DefaultHashtagsScreenTest {
         compose.onNodeWithText("Save").performClick()
         compose.onNodeWithText("Clear").performClick()
         compose.onNodeWithTag("hashtagToggle").performClick()
-        compose.onNodeWithText("Back to Home").performClick()
+        compose.onNodeWithContentDescription("Back to Home").performClick()
 
         assertEquals(listOf("save", "clear", "toggle:true", "home"), calls)
     }

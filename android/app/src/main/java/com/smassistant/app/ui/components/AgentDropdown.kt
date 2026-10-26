@@ -25,8 +25,11 @@ import com.smassistant.app.agents.IMAGE_AGENTS
 import com.smassistant.app.agents.TEXT_AGENTS
 import com.smassistant.app.agents.isUsableAgent
 import com.smassistant.app.agents.isUsableImageAgent
+import com.smassistant.app.data.AiModel
 import com.smassistant.app.data.ApiService
 import com.smassistant.app.data.ApiSettingsStore
+import com.smassistant.app.data.MediaPurpose
+import com.smassistant.app.data.forMedia
 
 /**
  * "Agent: Claude ▾" above a text feature's conversation: picks which set-up agent writes the
@@ -50,24 +53,50 @@ fun TextAgentDropdown() {
 }
 
 /**
- * "Image agent: Gemini ▾" on the image and video features: Gemini paints the images, Claude
- * draws them as SVG. Lists only set-up agents and is hidden unless there's a choice to make.
+ * "Image agent: Gemini ▾" and "Image model: … ▾" on the image features, or "Video agent" and
+ * "Video model" on the video features ([purpose]): images and video slides each keep their own
+ * agent and model. Gemini paints them, Claude draws them as SVG. The agent picker lists only
+ * set-up agents and is hidden unless there's a choice; the model picker shows the models last
+ * listed on the agent's settings screen and is hidden until there are some.
  */
 @Composable
-fun ImageAgentDropdown() {
+fun MediaAgentDropdown(purpose: MediaPurpose = MediaPurpose.IMAGE) {
     val appContext = LocalContext.current.applicationContext
     val preferences = remember { AgentPreferences(appContext) }
-    val agents = remember {
-        val store = ApiSettingsStore(appContext)
-        IMAGE_AGENTS.filter { store.load(it).isUsableImageAgent(it) }
-    }
-    if (agents.size < 2) return
+    val store = remember { ApiSettingsStore(appContext) }
+    val agents = remember { IMAGE_AGENTS.filter { store.load(it).forMedia(purpose).isUsableImageAgent(it) } }
+    if (agents.isEmpty()) return
+    val name = if (purpose == MediaPurpose.VIDEO) "Video" else "Image"
     // Same rule as ImageAgentSelector: the default if it's set up, otherwise the first set-up agent.
-    var selected by remember { mutableStateOf(preferences.defaultImageAgent?.takeIf { it in agents } ?: agents.first()) }
-    AgentDropdown(agents, selected, label = "Image agent", testTag = "imageAgentDropdown") {
-        preferences.defaultImageAgent = it
-        selected = it
+    var selected by remember { mutableStateOf(preferences.defaultMediaAgent(purpose)?.takeIf { it in agents } ?: agents.first()) }
+    if (agents.size > 1) {
+        AgentDropdown(agents, selected, label = "$name agent", testTag = "${name.lowercase()}AgentDropdown") {
+            preferences.setDefaultMediaAgent(purpose, it)
+            selected = it
+        }
     }
+    MediaModelDropdown(store, selected, purpose, name)
+}
+
+@Composable
+private fun MediaModelDropdown(store: ApiSettingsStore, agent: ApiService, purpose: MediaPurpose, name: String) {
+    var model by remember(agent) { mutableStateOf(store.load(agent).forMedia(purpose).let { if (agent == ApiService.CLAUDE) it.model else it.imageModel }) }
+    val listed = remember(agent) {
+        store.cachedModels(agent)?.lists?.let { if (agent == ApiService.CLAUDE) it.text else it.image }.orEmpty()
+    }
+    if (listed.isEmpty()) return
+    val options = if (listed.any { it.id == model }) listed else listOf(AiModel(model)) + listed
+    SelectDropdown(
+        label = "$name model",
+        selected = model,
+        options = options.map { it.id },
+        optionLabel = { id -> options.firstOrNull { it.id == id }?.label ?: id },
+        onSelect = {
+            store.saveMediaModel(agent, purpose, it)
+            model = it
+        },
+        testTag = "${name.lowercase()}ModelDropdown",
+    )
 }
 
 @Composable

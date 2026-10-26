@@ -26,6 +26,7 @@ data class PostText(val text: String, val addedTags: List<String>, val overLimit
 object Hashtags {
     private val separators = Regex("[\\s,]+")
     private val validTag = Regex("^#[\\p{L}\\p{N}_]+$")
+    private val notTagChar = Regex("[^\\p{L}\\p{N}_]")
 
     /**
      * Splits on spaces, commas and new lines (HT-2), adds a missing `#`, rejects characters
@@ -50,19 +51,44 @@ object Hashtags {
     fun format(tags: List<String>): String = tags.joinToString(" ")
 
     /**
-     * Builds the text to post (HT-10 to HT-14): when [enabled], appends the tags that aren't
-     * already in [body] after one blank line, separated by spaces. A blank body (image- or
-     * video-only post) gets just the tags. Tags are kept even when that pushes the text over
-     * [limit]; [PostText.overLimitBy] says by how much.
+     * Builds the text to post (HT-10 to HT-14, HT-22): when [enabled], adds the tags that aren't
+     * already in [body] after one blank line, separated by spaces. If the body already ends with a
+     * line of hashtags (the AI agent's, HT-21), the default tags go first on that same line and
+     * duplicates are dropped case-insensitively, so the post has one hashtag line. A blank body
+     * (image- or video-only post) gets just the tags. Tags are kept even when that pushes the text
+     * over [limit]; [PostText.overLimitBy] says by how much.
      */
     fun appendTo(body: String, tags: List<String>, enabled: Boolean, limit: Int = LINKEDIN_POST_LIMIT): PostText {
-        val toAdd = if (enabled) tags.filterNot { containsTag(body, it) } else emptyList()
+        val (rest, trailing) = splitTrailingTags(body)
+        val defaults = if (enabled) tags.filterNot { containsTag(rest, it) } else emptyList()
+        val toAdd = defaults.filterNot { tag -> trailing.any { it.equals(tag, ignoreCase = true) } }
+        val line = dedupe(defaults + trailing)
         val text = when {
-            toAdd.isEmpty() -> body
-            body.isBlank() -> format(toAdd)
-            else -> body.trimEnd() + "\n\n" + format(toAdd)
+            line.isEmpty() -> body
+            rest.isBlank() -> format(line)
+            else -> rest.trimEnd() + "\n\n" + format(line)
         }
         return PostText(text, toAdd, overLimitBy = (postLength(text) - limit).coerceAtLeast(0))
+    }
+
+    /**
+     * Splits off the last line of [body] when every word on it is a hashtag, e.g. the AI agent's
+     * `#SpringBoot #Java`. Characters LinkedIn doesn't allow are dropped (`#Spring-Boot` →
+     * `#SpringBoot`). Returns the body without that line and its tags, or the body and no tags.
+     */
+    fun splitTrailingTags(body: String): Pair<String, List<String>> {
+        val trimmed = body.trimEnd()
+        val start = trimmed.lastIndexOf('\n') + 1
+        val words = trimmed.substring(start).split(separators).filter { it.isNotEmpty() }
+        if (words.isEmpty() || words.any { !it.startsWith("#") }) return body to emptyList()
+        val tags = words.map { "#" + it.replace(notTagChar, "") }.filter { it.length > 1 }
+        if (tags.isEmpty()) return body to emptyList()
+        return trimmed.substring(0, start) to dedupe(tags)
+    }
+
+    private fun dedupe(tags: List<String>): List<String> {
+        val seen = mutableSetOf<String>()
+        return tags.filter { seen.add(it.lowercase()) }
     }
 
     /**
