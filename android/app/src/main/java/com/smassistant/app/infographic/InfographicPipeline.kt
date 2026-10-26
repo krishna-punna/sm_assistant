@@ -30,7 +30,7 @@ class InfographicPipeline(
     private val composer: InfographicComposer,
     private val maxIllustrations: Int = MAX_ILLUSTRATIONS,
 ) {
-    suspend fun draw(spec: InfographicSpec, illustrator: ImageAgent?): File? {
+    suspend fun draw(spec: InfographicSpec, illustrator: ImageAgent?, maxIllustrations: Int = this.maxIllustrations): File? {
         val rendered = renderer.render(spec)
         val painted = if (illustrator == null) {
             emptyList()
