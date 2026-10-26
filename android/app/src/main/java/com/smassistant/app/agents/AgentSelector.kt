@@ -13,15 +13,32 @@ import com.smassistant.app.prompt.loadPromptAsset
 import java.util.concurrent.TimeUnit
 
 /** Agents that can generate text, in fallback order. */
-val TEXT_AGENTS = listOf(ApiService.CLAUDE, ApiService.GEMINI, ApiService.GROQ)
+val TEXT_AGENTS = listOf(
+    ApiService.CLAUDE,
+    ApiService.GEMINI,
+    ApiService.GROQ,
+    ApiService.HUGGINGFACE,
+    ApiService.CLOUDFLARE,
+    ApiService.POLLINATIONS,
+)
 
-/** Agents that can make images, in fallback order: Gemini paints them, Claude writes them as SVG. */
-val IMAGE_AGENTS = listOf(ApiService.GEMINI, ApiService.CLAUDE)
+/**
+ * Agents that can make images, in fallback order: Gemini paints them, Claude writes them as SVG,
+ * and Hugging Face, Cloudflare and Pollinations.AI run diffusion models such as FLUX.
+ */
+val IMAGE_AGENTS = listOf(
+    ApiService.GEMINI,
+    ApiService.CLAUDE,
+    ApiService.HUGGINGFACE,
+    ApiService.CLOUDFLARE,
+    ApiService.POLLINATIONS,
+)
 
-/** True when [service] has what it needs to make images: Gemini an image model, Claude a text model. */
+/** True when [service] has what it needs to make images: Claude a text model, the others an image model. */
 fun ApiConfig.isUsableImageAgent(service: ApiService) = when (service) {
     ApiService.GEMINI -> key.isNotBlank() && imageModel.isNotBlank()
     ApiService.CLAUDE -> isUsableAgent()
+    ApiService.HUGGINGFACE, ApiService.CLOUDFLARE, ApiService.POLLINATIONS -> isConfigured() && imageModel.isNotBlank()
     else -> false
 }
 
@@ -101,8 +118,9 @@ fun appAgentSelector(context: Context): AgentSelector {
 }
 
 /**
- * The image selector the screens use: Gemini's image model, or Claude drawing SVG (`prompts/image_svg.md`)
- * rendered on the device. [purpose] picks the default agent and model: images and video slides each have their own.
+ * The image selector the screens use: Gemini's image model, Claude drawing SVG (`prompts/image_svg.md`)
+ * rendered on the device, or the image model of Hugging Face, Cloudflare or Pollinations.AI.
+ * [purpose] picks the default agent and model: images and video slides each have their own.
  */
 fun appImageAgentSelector(
     context: Context,
@@ -124,6 +142,14 @@ fun appImageAgentSelector(
     return ImageAgentSelector(
         configOf = configOf,
         preferred = { preferences.defaultMediaAgent(purpose) },
-        agentFor = { service -> if (service == ApiService.CLAUDE) claude else gemini },
+        agentFor = { service ->
+            when (service) {
+                ApiService.CLAUDE -> claude
+                ApiService.HUGGINGFACE -> HuggingFaceImageAgent({ configOf(service) }, cache)
+                ApiService.CLOUDFLARE -> CloudflareImageAgent({ configOf(service) }, cache)
+                ApiService.POLLINATIONS -> PollinationsImageAgent({ configOf(service) }, cache)
+                else -> gemini
+            }
+        },
     )
 }

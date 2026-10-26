@@ -27,7 +27,7 @@ import okhttp3.OkHttpClient
 /** How many images one Generate Image submit asks for (interim answer to Q-10). */
 const val IMAGES_PER_REQUEST = 4
 
-/** Turns a prompt into image files (docs/tasks AGC-2), with Gemini or Claude ([IMAGE_AGENTS]). */
+/** Turns a prompt into image files (docs/tasks AGC-2), with any of [IMAGE_AGENTS]. */
 fun interface ImageAgent {
     /** The service named in errors, e.g. "Gemini is rate limiting requests." */
     val service: ApiService get() = ApiService.GEMINI

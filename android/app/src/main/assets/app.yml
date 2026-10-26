@@ -30,6 +30,30 @@ apis:
     model: llama-3.3-70b-versatile
     key: ""
 
+  # Hugging Face Inference Providers: text through the OpenAI-compatible router,
+  # images through the hf-inference provider. The key is a Hugging Face access token.
+  huggingface:
+    api: https://router.huggingface.co/v1/chat/completions
+    model: openai/gpt-oss-120b
+    image_model: black-forest-labs/FLUX.1-schnell
+    key: ""
+
+  # Cloudflare Workers AI. {account_id} is filled in from the Account ID setting;
+  # the key is an API token with Workers AI permission.
+  cloudflare:
+    api: https://api.cloudflare.com/client/v4/accounts/{account_id}/ai
+    account_id: ""
+    model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+    image_model: "@cf/black-forest-labs/flux-1-schnell"
+    key: ""
+
+  # Pollinations.AI (gen.pollinations.ai). The key is a secret sk_ key from enter.pollinations.ai.
+  pollinations:
+    api: https://gen.pollinations.ai/v1/chat/completions
+    model: openai/gpt-4o-mini
+    image_model: black-forest-labs/flux.1-schnell
+    key: ""
+
 # LinkedIn post length (docs/requirements/12-post-length.md).
 # max_characters: LinkedIn's limit, including the default hashtags, spaces, emoji and line breaks.
 # shorten_attempts: how many times the AI agent is asked to shorten a post that comes back too long.

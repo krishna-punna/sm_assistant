@@ -9,11 +9,15 @@ enum class ApiService(val displayName: String, val configKey: String) {
     CLAUDE("Claude", "claude"),
     GEMINI("Gemini", "gemini"),
     GROQ("Groq", "groq"),
+    HUGGINGFACE("Hugging Face", "huggingface"),
+    CLOUDFLARE("Cloudflare", "cloudflare"),
+    POLLINATIONS("Pollinations.AI", "pollinations"),
 }
 
 /**
  * [imageModel] and [videoModel] are used by the image agents: [imageModel] for Generate Image,
  * [videoModel] for the video slides. A blank one falls back as [forMedia] describes.
+ * [accountId] fills the `{account_id}` placeholder in [api], which only Cloudflare's URL has.
  */
 data class ApiConfig(
     val api: String,
@@ -21,7 +25,21 @@ data class ApiConfig(
     val model: String = "",
     val imageModel: String = "",
     val videoModel: String = "",
-)
+    val accountId: String = "",
+) {
+    /** [api] with the account id filled in. */
+    val apiUrl: String get() = api.trim().replace(ACCOUNT_ID_PLACEHOLDER, accountId.trim())
+
+    /** True when the URL needs an account id that hasn't been entered. */
+    val missingAccountId: Boolean get() = ACCOUNT_ID_PLACEHOLDER in api && accountId.isBlank()
+
+    /** True when there's an API URL, a key and (where the URL needs one) an account id. */
+    fun isConfigured() = api.isNotBlank() && key.isNotBlank() && !missingAccountId
+
+    companion object {
+        const val ACCOUNT_ID_PLACEHOLDER = "{account_id}"
+    }
+}
 
 /** What an image agent is drawing: images for a post, or the slides of a video. */
 enum class MediaPurpose { IMAGE, VIDEO }
@@ -66,6 +84,7 @@ fun parseAppConfig(input: InputStream): Map<ApiService, ApiConfig> {
             key = entry["key"]?.toString().orEmpty(),
             model = entry["model"]?.toString().orEmpty(),
             imageModel = entry["image_model"]?.toString().orEmpty(),
+            accountId = entry["account_id"]?.toString().orEmpty(),
             videoModel = entry["video_model"]?.toString().orEmpty(),
         )
     }

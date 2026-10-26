@@ -82,6 +82,16 @@ class ImageAgentSelectorTest {
         assertEquals(true, ApiConfig("https://x", "k", "m").isUsableImageAgent(ApiService.CLAUDE))
         assertEquals(false, ApiConfig("https://x", "k", "m", "img").isUsableImageAgent(ApiService.GROQ))
     }
+    @Test
+    fun `new agents can make images once they have an image model`() {
+        listOf(ApiService.HUGGINGFACE, ApiService.CLOUDFLARE, ApiService.POLLINATIONS).forEach { service ->
+            assertEquals(service.name, true, ApiConfig("https://x", "k", "", "img").isUsableImageAgent(service))
+            assertEquals(service.name, false, ApiConfig("https://x", "k", "m", "").isUsableImageAgent(service))
+            assertEquals(service.name, false, ApiConfig("https://x", "", "m", "img").isUsableImageAgent(service))
+        }
+        assertEquals(false, ApiConfig("https://x/{account_id}/ai", "k", "m", "img").isUsableImageAgent(ApiService.CLOUDFLARE))
+        assertEquals(true, ApiConfig("https://x/{account_id}/ai", "k", "m", "img", accountId = "id").isUsableImageAgent(ApiService.CLOUDFLARE))
+    }
 }
 
 @RunWith(RobolectricTestRunner::class)

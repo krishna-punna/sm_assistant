@@ -40,6 +40,7 @@ class ApiSettingsStore(context: Context, private val cipher: SecretCipher = Keys
             model = prefs.getString(modelPref(service), null) ?: defaults.model,
             imageModel = prefs.getString(imageModelPref(service), null) ?: defaults.imageModel,
             videoModel = prefs.getString(videoModelPref(service), null) ?: defaults.videoModel,
+            accountId = prefs.getString(accountIdPref(service), null) ?: defaults.accountId,
         )
     }
 
@@ -56,6 +57,13 @@ class ApiSettingsStore(context: Context, private val cipher: SecretCipher = Keys
     fun saveMediaModel(service: ApiService, purpose: MediaPurpose, model: String) {
         val pref = if (purpose == MediaPurpose.VIDEO) videoModelPref(service) else imageModelPref(service)
         prefs.edit().apply { if (model.isBlank()) remove(pref) else putString(pref, model.trim()) }.apply()
+    }
+
+    /** Saves the account id (Cloudflare). A blank one removes the override so the app.yml default applies again. */
+    fun saveAccountId(service: ApiService, accountId: String) {
+        prefs.edit().apply {
+            if (accountId.isBlank()) remove(accountIdPref(service)) else putString(accountIdPref(service), accountId.trim())
+        }.apply()
     }
 
     /** The model lists last fetched for [service] and when, so the picker has options before the next fetch. */
@@ -107,6 +115,7 @@ class ApiSettingsStore(context: Context, private val cipher: SecretCipher = Keys
     private fun apiPref(service: ApiService) = "${service.name}.api"
     private fun modelPref(service: ApiService) = "${service.name}.model"
     private fun imageModelPref(service: ApiService) = "${service.name}.image_model"
+    private fun accountIdPref(service: ApiService) = "${service.name}.account_id"
     private fun videoModelPref(service: ApiService) = "${service.name}.video_model"
     private fun modelsPref(service: ApiService) = "${service.name}.models"
     private fun encryptedKeyPref(service: ApiService) = "${service.name}.key_enc"
