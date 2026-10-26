@@ -1,9 +1,13 @@
 package com.smassistant.app.generate
 
 import android.content.Context
+import com.smassistant.app.agents.HuggingFaceVideoAgent
 import com.smassistant.app.agents.ImageAgent
+import com.smassistant.app.agents.VideoClipAgent
 import com.smassistant.app.agents.appImageAgentSelector
 import com.smassistant.app.chat.Outcome
+import com.smassistant.app.data.ApiService
+import com.smassistant.app.data.ApiSettingsStore
 import com.smassistant.app.data.MediaPurpose
 import com.smassistant.app.media.Media3SlideshowMaker
 import com.smassistant.app.media.MediaCache
@@ -25,6 +29,7 @@ const val MIN_SLIDES = 2
 /** Name used in video errors, e.g. "Unexpected response from the video maker: …". */
 const val VIDEO_MAKER = "the video maker"
 
+/** A generated video: a slideshow of [slides], or an AI clip from a text-to-video model when [slides] is empty. */
 data class GeneratedVideo(val file: File, val slides: List<File>)
 
 /**
@@ -38,8 +43,18 @@ class GenerateVideoUseCase(
     private val maker: SlideshowMaker,
     private val newVideoFile: () -> File,
     private val slides: Int = SLIDES_PER_VIDEO,
+    private val clips: () -> VideoClipAgent? = { null },
+    private val clipTemplate: String = "{{prompt}}",
 ) {
     suspend operator fun invoke(prompt: String): Outcome<GeneratedVideo> {
+        // A text-to-video model (Hugging Face, e.g. Wan 2.2) makes a real clip; anything else makes a slideshow.
+        clips()?.let { clipAgent ->
+            when (val clip = clipAgent.generate(clipTemplate.replace("{{prompt}}", prompt.trim()))) {
+                null -> Unit
+                is ApiResult.Ok -> return Outcome.Ok(GeneratedVideo(clip.value, slides = emptyList()))
+                is ApiResult.Failed -> return Outcome.Failed(clip.error, clipAgent.service.displayName)
+            }
+        }
         val selected = agent() ?: return Outcome.NoAgent
         val results = coroutineScope {
             (1..slides).map { slide -> async { selected.generate(slidePrompt(prompt.trim(), slide), 1) } }.awaitAll()
@@ -65,10 +80,20 @@ class GenerateVideoUseCase(
 /** The video generator the screens use: the selected video agent and model, the slide asset, on-device encoding. */
 fun appGenerateVideo(context: Context): GenerateVideoUseCase {
     val cache = MediaCache(context)
+    val selector = appImageAgentSelector(context, cache, MediaPurpose.VIDEO)
+    val store = ApiSettingsStore(context)
     return GenerateVideoUseCase(
         slideTemplate = loadPromptAsset(context, "video"),
-        agent = appImageAgentSelector(context, cache, MediaPurpose.VIDEO)::imageAgent,
+        agent = selector::imageAgent,
         maker = Media3SlideshowMaker(context.applicationContext),
         newVideoFile = { cache.newFile("mp4") },
+        clips = {
+            if (selector.imageAgent()?.service == ApiService.HUGGINGFACE) {
+                HuggingFaceVideoAgent({ store.load(ApiService.HUGGINGFACE) }, cache)
+            } else {
+                null
+            }
+        },
+        clipTemplate = loadPromptAsset(context, "video_clip"),
     )
 }
