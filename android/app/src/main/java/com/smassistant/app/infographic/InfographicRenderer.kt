@@ -74,9 +74,10 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
         val footer = spec.takeaway?.let { footer(it, width, palette) }
 
         val contentHeight = header.height + GAP + bodyHeight + GAP + (footer?.height ?: 0f)
-        // Short content is padded out to the format; long content makes the image taller.
+        // Short content is padded out to the format's ratio, the sample images' sizes (2:3, 1:1, 3:2);
+        // long content makes the image taller.
         val minHeight = when (spec.format) {
-            InfographicFormat.PORTRAIT -> width * 1.25f
+            InfographicFormat.PORTRAIT -> width * 1.5f
             InfographicFormat.SQUARE -> width
             InfographicFormat.LANDSCAPE -> width * 2 / 3
         }

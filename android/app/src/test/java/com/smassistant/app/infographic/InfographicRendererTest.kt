@@ -35,7 +35,7 @@ class InfographicRendererTest {
         assertTrue(rendered.svg.startsWith("<svg xmlns=\"http://www.w3.org/2000/svg\""))
         assertTrue(rendered.svg.endsWith("</svg>"))
         assertEquals(1080, rendered.width)
-        assertTrue(rendered.height >= 1350)
+        assertTrue(rendered.height >= 1620)
         assertTrue(rendered.svg.contains("""<tspan fill="#FACC15"> Internals</tspan>"""))
         assertTrue(rendered.svg.contains("List&lt;String&gt;"))
         assertTrue(rendered.svg.contains("Pre-size the list"))
@@ -58,6 +58,7 @@ class InfographicRendererTest {
     @Test
     fun `short content is padded to the format and long content grows taller`() {
         val short = spec.copy(sections = sections.take(1), hero = null)
+        assertEquals(1620, renderer.render(short).height)
         assertEquals(1080, renderer.render(short.copy(format = InfographicFormat.SQUARE)).height)
         renderer.render(spec.copy(format = InfographicFormat.SQUARE)).let { assertEquals(1080, it.width); assertTrue(it.height > 1080) }
         renderer.render(short.copy(format = InfographicFormat.LANDSCAPE)).let { assertEquals(1620, it.width); assertEquals(1080, it.height) }
