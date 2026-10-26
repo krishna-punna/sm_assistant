@@ -45,11 +45,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.smassistant.app.ui.theme.SmBlue
-import com.smassistant.app.ui.theme.SmGreen
+import com.smassistant.app.ui.theme.LocalSmTheme
 
 private val PromptCardColor = Color(0xFF3A3A3A)
-private val InputBarColor = Color(0xFFDDE3F5)
 
 /**
  * Dark card with a title, copy and expand actions, and the prompt text (GEN-2, PP-3 to PP-5).
@@ -111,7 +109,7 @@ fun PromptCard(title: String, text: String, modifier: Modifier = Modifier, colla
 fun UserBubble(text: String) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
         Surface(
-            color = InputBarColor,
+            color = MaterialTheme.colorScheme.surfaceVariant,
             shape = RoundedCornerShape(12.dp),
             modifier = Modifier.padding(start = 48.dp),
         ) {
@@ -136,8 +134,8 @@ fun ChatInputBar(
             placeholder = { Text(placeholder) },
             maxLines = 6,
             colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = InputBarColor,
-                unfocusedContainerColor = InputBarColor,
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
             ),
             modifier = Modifier
                 .weight(1f)
@@ -153,18 +151,19 @@ fun ChatInputBar(
     }
 }
 
-/** Blue Post in LinkedIn button under a result (07). */
+/** Post in LinkedIn button under a result (07), in the theme's menu colour and shape. */
 @Composable
 fun PostInLinkedInButton(onClick: () -> Unit, enabled: Boolean = true, busy: Boolean = false) {
+    val colors = LocalSmTheme.current.menu
     Button(
         onClick = onClick,
         enabled = enabled && !busy,
-        colors = ButtonDefaults.buttonColors(containerColor = SmBlue, contentColor = Color.White),
-        shape = RoundedCornerShape(6.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = colors.container, contentColor = colors.content),
+        shape = LocalSmTheme.current.buttonShape,
         modifier = Modifier.fillMaxWidth(),
     ) {
         if (busy) {
-            CircularProgressIndicator(Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+            CircularProgressIndicator(Modifier.size(18.dp), color = colors.content, strokeWidth = 2.dp)
             Spacer(Modifier.width(8.dp))
             Text("Posting…")
         } else {
@@ -202,7 +201,7 @@ fun ErrorCard(message: String, actionLabel: String, onAction: () -> Unit) {
                 color = MaterialTheme.colorScheme.onErrorContainer,
                 modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
             )
-            SmButton(actionLabel, SmGreen, onAction)
+            SmButton(actionLabel, LocalSmTheme.current.action, onAction)
         }
     }
 }

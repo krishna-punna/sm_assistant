@@ -19,10 +19,15 @@ import com.smassistant.app.ui.screens.ImageScreen
 import com.smassistant.app.ui.screens.LinkedInSettingsScreen
 import com.smassistant.app.ui.screens.PreparePromptScreen
 import com.smassistant.app.ui.screens.TechnicalContentScreen
+import com.smassistant.app.ui.screens.ThemesScreen
+import com.smassistant.app.ui.theme.ThemeId
 import com.smassistant.app.ui.screens.VideoScreen
 
 @Composable
-fun SmNavHost(navController: NavHostController = rememberNavController()) {
+fun SmNavHost(
+    navController: NavHostController = rememberNavController(),
+    onThemeChosen: (ThemeId) -> Unit = {},
+) {
     // "Back to Home" always returns to Home and clears everything above it.
     val backToHome: () -> Unit = { navController.popBackStack(Routes.HOME, inclusive = false) }
 
@@ -94,6 +99,9 @@ fun SmNavHost(navController: NavHostController = rememberNavController()) {
         }
         composable(Routes.API_STATUS) {
             ApiStatusScreen(onBackToHome = backToHome)
+        }
+        composable(Routes.THEMES) {
+            ThemesScreen(onApply = onThemeChosen, onBackToHome = backToHome)
         }
     }
 }
