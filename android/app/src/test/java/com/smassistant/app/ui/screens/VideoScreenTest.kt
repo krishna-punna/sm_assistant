@@ -24,9 +24,9 @@ class VideoScreenTest {
     fun resultShowsThePlayerAndLengthAndPosts() {
         var posts = 0
         val slides = (1..4).map { File("s$it.png") }
-        compose.setContent { VideoResult(GeneratedVideo(File("video.mp4"), slides), posting = false, onPost = { posts++ }) }
+        compose.setContent { VideoResult(GeneratedVideo(File("video.mp4"), slides, seconds = 90), posting = false, onPost = { posts++ }) }
         compose.onNodeWithTag("videoPlayer").assertExists()
-        compose.onNodeWithText("4 slides, 16 seconds").assertExists()
+        compose.onNodeWithText("4 slides, 1 min 30 sec").assertExists()
         compose.onNodeWithText("Post in LinkedIn").performClick()
         assertEquals(1, posts)
     }

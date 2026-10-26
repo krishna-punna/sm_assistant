@@ -25,11 +25,17 @@ class GenerateVideoTest {
         if (slide in failing) ApiResult.Failed(error) else ApiResult.Ok(listOf(File("s$slide.png")))
     }
     private var encoded: List<File>? = null
+    private var slideMillis = 0L
     private var encodeResult: (File) -> Result<File> = { Result.success(it) }
-    private val maker = SlideshowMaker { slides, output -> encoded = slides; encodeResult(output) }
+    private val maker = SlideshowMaker { slides, output, millis ->
+        encoded = slides
+        slideMillis = millis
+        encodeResult(output)
+    }
+    private var seconds = DEFAULT_VIDEO_SECONDS
 
     private fun useCase(agent: ImageAgent? = this.agent) =
-        GenerateVideoUseCase("slide {{slide}} of {{slides}}: {{prompt}}", { agent }, maker, { File("out.mp4") }, slides = 4)
+        GenerateVideoUseCase("slide {{slide}} of {{slides}}: {{prompt}}", { agent }, maker, { File("out.mp4") }, seconds = { seconds })
 
     @Test
     fun `asks for each slide in order and encodes them into the video`() = runTest {
@@ -39,6 +45,17 @@ class GenerateVideoTest {
         assertEquals(Outcome.Ok(GeneratedVideo(File("out.mp4"), slides)), outcome)
         assertEquals((1..4).map { "slide $it of 4: URL shortener" }, prompts.sorted())
         assertEquals(slides, encoded)
+        assertEquals(7500L, slideMillis)
+    }
+
+    @Test
+    fun `the picked length sets the slide count and the slides fill it`() = runTest {
+        seconds = 120
+        val outcome = useCase()("x")
+
+        assertEquals(10, prompts.size)
+        assertEquals(12_000L, slideMillis)
+        assertEquals(120, (outcome as Outcome.Ok).value.seconds)
     }
 
     @Test
@@ -46,6 +63,8 @@ class GenerateVideoTest {
         failing += 2
         useCase()("x")
         assertEquals(listOf(File("s1.png"), File("s3.png"), File("s4.png")), encoded)
+        // The slides left share the whole length.
+        assertEquals(10_000L, slideMillis)
     }
 
     @Test
@@ -85,8 +104,8 @@ class GenerateVideoTest {
         {"title": "One", "hero": "slide 1 of 4: picture"}, {"title": "Two"}, {"title": "Three"}, {"title": "Four"}]}"""
 
     private fun deckUseCase(writer: ScriptedTextAgent?, agent: ImageAgent? = this.agent) = GenerateVideoUseCase(
-        "slide {{slide}} of {{slides}}: {{prompt}}", { agent }, maker, { File("out.mp4") }, slides = 4,
-        decks = SlideDecks({ writer }, SlideDeckWriter("Plan {{slides}} slides.{{examples}}"), pipeline),
+        "slide {{slide}} of {{slides}}: {{prompt}}", { agent }, maker, { File("out.mp4") }, seconds = { seconds },
+        decks = SlideDecks({ writer }, SlideDeckWriter("Plan {{slides}} slides of {{seconds}} s.{{examples}}"), pipeline),
     )
 
     @Test
@@ -97,7 +116,7 @@ class GenerateVideoTest {
 
         val slides = listOf("One", "Two", "Three", "Four").map { File("$it.png") }
         assertEquals(Outcome.Ok(GeneratedVideo(File("out.mp4"), slides)), outcome)
-        assertEquals(listOf("Plan 4 slides." to "Topic: Retries"), writer.calls)
+        assertEquals(listOf("Plan 4 slides of 7 s." to "Topic: Retries"), writer.calls)
         assertEquals(slides, encoded)
         // Only the hero of slide one asked the video agent for a picture.
         assertEquals(listOf("slide 1 of 4: picture"), prompts)
@@ -134,6 +153,6 @@ class GenerateVideoTest {
     @Test
     fun `video deck asset keeps its placeholders`() {
         val text = File("src/main/assets/prompts/video_deck.md").readText()
-        listOf("{{slides}}", "{{examples}}").forEach { assertTrue(it, text.contains(it)) }
+        listOf("{{slides}}", "{{seconds}}", "{{examples}}").forEach { assertTrue(it, text.contains(it)) }
     }
 }

@@ -4,6 +4,7 @@ import com.smassistant.app.generate.ContentAndMedia
 import com.smassistant.app.generate.GeneratedVideo
 import com.smassistant.app.prompt.PreparedPrompt
 import java.io.File
+import kotlinx.serialization.json.JsonObject
 import java.nio.file.Files
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -25,8 +26,11 @@ class ResultSaverTest {
     fun `media comes back only while its files are still in the cache`() {
         val images = listOf(file("a.png"), file("b.png"))
         assertEquals(images, roundTrip(ImagesSaver, images))
-        val video = GeneratedVideo(file("v.mp4"), images)
+        val video = GeneratedVideo(file("v.mp4"), images, seconds = 150)
         assertEquals(video, roundTrip(VideoSaver, video))
+        // Saved before the length option: 4 seconds a slide.
+        val old = JsonObject((VideoSaver.save(video) as JsonObject) - "seconds")
+        assertEquals(8, VideoSaver.restore(old)?.seconds)
 
         val saved = ImagesSaver.save(images)
         images[1].delete()
