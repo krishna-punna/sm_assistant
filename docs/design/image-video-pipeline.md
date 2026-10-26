@@ -136,8 +136,8 @@ in `MediaCache`. Height is capped (8000 px) to protect memory.
 
 ### 6. Video
 
-`GenerateVideoUseCase` asks the text agent for one deck, renders and composes each slide the same
-way (square, 2160 px), then `Media3SlideshowMaker` encodes them as before. One LLM call plans the
+`GenerateVideoUseCase` asks the text agent for one deck (`prompts/video_deck.md`, with the same few-shot examples), renders and composes each slide the same
+way (square, at 1080 px since that is the video's size, one illustration per slide), then `Media3SlideshowMaker` encodes them as before. One LLM call plans the
 whole story, so the slides follow on from each other and share a style.
 
 ### What happens to the old flow
