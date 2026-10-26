@@ -119,6 +119,14 @@ the number of calls close to today's. Calls run in parallel; a failed illustrati
 placeholder instead of failing the image. With no image agent set up, images still work from the
 text agent alone.
 
+### Output size
+
+The sample images in `requirements/linkedin-posts-sample-images/` are 1024 x 1536 (2:3 portrait,
+most of them), 1536 x 1024 (3:2 landscape) and 800 to 1536 square. Infographics are laid out at
+1080 x 1620 (portrait, taller when the content needs it), 1080 x 1080 (square) and 1620 x 1080
+(landscape), and drawn at 2x: **2160 x 3240, 2160 x 2160 and 3240 x 2160 px** at least, larger
+than every sample and never a phone-screen size such as 9:16 or 4:5.
+
 ### 5. Merge → high-resolution PNG
 
 `InfographicComposer` (Android): AndroidSVG draws the SVG onto a bitmap at 2x (2160 px wide for

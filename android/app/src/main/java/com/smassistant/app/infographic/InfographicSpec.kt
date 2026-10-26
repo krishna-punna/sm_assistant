@@ -29,7 +29,7 @@ data class InfographicSpec(
 )
 
 enum class InfographicFormat(val key: String, val width: Int) {
-    /** Tall cheat sheet; grows with its content, at least 4:5. */
+    /** Tall cheat sheet like most sample images; at least 2:3 and taller when the content needs it. */
     PORTRAIT("portrait", 1080),
 
     /** 1:1, for grids and video slides. */

@@ -121,11 +121,13 @@ fun appAgentSelector(context: Context): AgentSelector {
  * The image selector the screens use: Gemini's image model, Claude drawing SVG (`prompts/image_svg.md`)
  * rendered on the device, or the image model of Hugging Face, Cloudflare or Pollinations.AI.
  * [purpose] picks the default agent and model: images and video slides each have their own.
+ * With [illustrations] Claude draws the infographic pipeline's text-free pictures (`prompts/illustration_svg.md`).
  */
 fun appImageAgentSelector(
     context: Context,
     cache: MediaCache = MediaCache(context),
     purpose: MediaPurpose = MediaPurpose.IMAGE,
+    illustrations: Boolean = false,
 ): ImageAgentSelector {
     val store = ApiSettingsStore(context)
     val preferences = AgentPreferences(context)
@@ -135,7 +137,7 @@ fun appImageAgentSelector(
     val svgClient = Http.generationClient.newBuilder().readTimeout(300, TimeUnit.SECONDS).build()
     val claude = ClaudeSvgImageAgent(
         text = claudeAgent({ configOf(ApiService.CLAUDE) }, svgClient, SVG_MAX_TOKENS),
-        systemPrompt = loadPromptAsset(context, "image_svg"),
+        systemPrompt = loadPromptAsset(context, if (illustrations) "illustration_svg" else "image_svg"),
         cache = cache,
         renderer = AndroidSvgRenderer(),
     )

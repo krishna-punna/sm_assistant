@@ -52,3 +52,14 @@ enum class Palette(
         fun of(key: String?): Palette = entries.firstOrNull { it.key == key?.trim()?.lowercase() } ?: NAVY
     }
 }
+
+/** The palette in words, for illustration prompts: image models follow colour names better than hex codes. */
+val Palette.colorWords: String
+    get() = when (this) {
+        Palette.NAVY -> "a navy blue, bright blue, green, purple and orange colour palette"
+        Palette.TEAL -> "a teal, sky blue, lime green and amber colour palette"
+        Palette.PURPLE -> "a violet, indigo, pink and teal colour palette"
+        Palette.SUNSET -> "a warm orange, red, golden yellow and purple colour palette"
+        Palette.FOREST -> "a forest green, sage, ochre and teal colour palette"
+        Palette.DARK -> "a bright blue, cyan, green and purple palette that stands out on a dark navy background"
+    }
