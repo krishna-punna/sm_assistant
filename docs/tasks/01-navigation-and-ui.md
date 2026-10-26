@@ -23,7 +23,7 @@ Requirements: [02 Screens and navigation](../requirements/02-screens-and-navigat
 
 | ID | Requirement | Status | Notes |
 |----|-------------|--------|-------|
-| UI-1 | App bar "SM Assistant", yellow section chip, black Back to Home footer on every screen | done | `SmScreen` |
+| UI-1 | App bar "SM Assistant", yellow section chip, Back to Home on every screen | done | `SmScreen`; Req 6 (2026-10-26) moved it from a black footer, which sat on the system navigation bar with edge-to-edge, to a back arrow in the app bar |
 | UI-2 | Colour roles: blue menu/Post buttons, green SAVE/Submit, dark prompt card | done | |
 | UI-3 | Header and footer fixed; body scrolls | done | `SmScreen` scrolls its body; chat screens scroll their list |
 | UI-4 | Components: menu button, labelled field, primary button, chat input bar, prompt card, result view, toggle | done | `ChatComponents`, `MarkdownText`, `ImageComponents`, `VideoPlayer` |
@@ -35,7 +35,7 @@ Requirements: [02 Screens and navigation](../requirements/02-screens-and-navigat
 | UI-3-I | Impl | Make the body slot of `SmScreen` scrollable by default (opt-out for chat screens that use a `LazyColumn`). Keep IME padding so the input bar stays above the keyboard. | — | done — `scrollable` parameter; Chat and API Status opt out; settings SAVE now sits under the fields |
 | UI-4-I | Impl | `ChatInputBar`: multi-line field that grows to ~6 lines then scrolls, green Submit on the right, disabled when blank or busy. | — | done |
 | UI-V1 | Val | Compare each screen with its wireframe slide (colours, order chip → body → action → footer). List differences in the PR. | UI-2-I, UI-4-I | todo |
-| UI-T1 | UI | `SmScreen` shows title, chip text and Back to Home; omits footer when `onBackToHome` is null. | FND-1 | done (`SmScreenTest`, also checks a long body scrolls) |
+| UI-T1 | UI | `SmScreen` shows title, chip text and Back to Home; omits the back arrow when `onBackToHome` is null. | FND-1 | done (`SmScreenTest`, also checks a long body scrolls) |
 | UI-T2 | UI | `PromptCard` copy puts the full text on the clipboard; expand opens a full-screen dialog. | UI-2-I | done (`PromptCardTest`) |
 | UI-T3 | UI | `ChatInputBar` Submit disabled for blank input and while busy. | UI-4-I | done (`ChatScreenTest`) |
 | UI-T4 | UI | Screenshot tests (Roborazzi or Paparazzi) for Home, a settings screen, API Status, hashtags, a chat screen with a result. | FND-1 | todo |

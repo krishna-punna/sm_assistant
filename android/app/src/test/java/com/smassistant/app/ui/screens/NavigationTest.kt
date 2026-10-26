@@ -1,5 +1,6 @@
 package com.smassistant.app.ui.screens
 
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -39,7 +40,7 @@ class NavigationTest {
     private fun click(text: String) = compose.onNode(hasText(text) and hasClickAction()).performClick()
 
     private fun backToHome() {
-        click("Back to Home")
+        compose.onNodeWithContentDescription("Back to Home").performClick()
         compose.waitForIdle()
         assertEquals(Routes.HOME, route())
         assertNull(nav.previousBackStackEntry)
