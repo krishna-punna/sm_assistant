@@ -1,5 +1,6 @@
 package com.smassistant.app.ui.screens
 
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -7,6 +8,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
 import com.smassistant.app.scheduler.AutoPostScheduler
 import com.smassistant.app.scheduler.Frequency
 import com.smassistant.app.scheduler.PostType
@@ -110,8 +112,10 @@ class SchedulerScreensTest {
         compose.onNodeWithText("1 selected, used in turn").assertExists()
         compose.onNodeWithTag("topic-Spring Security").assertExists()
         compose.onNodeWithTag("topic-Angular").assertDoesNotExist()
-        compose.onNodeWithTag("topic-Spring Security").performScrollTo().performClick()
-        compose.onNodeWithText("Kafka ✕").performScrollTo().performClick()
+        // The topic list scrolls inside the screen's scroll, so its chips are clicked by their semantics action, not a touch.
+        compose.onNodeWithTag("topic-Spring Security").performSemanticsAction(SemanticsActions.OnClick)
+        assertEquals(listOf("topic:Spring Security"), calls)
+        compose.onNodeWithText("Kafka ✕").performSemanticsAction(SemanticsActions.OnClick)
         assertEquals(listOf("topic:Spring Security", "topic:Kafka"), calls)
     }
 
