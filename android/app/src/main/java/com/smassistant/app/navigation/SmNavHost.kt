@@ -18,6 +18,8 @@ import com.smassistant.app.ui.screens.HomeScreen
 import com.smassistant.app.ui.screens.ImageScreen
 import com.smassistant.app.ui.screens.LinkedInSettingsScreen
 import com.smassistant.app.ui.screens.PreparePromptScreen
+import com.smassistant.app.ui.screens.SchedulerEditorScreen
+import com.smassistant.app.ui.screens.SchedulersScreen
 import com.smassistant.app.ui.screens.TechnicalContentScreen
 import com.smassistant.app.ui.screens.ThemesScreen
 import com.smassistant.app.ui.theme.ThemeId
@@ -102,6 +104,20 @@ fun SmNavHost(
         }
         composable(Routes.THEMES) {
             ThemesScreen(onApply = onThemeChosen, onBackToHome = backToHome)
+        }
+        composable(Routes.SCHEDULERS) {
+            SchedulersScreen(
+                onAdd = { navController.navigate(Routes.schedulerEdit(null)) },
+                onEdit = { navController.navigate(Routes.schedulerEdit(it)) },
+                onBackToHome = backToHome,
+            )
+        }
+        composable(
+            Routes.SCHEDULER_EDIT,
+            arguments = listOf(navArgument("id") { type = NavType.StringType }),
+        ) { entry ->
+            val id = entry.arguments?.getString("id")?.takeIf { it != Routes.NEW_SCHEDULER_ID }
+            SchedulerEditorScreen(id = id, onSaved = { navController.popBackStack() }, onBackToHome = backToHome)
         }
     }
 }

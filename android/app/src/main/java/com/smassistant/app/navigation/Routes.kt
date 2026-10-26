@@ -34,7 +34,11 @@ object Routes {
     const val DEFAULT_HASHTAGS = "settings/hashtags"
     const val API_STATUS = "settings/status"
     const val THEMES = "settings/themes"
+    const val SCHEDULERS = "schedulers"
+    const val SCHEDULER_EDIT = "schedulers/{id}"
+    const val NEW_SCHEDULER_ID = "new"
 
     fun agentSettings(agent: AiAgent) = "settings/agents/${agent.name}"
     fun feature(feature: Feature) = "hub/${feature.name}"
+    fun schedulerEdit(id: String?) = "schedulers/${id ?: NEW_SCHEDULER_ID}"
 }
