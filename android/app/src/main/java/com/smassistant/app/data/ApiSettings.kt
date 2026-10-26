@@ -39,16 +39,24 @@ class ApiSettingsStore(context: Context, private val cipher: SecretCipher = Keys
             key = savedKey(service) ?: defaults.key,
             model = prefs.getString(modelPref(service), null) ?: defaults.model,
             imageModel = prefs.getString(imageModelPref(service), null) ?: defaults.imageModel,
+            videoModel = prefs.getString(videoModelPref(service), null) ?: defaults.videoModel,
             accountId = prefs.getString(accountIdPref(service), null) ?: defaults.accountId,
         )
     }
 
     /** Saves the chosen models. A blank one removes the override so the app.yml default applies again. */
-    fun saveModels(service: ApiService, model: String, imageModel: String = "") {
+    fun saveModels(service: ApiService, model: String, imageModel: String = "", videoModel: String = "") {
         prefs.edit().apply {
             if (model.isBlank()) remove(modelPref(service)) else putString(modelPref(service), model.trim())
             if (imageModel.isBlank()) remove(imageModelPref(service)) else putString(imageModelPref(service), imageModel.trim())
+            if (videoModel.isBlank()) remove(videoModelPref(service)) else putString(videoModelPref(service), videoModel.trim())
         }.apply()
+    }
+
+    /** Saves just the image or video model, e.g. from the picker on the image and video screens. */
+    fun saveMediaModel(service: ApiService, purpose: MediaPurpose, model: String) {
+        val pref = if (purpose == MediaPurpose.VIDEO) videoModelPref(service) else imageModelPref(service)
+        prefs.edit().apply { if (model.isBlank()) remove(pref) else putString(pref, model.trim()) }.apply()
     }
 
     /** Saves the account id (Cloudflare). A blank one removes the override so the app.yml default applies again. */
@@ -108,6 +116,7 @@ class ApiSettingsStore(context: Context, private val cipher: SecretCipher = Keys
     private fun modelPref(service: ApiService) = "${service.name}.model"
     private fun imageModelPref(service: ApiService) = "${service.name}.image_model"
     private fun accountIdPref(service: ApiService) = "${service.name}.account_id"
+    private fun videoModelPref(service: ApiService) = "${service.name}.video_model"
     private fun modelsPref(service: ApiService) = "${service.name}.models"
     private fun encryptedKeyPref(service: ApiService) = "${service.name}.key_enc"
     private fun legacyKeyPref(service: ApiService) = "${service.name}.key"

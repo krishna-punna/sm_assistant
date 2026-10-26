@@ -12,12 +12,17 @@ apis:
   claude:
     api: https://api.anthropic.com/v1/messages
     model: claude-sonnet-5-5
+    # Models Claude writes SVG images and video slides with. Empty: the text model above.
+    image_model: ""
+    video_model: ""
     key: ""
 
   gemini:
     api: https://generativelanguage.googleapis.com/v1beta
     model: gemini-2.5-flash
     image_model: gemini-2.5-flash-image
+    # Model for the video slides. Empty: the image model above.
+    video_model: ""
     key: ""
 
   groq:
@@ -52,6 +57,8 @@ apis:
 # LinkedIn post length (docs/requirements/12-post-length.md).
 # max_characters: LinkedIn's limit, including the default hashtags, spaces, emoji and line breaks.
 # shorten_attempts: how many times the AI agent is asked to shorten a post that comes back too long.
+# ai_hashtags: the most hashtags the AI agent adds when "AI-suggested hashtags" is on (1 to 10).
 linkedin_post:
   max_characters: 3000
   shorten_attempts: 2
+  ai_hashtags: 3

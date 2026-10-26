@@ -33,15 +33,20 @@ data class ApiSettingsUiState(
     /** Model pickers (AI agents only): the chosen ids and what the provider last listed. */
     val showModels: Boolean = false,
     val showImageModel: Boolean = false,
+    /** Claude draws images with its text models, so its image and video pickers list those and blank means the text model. */
+    val mediaFromTextModels: Boolean = false,
     val model: String = "",
     val imageModel: String = "",
+    val videoModel: String = "",
     val models: ModelLists = ModelLists(),
     val loadingModels: Boolean = false,
     val modelsError: String? = null,
 ) {
     /** The listed models, with the current choice kept even before the list has it. */
     val textOptions get() = withCurrent(model, models.text)
-    val imageOptions get() = withCurrent(imageModel, models.image)
+    val imageOptions get() = withCurrent(imageModel, mediaModels)
+    val videoOptions get() = withCurrent(videoModel, mediaModels)
+    private val mediaModels get() = if (mediaFromTextModels) models.text else models.image
 
     private fun withCurrent(id: String, list: List<AiModel>) =
         if (id.isBlank() || list.any { it.id == id }) list else listOf(AiModel(id)) + list
@@ -77,9 +82,11 @@ class ApiSettingsViewModel(
                 showAccountId = ApiConfig.ACCOUNT_ID_PLACEHOLDER in it.api,
                 accountId = it.accountId,
                 showModels = catalog != null,
-                showImageModel = catalog != null && service in IMAGE_AGENTS && service != ApiService.CLAUDE,
+                showImageModel = catalog != null && service in IMAGE_AGENTS,
+                mediaFromTextModels = service == ApiService.CLAUDE,
                 model = it.model,
                 imageModel = it.imageModel,
+                videoModel = it.videoModel,
                 models = store.cachedModels(service)?.lists ?: ModelLists(),
             )
         },
@@ -94,6 +101,8 @@ class ApiSettingsViewModel(
     fun onModelChange(id: String) = _state.update { it.copy(model = id) }
 
     fun onImageModelChange(id: String) = _state.update { it.copy(imageModel = id) }
+
+    fun onVideoModelChange(id: String) = _state.update { it.copy(videoModel = id) }
 
     /** Fetches the provider's model list with the saved settings. Does nothing without a key. */
     fun refreshModels() {
@@ -145,7 +154,7 @@ class ApiSettingsViewModel(
         val keyChanged = key != before.key || accountId != before.accountId
         store.save(service, api, key)
         if (_state.value.showAccountId) store.saveAccountId(service, accountId)
-        if (catalog != null) store.saveModels(service, _state.value.model, _state.value.imageModel)
+        if (catalog != null) _state.value.let { store.saveModels(service, it.model, it.imageModel, it.videoModel) }
         val saved = store.load(service)
         _state.update {
             it.copy(

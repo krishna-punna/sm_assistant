@@ -36,6 +36,7 @@ import com.smassistant.app.agents.TEXT_AGENTS
 import com.smassistant.app.data.AiModel
 import com.smassistant.app.data.ApiService
 import com.smassistant.app.data.ApiSettingsStore
+import com.smassistant.app.data.MediaPurpose
 import com.smassistant.app.data.ModelCatalog
 import com.smassistant.app.linkedin.LinkedInAuthStore
 import com.smassistant.app.navigation.AiAgent
@@ -190,7 +191,8 @@ fun AiAgentListScreen(onAgentSelected: (AiAgent) -> Unit, onBackToHome: () -> Un
             MenuButton("${agent.displayName} AI Agent") { onAgentSelected(agent) }
         }
         DefaultTextAgentPicker()
-        DefaultImageAgentPicker()
+        DefaultImageAgentPicker(MediaPurpose.IMAGE)
+        DefaultImageAgentPicker(MediaPurpose.VIDEO)
     }
 }
 
@@ -210,14 +212,15 @@ private fun DefaultTextAgentPicker() {
 fun DefaultTextAgentChips(selected: ApiService, onSelect: (ApiService) -> Unit) =
     DefaultAgentChips("Default agent for text", TEXT_AGENTS, selected, onSelect)
 
-/** Which agent makes images and video slides: Gemini and the diffusion agents paint them, Claude draws them as SVG. */
+/** Which agent makes images, or video slides ([purpose]): Gemini and the diffusion agents paint them, Claude draws them as SVG. */
 @Composable
-private fun DefaultImageAgentPicker() {
+private fun DefaultImageAgentPicker(purpose: MediaPurpose) {
     val appContext = LocalContext.current.applicationContext
     val preferences = remember { AgentPreferences(appContext) }
-    var selected by remember { mutableStateOf(preferences.defaultImageAgent ?: IMAGE_AGENTS.first()) }
-    DefaultAgentChips("Default agent for images", IMAGE_AGENTS, selected) {
-        preferences.defaultImageAgent = it
+    var selected by remember { mutableStateOf(preferences.defaultMediaAgent(purpose) ?: IMAGE_AGENTS.first()) }
+    val title = if (purpose == MediaPurpose.VIDEO) "Default agent for video" else "Default agent for images"
+    DefaultAgentChips(title, IMAGE_AGENTS, selected) {
+        preferences.setDefaultMediaAgent(purpose, it)
         selected = it
     }
 }
@@ -279,6 +282,7 @@ private fun ColumnScope.ApiSettingsForm(service: ApiService, viewModel: ApiSetti
         onSave = viewModel::onSave,
         onModelChange = viewModel::onModelChange,
         onImageModelChange = viewModel::onImageModelChange,
+        onVideoModelChange = viewModel::onVideoModelChange,
         onRefreshModels = viewModel::refreshModels,
     )
 }
@@ -294,6 +298,7 @@ fun ColumnScope.ApiSettingsFields(
     onAccountIdChange: (String) -> Unit = {},
     onModelChange: (String) -> Unit = {},
     onImageModelChange: (String) -> Unit = {},
+    onVideoModelChange: (String) -> Unit = {},
     onRefreshModels: () -> Unit = {},
 ) {
     val apiError = state.apiError
@@ -341,7 +346,7 @@ fun ColumnScope.ApiSettingsFields(
             .testTag("keyField"),
     )
     if (state.showModels) {
-        ModelPickers(state, onModelChange, onImageModelChange, onRefreshModels)
+        ModelPickers(state, onModelChange, onImageModelChange, onVideoModelChange, onRefreshModels)
     }
     PrimaryButton("SAVE", onClick = onSave)
 }
@@ -352,14 +357,23 @@ private fun ModelPickers(
     state: ApiSettingsUiState,
     onModelChange: (String) -> Unit,
     onImageModelChange: (String) -> Unit,
+    onVideoModelChange: (String) -> Unit,
     onRefreshModels: () -> Unit,
 ) {
-    val labelOf = { options: List<AiModel> -> { id: String -> options.firstOrNull { it.id == id }?.label ?: id.ifBlank { "Choose a model" } } }
+    // A blank id is the "Same as …" fallback (see ApiConfig.forMedia); otherwise the picker asks for a choice.
+    val labelOf = { options: List<AiModel>, blank: String ->
+        { id: String -> options.firstOrNull { it.id == id }?.label ?: id.ifBlank { blank } }
+    }
     val text = state.textOptions
-    SelectDropdown("Model", state.model, text.map { it.id }, labelOf(text), onModelChange, "modelPicker")
+    SelectDropdown("Model", state.model, text.map { it.id }, labelOf(text, "Choose a model"), onModelChange, "modelPicker")
     if (state.showImageModel) {
         val image = state.imageOptions
-        SelectDropdown("Image model", state.imageModel, image.map { it.id }, labelOf(image), onImageModelChange, "imageModelPicker")
+        val imageBlank = if (state.mediaFromTextModels) "Same as text model" else "Choose a model"
+        val imageIds = (if (state.mediaFromTextModels) listOf("") else emptyList()) + image.map { it.id }
+        SelectDropdown("Image model", state.imageModel, imageIds, labelOf(image, imageBlank), onImageModelChange, "imageModelPicker")
+        val video = state.videoOptions
+        val videoIds = listOf("") + video.map { it.id }
+        SelectDropdown("Video model", state.videoModel, videoIds, labelOf(video, "Same as image model"), onVideoModelChange, "videoModelPicker")
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
         val status = when {

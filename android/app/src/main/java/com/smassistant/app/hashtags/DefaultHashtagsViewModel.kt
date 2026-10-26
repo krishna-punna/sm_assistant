@@ -9,6 +9,8 @@ import kotlinx.coroutines.flow.update
 data class DefaultHashtagsUiState(
     val text: String = "",
     val enabled: Boolean = false,
+    /** "AI-suggested hashtags" toggle (HT-20). */
+    val aiEnabled: Boolean = false,
     /** Inline error under the text box; nothing was saved. */
     val error: String? = null,
     /** Gentle warning shown after saving more than [RECOMMENDED_MAX_HASHTAGS] tags. */
@@ -20,7 +22,7 @@ data class DefaultHashtagsUiState(
 /** S14 Default Hash Tags (docs/requirements/10-default-hashtags.md, HT-2 to HT-9). */
 class DefaultHashtagsViewModel(private val store: HashtagSettingsStore) : ViewModel() {
     private val _state = MutableStateFlow(
-        DefaultHashtagsUiState(text = Hashtags.format(store.tags), enabled = store.enabled)
+        DefaultHashtagsUiState(text = Hashtags.format(store.tags), enabled = store.enabled, aiEnabled = store.aiEnabled)
     )
     val state: StateFlow<DefaultHashtagsUiState> = _state.asStateFlow()
 
@@ -64,6 +66,11 @@ class DefaultHashtagsViewModel(private val store: HashtagSettingsStore) : ViewMo
     fun onEnabledChange(enabled: Boolean) {
         store.setEnabled(enabled)
         _state.update { it.copy(enabled = enabled) }
+    }
+
+    fun onAiEnabledChange(enabled: Boolean) {
+        store.setAiEnabled(enabled)
+        _state.update { it.copy(aiEnabled = enabled) }
     }
 
     fun messageShown() = _state.update { it.copy(message = null) }

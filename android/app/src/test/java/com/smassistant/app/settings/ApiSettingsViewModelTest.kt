@@ -229,12 +229,33 @@ class ApiSettingsViewModelTest {
 
     @Test
     fun `only agents that make images show an image model picker`() {
-        listOf(ApiService.GEMINI, ApiService.HUGGINGFACE, ApiService.POLLINATIONS).forEach {
+        listOf(ApiService.GEMINI, ApiService.CLAUDE, ApiService.HUGGINGFACE, ApiService.CLOUDFLARE, ApiService.POLLINATIONS).forEach {
             assertTrue(it.name, ApiSettingsViewModel(it, store, catalog).state.value.showImageModel)
         }
-        listOf(ApiService.CLAUDE, ApiService.GROQ).forEach {
-            assertFalse(it.name, ApiSettingsViewModel(it, store, catalog).state.value.showImageModel)
-        }
+        assertFalse(ApiSettingsViewModel(ApiService.GROQ, store, catalog).state.value.showImageModel)
         assertFalse(ApiSettingsViewModel(ApiService.GROQ, store, catalog).state.value.showAccountId)
+    }
+
+    @Test
+    fun `Claude picks image and video models from its text models and saves them`() {
+        val vm = agentViewModel()
+        assertTrue(vm.state.value.showImageModel)
+        assertTrue(vm.state.value.mediaFromTextModels)
+        vm.onKeyChange("sk-ant-1")
+        vm.onImageModelChange("claude-opus-5-5")
+        vm.onVideoModelChange("claude-haiku-5-5")
+        vm.onSave()
+        assertEquals("claude-opus-5-5", store.load(ApiService.CLAUDE).imageModel)
+        assertEquals("claude-haiku-5-5", store.load(ApiService.CLAUDE).videoModel)
+    }
+
+    @Test
+    fun `image and video options come from the image list for Gemini and the text list for Claude`() {
+        val lists = ModelLists(text = listOf(AiModel("text-a")), image = listOf(AiModel("image-a")))
+        val gemini = ApiSettingsUiState(models = lists, videoModel = "image-b")
+        assertEquals(listOf("image-a"), gemini.imageOptions.map { it.id })
+        assertEquals(listOf("image-b", "image-a"), gemini.videoOptions.map { it.id })
+        val claude = gemini.copy(mediaFromTextModels = true, videoModel = "")
+        assertEquals(listOf("text-a"), claude.videoOptions.map { it.id })
     }
 }

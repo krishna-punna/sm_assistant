@@ -23,7 +23,7 @@ import com.smassistant.app.ui.components.SmScreen
 
 /**
  * Chat-style screen shared by the hub features (06 "Shared screen layout"): scrolling
- * conversation, input bar with Submit, Back to Home. Header, input and footer stay fixed (GEN-3).
+ * conversation and input bar with Submit; Back to Home is the app bar arrow. Header and input stay fixed (GEN-3).
  */
 @Composable
 fun <R> ChatScreen(

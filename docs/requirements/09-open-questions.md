@@ -23,7 +23,7 @@ Gaps and ambiguities found while reading the wireframes. Each should be resolved
 | Q-17 | Default hashtags | The wireframe has no enable/disable control. The docs put an **Add default hashtags to LinkedIn posts** toggle on the Default Hash Tags screen. Should it live there, or on a separate settings screen? |
 | Q-18 | Default hashtags | Should **Clear** only empty the text box (the documented behaviour) or also delete the saved list immediately? |
 | Q-19 | Default hashtags | Should the user be able to skip or edit the default hashtags for a single post, or is the global toggle enough? |
-| Q-20 | Default hashtags | Should the AI also suggest topic-specific hashtags (e.g. `#SystemDesign`) in addition to the defaults? |
+| Q-20 | Default hashtags | Should the AI also suggest topic-specific hashtags (e.g. `#SystemDesign`) in addition to the defaults? **Answered 2026-10-25 (Krishna): yes, behind an "AI-suggested hashtags" toggle on the Default Hash Tags screen, merged with the defaults.** See [10](10-default-hashtags.md) HT-20 to HT-23. |
 | Q-21 | API status | LinkedIn check uses `/v2/userinfo`, which needs `openid`/`profile` scopes; a post-only token shows "No access". Acceptable? See [11](11-api-status.md). |
 | Q-22 | API status | Should each settings screen also have its own **Test** button? |
 | Q-23 | API status | Should generators warn or block when their agent is not Connected? |

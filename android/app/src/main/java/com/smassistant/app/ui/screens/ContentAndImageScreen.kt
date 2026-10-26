@@ -23,7 +23,7 @@ import com.smassistant.app.linkedin.PostViewModel
 import com.smassistant.app.linkedin.appPostToLinkedIn
 import com.smassistant.app.navigation.Feature
 import com.smassistant.app.ui.components.TextAgentDropdown
-import com.smassistant.app.ui.components.ImageAgentDropdown
+import com.smassistant.app.ui.components.MediaAgentDropdown
 import com.smassistant.app.ui.components.ErrorCard
 import com.smassistant.app.ui.components.GeneratingRow
 import com.smassistant.app.ui.components.MarkdownText
@@ -61,7 +61,7 @@ fun ContentAndImageScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit,
         onBackToHome = onBackToHome,
         header = {
             TextAgentDropdown()
-            ImageAgentDropdown()
+            MediaAgentDropdown()
         },
         inputContent = { PromptCard("Your prompt", it, collapsedLines = 4) },
         resultContent = { result ->
