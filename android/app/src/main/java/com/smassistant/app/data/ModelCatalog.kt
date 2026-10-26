@@ -1,6 +1,7 @@
 package com.smassistant.app.data
 
 import com.smassistant.app.agents.HUGGING_FACE_IMAGE_PROVIDERS
+import com.smassistant.app.agents.HUGGING_FACE_VIDEO_PROVIDERS
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
 import com.smassistant.app.net.Http
@@ -18,8 +19,15 @@ import okhttp3.Request
 /** One model a provider offers: [id] goes in requests, [label] is what the picker shows. */
 data class AiModel(val id: String, val label: String = id)
 
-/** The models an agent can use for text and, for the agents that make images, for images. */
-data class ModelLists(val text: List<AiModel> = emptyList(), val image: List<AiModel> = emptyList())
+/**
+ * The models an agent can use for text and, for the agents that make images, for images. [video]
+ * holds text-to-video models (Hugging Face), which make a clip instead of a slideshow.
+ */
+data class ModelLists(
+    val text: List<AiModel> = emptyList(),
+    val image: List<AiModel> = emptyList(),
+    val video: List<AiModel> = emptyList(),
+)
 
 /**
  * Lists the models each AI agent offers, from the provider's own models endpoint (the same
@@ -33,15 +41,17 @@ open class ModelCatalog(private val client: OkHttpClient = Http.client) {
             is ApiResult.Failed -> return result
             is ApiResult.Ok -> parse(service, result.value)
         }
-        // Hugging Face's image models come from the Hub; if that list fails, the text models still help.
+        // Hugging Face's image and video models come from the Hub; if those lists fail, the text models still help.
         val withImages = if (service == ApiService.HUGGINGFACE) {
-            val images = huggingFaceImageRequest(config)?.let { client.sendJsonArray(it) }
-            lists.copy(image = if (images is ApiResult.Ok) huggingFaceImageModels(images.value) else emptyList())
+            lists.copy(
+                image = hubModels(config, "text-to-image", HUGGING_FACE_IMAGE_PROVIDERS),
+                video = hubModels(config, "text-to-video", HUGGING_FACE_VIDEO_PROVIDERS),
+            )
         } else {
             lists
         }
         return withImages
-            .takeIf { it.text.isNotEmpty() || it.image.isNotEmpty() }
+            .takeIf { it.text.isNotEmpty() || it.image.isNotEmpty() || it.video.isNotEmpty() }
             ?.let { ApiResult.Ok(it) }
             ?: ApiResult.Failed(ApiError.BadResponse("no models in the reply"))
     }
@@ -67,22 +77,26 @@ open class ModelCatalog(private val client: OkHttpClient = Http.client) {
         }
     }
 
-    /** Text-to-image models served by the Hugging Face providers the image agent can call, most liked first. */
-    private fun huggingFaceImageRequest(config: ApiConfig): Request? {
-        val hub = origin(config)?.let(::huggingFaceHub) ?: return null
+    /** [task] models (e.g. text-to-image) served by any of [providers] on Hugging Face, most liked first; empty if the Hub fails. */
+    private suspend fun hubModels(config: ApiConfig, task: String, providers: List<String>): List<AiModel> {
+        val hub = origin(config)?.let(::huggingFaceHub) ?: return emptyList()
         val url = hub.newBuilder().encodedPath("/api/models")
-            .addQueryParameter("pipeline_tag", "text-to-image")
-            .addQueryParameter("inference_provider", HUGGING_FACE_IMAGE_PROVIDERS.joinToString(","))
+            .addQueryParameter("pipeline_tag", task)
+            .addQueryParameter("inference_provider", providers.joinToString(","))
             .addQueryParameter("sort", "likes")
             .addQueryParameter("limit", "100")
             .build()
-        return Request.Builder().url(url).header("Authorization", "Bearer ${config.key}").build()
+        val request = Request.Builder().url(url).header("Authorization", "Bearer ${config.key}").build()
+        return when (val reply = client.sendJsonArray(request)) {
+            is ApiResult.Ok -> huggingFaceModels(reply.value)
+            is ApiResult.Failed -> emptyList()
+        }
     }
 
     private fun origin(config: ApiConfig): HttpUrl? =
         config.apiUrl.toHttpUrlOrNull()?.newBuilder()?.encodedPath("/")?.query(null)?.fragment(null)?.build()
 
-    internal fun huggingFaceImageModels(json: JsonArray): List<AiModel> =
+    internal fun huggingFaceModels(json: JsonArray): List<AiModel> =
         json.filterIsInstance<JsonObject>().mapNotNull { m -> m.path("id")?.textOrNull?.let { AiModel(it) } }
 
     internal fun parse(service: ApiService, json: JsonObject): ModelLists = when (service) {

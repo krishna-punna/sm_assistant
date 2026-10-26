@@ -18,15 +18,16 @@ import com.smassistant.app.generate.GenerateContentAndMediaUseCase
 import com.smassistant.app.generate.GeneratedVideo
 import com.smassistant.app.generate.appGenerateVideo
 import com.smassistant.app.generate.appSmartTrim
+import com.smassistant.app.generate.videoLengthLabel
 import com.smassistant.app.linkedin.PostState
 import com.smassistant.app.linkedin.PostViewModel
 import com.smassistant.app.linkedin.appPostToLinkedIn
-import com.smassistant.app.media.SECONDS_PER_SLIDE
 import com.smassistant.app.navigation.Feature
 import com.smassistant.app.ui.components.MediaAgentDropdown
 import com.smassistant.app.ui.components.PostDialogs
 import com.smassistant.app.ui.components.PostInLinkedInButton
 import com.smassistant.app.ui.components.PromptCard
+import com.smassistant.app.ui.components.VideoLengthDropdown
 import com.smassistant.app.ui.components.VideoPlayer
 
 /** S11 Generate Video (docs/requirements/06 §6.3, Q-08 = slideshow): prompt card, then the video. */
@@ -51,7 +52,10 @@ fun VideoScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToH
         onCancel = viewModel::cancel,
         onSetUpAgent = onSetUpAgent,
         onBackToHome = onBackToHome,
-        header = { MediaAgentDropdown(MediaPurpose.VIDEO) },
+        header = {
+            MediaAgentDropdown(MediaPurpose.VIDEO)
+            VideoLengthDropdown()
+        },
         inputContent = { PromptCard("Your prompt", it, collapsedLines = 4) },
         resultContent = { video ->
             VideoResult(video, posting = postState == PostState.Posting, onPost = { postViewModel.start("", listOf(video.file)) })
@@ -73,9 +77,10 @@ fun VideoScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToH
 @Composable
 fun VideoResult(video: GeneratedVideo, posting: Boolean, onPost: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        VideoPlayer(video.file, aspectRatio = 1f)
+        // Slideshows are square; AI clips from text-to-video models are widescreen.
+        VideoPlayer(video.file, aspectRatio = if (video.slides.isEmpty()) 16f / 9f else 1f)
         Text(
-            "${video.slides.size} slides, ${video.slides.size * SECONDS_PER_SLIDE} seconds",
+            if (video.slides.isEmpty()) "AI video clip" else "${video.slides.size} slides, ${videoLengthLabel(video.seconds)}",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

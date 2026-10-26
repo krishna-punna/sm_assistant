@@ -37,16 +37,17 @@ class InfographicWriter(
 
 /**
  * The video's "LLM generates content" step: one call plans every slide ([systemPrompt] is
- * `prompts/video_deck.md`, `{{slides}}` the slide count, `{{examples}}` the closest few-shot
- * examples), so the slides tell one story in one palette. Asked once more if the reply isn't a usable deck.
+ * `prompts/video_deck.md`, `{{slides}}` the slide count, `{{seconds}}` how long each slide
+ * shows, `{{examples}}` the closest few-shot examples), so the slides tell one story in one palette. Asked once more if the reply isn't a usable deck.
  */
 class SlideDeckWriter(
     private val systemPrompt: String,
     private val examples: List<ImageExample> = emptyList(),
 ) {
-    suspend fun write(agent: TextAgent, topic: String, slides: Int): ApiResult<SlideDeck> {
+    suspend fun write(agent: TextAgent, topic: String, slides: Int, secondsPerSlide: Int): ApiResult<SlideDeck> {
         val system = systemPrompt
             .replace("{{slides}}", slides.toString())
+            .replace("{{seconds}}", secondsPerSlide.toString())
             .replace("{{examples}}", formatImageExamples(pickImageExamples(examples, topic)))
         return askTwice(agent, system, "Topic: $topic", ::parseSlideDeck)
     }

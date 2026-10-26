@@ -258,4 +258,12 @@ class ApiSettingsViewModelTest {
         val claude = gemini.copy(mediaFromTextModels = true, videoModel = "")
         assertEquals(listOf("text-a"), claude.videoOptions.map { it.id })
     }
+
+    @Test
+    fun `video options list text-to-video models when the provider has them`() {
+        val lists = ModelLists(image = listOf(AiModel("Qwen/Qwen-Image")), video = listOf(AiModel("Wan-AI/Wan2.2-T2V-A14B")))
+        val state = ApiSettingsUiState(models = lists, videoModel = "Wan-AI/Wan2.2-T2V-A14B")
+        assertEquals(listOf("Wan-AI/Wan2.2-T2V-A14B"), state.videoOptions.map { it.id })
+        assertEquals(listOf("Qwen/Qwen-Image"), state.imageOptions.map { it.id })
+    }
 }

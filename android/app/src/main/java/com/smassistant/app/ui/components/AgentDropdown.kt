@@ -30,6 +30,8 @@ import com.smassistant.app.data.ApiService
 import com.smassistant.app.data.ApiSettingsStore
 import com.smassistant.app.data.MediaPurpose
 import com.smassistant.app.data.forMedia
+import com.smassistant.app.generate.VIDEO_LENGTHS
+import com.smassistant.app.generate.videoLengthLabel
 
 /**
  * "Agent: Claude ▾" above a text feature's conversation: picks which set-up agent writes the
@@ -76,6 +78,28 @@ fun MediaAgentDropdown(purpose: MediaPurpose = MediaPurpose.IMAGE) {
         }
     }
     MediaModelDropdown(store, selected, purpose, name)
+}
+
+/**
+ * "Video length: 30 sec ▾" next to the video agent and model (Requirement 9): 0:30 to 5:00 in
+ * half minutes. The choice is saved, and the next video is made that long.
+ */
+@Composable
+fun VideoLengthDropdown() {
+    val appContext = LocalContext.current.applicationContext
+    val preferences = remember { AgentPreferences(appContext) }
+    var seconds by remember { mutableStateOf(preferences.videoSeconds) }
+    SelectDropdown(
+        label = "Video length",
+        selected = seconds,
+        options = VIDEO_LENGTHS,
+        optionLabel = ::videoLengthLabel,
+        onSelect = {
+            preferences.videoSeconds = it
+            seconds = it
+        },
+        testTag = "videoLengthDropdown",
+    )
 }
 
 @Composable

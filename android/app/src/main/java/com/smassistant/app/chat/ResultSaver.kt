@@ -58,11 +58,15 @@ object VideoSaver : ResultSaver<GeneratedVideo> {
     override fun save(value: GeneratedVideo) = buildJsonObject {
         put("file", value.file.path)
         put("slides", paths(value.slides))
+        put("seconds", value.seconds)
     }
 
     override fun restore(json: JsonElement): GeneratedVideo? {
         val file = File(json.path("file")?.textOrNull ?: return null).takeIf { it.exists() } ?: return null
-        return GeneratedVideo(file, files(json.path("slides")) ?: emptyList())
+        val slides = files(json.path("slides")) ?: emptyList()
+        // Videos saved before the length option had 4-second slides.
+        val seconds = json.path("seconds")?.textOrNull?.toIntOrNull() ?: (slides.size * 4)
+        return GeneratedVideo(file, slides, seconds)
     }
 }
 

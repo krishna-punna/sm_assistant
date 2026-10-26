@@ -20,21 +20,21 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 
-/** Turns slide images into a video file (docs/tasks VI-I1, Q-08 = slideshow). */
+/**
+ * Turns slide images into a video file (docs/tasks VI-I1, Q-08 = slideshow), each slide on
+ * screen for [slideMillis]. The longest pick, 5 minutes, is well inside LinkedIn's 3 s–10 min range.
+ */
 fun interface SlideshowMaker {
-    suspend fun make(slides: List<File>, output: File): Result<File>
+    suspend fun make(slides: List<File>, output: File, slideMillis: Long): Result<File>
 }
-
-/** Seconds each slide stays on screen. Four slides make a 16 s video, well inside LinkedIn's 3 s–10 min range. */
-const val SECONDS_PER_SLIDE = 4
 
 /**
  * Encodes the slides on the device with Media3 Transformer: each image becomes a still
- * [SECONDS_PER_SLIDE] long, scaled to fit a [SIZE_PX] square, into an H.264 MP4 without audio.
+ * slideMillis long, scaled to fit a [SIZE_PX] square, into an H.264 MP4 without audio.
  */
 @OptIn(UnstableApi::class) // Transformer, Composition and Presentation are all marked unstable in Media3 1.8.
 class Media3SlideshowMaker(private val context: Context) : SlideshowMaker {
-    override suspend fun make(slides: List<File>, output: File): Result<File> = withContext(Dispatchers.Main) {
+    override suspend fun make(slides: List<File>, output: File, slideMillis: Long): Result<File> = withContext(Dispatchers.Main) {
         // Transformer must be created and started on a thread with a Looper; its callbacks come back here.
         suspendCancellableCoroutine { continuation ->
             val transformer = Transformer.Builder(context)
@@ -54,17 +54,17 @@ class Media3SlideshowMaker(private val context: Context) : SlideshowMaker {
                 transformer.cancel()
                 output.delete()
             }
-            transformer.start(composition(slides), output.absolutePath)
+            transformer.start(composition(slides, slideMillis), output.absolutePath)
         }
     }
 
-    private fun composition(slides: List<File>): Composition {
+    private fun composition(slides: List<File>, slideMillis: Long): Composition {
         val fit = Presentation.createForWidthAndHeight(SIZE_PX, SIZE_PX, Presentation.LAYOUT_SCALE_TO_FIT)
         val items = slides.map { slide ->
             val mediaItem = MediaItem.Builder()
                 .setUri(Uri.fromFile(slide))
                 .setMimeType(imageMimeType(slide))
-                .setImageDurationMs(SECONDS_PER_SLIDE * 1000L)
+                .setImageDurationMs(slideMillis)
                 .build()
             EditedMediaItem.Builder(mediaItem)
                 .setFrameRate(FRAME_RATE)
