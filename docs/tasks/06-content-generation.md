@@ -77,7 +77,8 @@ Current code: one placeholder `FeatureScreen` shared by all six hub features; Su
 | IM-T2 | UI | Strip shows N thumbnails and badge; deselecting updates selection; tap navigates to preview with index. | IM-I2 | done (`ImageStripTest`) |
 | IM-T3 | UI | Preview shows Post in LinkedIn and swipes between images. | IM-I3 | done (`ImagePreviewTest`) |
 | IM-I5 | Impl | Infographic pipeline ([design](../design/image-video-pipeline.md)): JSON definition, parser and renderer (SVG cards, diagrams, icons, palettes, illustration slots). | IM-I1 | done — `infographic/` package |
-| IM-I6 | Impl | Generate Image through the pipeline: text agent writes the JSON, image agent paints the illustrations, composed into a 2x PNG; old flow as fallback without a text agent. | IM-I5 | todo |
+| IM-I6 | Impl | Generate Image through the pipeline: text agent writes the JSON, image agent paints the illustrations, composed into a 2x PNG; old flow as fallback without a text agent. | IM-I5 | done — `GenerateImagesUseCase` + `Infographics`, `InfographicWriter` (`prompts/infographic.md`, few-shot examples kept), `InfographicPipeline` (`prompts/illustration.md`, Claude: `illustration_svg.md`), `AndroidInfographicComposer`, `PaintTextMeasurer` |
+| IM-T5 | unit | Pipeline: text agent used when set up, layout idea per image, illustrations limited and optional, errors name the agent or renderer, old flow without a text agent. | IM-I6 | done (`GenerateImagesTest`, `InfographicWriterTest`, `InfographicPipelineTest`) |
 | IM-T4 | unit | Parser leniency and limits; renderer draws every section type inside the canvas, slots, formats, text wrapping. | IM-I5 | done (`InfographicSpecTest`, `InfographicRendererTest`) |
 
 ## 6.3 Generate Video (P6) — Q-08 answered: slideshow of generated diagrams

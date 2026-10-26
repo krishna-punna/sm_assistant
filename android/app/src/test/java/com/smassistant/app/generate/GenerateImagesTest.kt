@@ -1,6 +1,9 @@
 package com.smassistant.app.generate
 
 import com.smassistant.app.agents.ImageAgent
+import com.smassistant.app.infographic.InfographicComposer
+import com.smassistant.app.infographic.InfographicPipeline
+import com.smassistant.app.infographic.InfographicRenderer
 import com.smassistant.app.chat.Outcome
 import com.smassistant.app.data.ApiService
 import com.smassistant.app.net.ApiError
@@ -52,5 +55,59 @@ class GenerateImagesTest {
     @Test
     fun `image style asset keeps the prompt placeholder`() {
         assertTrue(File("src/main/assets/prompts/image.md").readText().contains("{{prompt}}"))
+    }
+
+    private val drawn = mutableListOf<String>()
+    private var drawable = true
+    private val pipeline = InfographicPipeline(
+        InfographicRenderer(),
+        "{{prompt}}",
+        InfographicComposer { rendered, _ ->
+            val title = Regex("<tspan>([^<]*)</tspan>").find(rendered.svg)!!.groupValues[1]
+            synchronized(drawn) { drawn += title }
+            if (drawable) File("$title.png") else null
+        },
+    )
+
+    private fun infographics(agent: ScriptedTextAgent?) =
+        Infographics({ agent }, InfographicWriter("Plan.{{examples}}"), pipeline)
+
+    @Test
+    fun `with a text agent each image is an infographic with its own layout idea`() = runTest {
+        val writer = ScriptedTextAgent(ApiResult.Ok("""{"title": "Caching", "hero": "a server"}"""))
+
+        val outcome = GenerateImagesUseCase("{{prompt}}", { agent }, count = 2, infographics = infographics(writer))(" Caching ")
+
+        assertEquals(Outcome.Ok(listOf(File("Caching.png"), File("Caching.png"))), outcome)
+        assertEquals(INFOGRAPHIC_LAYOUT_IDEAS.take(2).map { "Topic: Caching\n\nLayout idea: $it" }.toSet(), writer.calls.map { it.second }.toSet())
+        // The image agent only painted the hero illustrations.
+        assertEquals(listOf("a server" to 1, "a server" to 1), requests)
+    }
+
+    @Test
+    fun `infographics work without an image agent`() = runTest {
+        val writer = ScriptedTextAgent(ApiResult.Ok("""{"title": "Caching"}"""))
+        assertEquals(Outcome.Ok(listOf(File("Caching.png"))), GenerateImagesUseCase("{{prompt}}", { null }, 1, infographics = infographics(writer))("x"))
+    }
+
+    @Test
+    fun `infographic errors name the text agent or the renderer`() = runTest {
+        val limited = ScriptedTextAgent(ApiResult.Failed(ApiError.RateLimited))
+        assertEquals(Outcome.Failed(ApiError.RateLimited, "Groq"), GenerateImagesUseCase("{{prompt}}", { agent }, 2, infographics = infographics(limited))("x"))
+
+        drawable = false
+        val writer = ScriptedTextAgent(ApiResult.Ok("""{"title": "Caching"}"""))
+        assertEquals(
+            Outcome.Failed(ApiError.BadResponse("the infographic couldn't be drawn"), INFOGRAPHIC_RENDERER),
+            GenerateImagesUseCase("{{prompt}}", { agent }, 1, infographics = infographics(writer))("x"),
+        )
+    }
+
+    @Test
+    fun `without a text agent the image agent makes finished images as before`() = runTest {
+        val outcome = GenerateImagesUseCase("Style: {{prompt}}", { agent }, 4, infographics = infographics(null))("x")
+        assertEquals(Outcome.Ok(listOf(File("a.png"), File("b.png"))), outcome)
+        assertEquals(listOf("Style: x" to 4), requests)
+        assertTrue(drawn.isEmpty())
     }
 }
