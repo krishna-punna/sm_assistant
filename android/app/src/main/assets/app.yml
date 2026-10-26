@@ -36,5 +36,5 @@ apis:
 # ai_hashtags: the most hashtags the AI agent adds when "AI-suggested hashtags" is on (1 to 10).
 linkedin_post:
   max_characters: 3000
-  shorten_attempts: 2
+  shorten_attempts: 3
   ai_hashtags: 3

@@ -2,17 +2,20 @@ package com.smassistant.app.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
@@ -33,13 +36,15 @@ fun PostDialogs(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
     onOpenSettings: () -> Unit,
+    onTrimWithAi: (() -> Unit)? = null,
+    onCutToFit: () -> Unit = {},
 ) {
     when (state) {
         PostState.Idle, PostState.Posting -> Unit
         is PostState.Confirm -> AlertDialog(
             onDismissRequest = onDismiss,
             title = { Text("Post to LinkedIn?") },
-            text = { ConfirmPostContent(state, onTextChange) },
+            text = { ConfirmPostContent(state, onTrimWithAi, onCutToFit, onTextChange) },
             confirmButton = { TextButton(onClick = onConfirm, enabled = state.canPost) { Text("Post") } },
             dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
         )
@@ -81,13 +86,22 @@ fun PostDialogs(
     }
 }
 
-/** Body of the confirm dialog: the editable text, the hashtags that were added and the character count. */
+/**
+ * Body of the confirm dialog: the editable text, the hashtags that were added, the character count
+ * and Trim post (PL-10 to PL-12): Trim with AI ([onTrimWithAi], hidden when null) and Cut to fit.
+ */
 @Composable
-fun ConfirmPostContent(state: PostState.Confirm, onTextChange: (String) -> Unit) {
+fun ConfirmPostContent(
+    state: PostState.Confirm,
+    onTrimWithAi: (() -> Unit)? = null,
+    onCutToFit: () -> Unit = {},
+    onTextChange: (String) -> Unit,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedTextField(
             value = state.text,
             onValueChange = onTextChange,
+            readOnly = state.trimming,
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(max = 360.dp)
@@ -109,13 +123,36 @@ fun ConfirmPostContent(state: PostState.Confirm, onTextChange: (String) -> Unit)
         }
         Text(
             if (state.overLimitBy > 0) {
-                "${state.overLimitBy} characters over LinkedIn's ${state.limit} limit. Shorten the text to post."
+                "${state.overLimitBy} characters over LinkedIn's ${state.limit} limit. Trim or edit the text to post."
             } else {
                 "${state.length} / ${state.limit} characters"
             },
             style = MaterialTheme.typography.bodySmall,
             color = if (state.overLimitBy > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (state.text.isNotBlank()) TrimPostRow(state, onTrimWithAi, onCutToFit)
+    }
+}
+
+/** Trim post: the AI condenses the text keeping its key points; Cut to fit drops the least important lines (PL-10, PL-12). */
+@Composable
+private fun TrimPostRow(state: PostState.Confirm, onTrimWithAi: (() -> Unit)?, onCutToFit: () -> Unit) {
+    Column {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (onTrimWithAi != null) {
+                TextButton(onClick = onTrimWithAi, enabled = !state.trimming) { Text("✂ Trim with AI") }
+            }
+            TextButton(onClick = onCutToFit, enabled = !state.trimming && state.overLimitBy > 0) { Text("Cut to fit") }
+        }
+        if (state.trimming) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                Text("Trimming, keeping the key points…", style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        state.trimMessage?.let {
+            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        }
     }
 }
 
@@ -131,7 +168,7 @@ fun PostLengthNote(post: PostText, limit: Int, modifier: Modifier = Modifier) {
         if (post.fitsLimit) {
             "$length / $limit characters$tags"
         } else {
-            "$length / $limit characters$tags: ${post.overLimitBy} over LinkedIn's limit. Ask the agent to shorten it, or edit it when you post."
+            "$length / $limit characters$tags: ${post.overLimitBy} over LinkedIn's limit. Use Trim post when you post."
         },
         style = MaterialTheme.typography.bodySmall,
         color = if (post.fitsLimit) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,

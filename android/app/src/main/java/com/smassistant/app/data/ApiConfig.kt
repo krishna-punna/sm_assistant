@@ -77,7 +77,7 @@ fun parseAppConfig(input: InputStream): Map<ApiService, ApiConfig> {
  * ```yaml
  * linkedin_post:
  *   max_characters: 3000
- *   shorten_attempts: 2
+ *   shorten_attempts: 3
  *   ai_hashtags: 3
  * ```
  *
@@ -85,7 +85,7 @@ fun parseAppConfig(input: InputStream): Map<ApiService, ApiConfig> {
  * [aiHashtags] is the most hashtags the agent adds when AI-suggested hashtags are on (1 to 10, HT-21).
  * Missing or invalid values fall back to the defaults.
  */
-data class PostRules(val maxCharacters: Int = 3_000, val shortenAttempts: Int = 2, val aiHashtags: Int = 3)
+data class PostRules(val maxCharacters: Int = 3_000, val shortenAttempts: Int = 3, val aiHashtags: Int = 3)
 
 fun parsePostRules(input: InputStream): PostRules {
     val root = Yaml().load<Any?>(input) as? Map<*, *> ?: emptyMap<String, Any?>()

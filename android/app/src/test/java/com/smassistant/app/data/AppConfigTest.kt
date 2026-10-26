@@ -76,8 +76,8 @@ class AppConfigTest {
             parsePostRules("linkedin_post:\n  max_characters: 2500\n  shorten_attempts: 3\n  ai_hashtags: 5".byteInputStream()),
         )
         assertEquals(3, parsePostRules("linkedin_post:\n  ai_hashtags: 0".byteInputStream()).aiHashtags)
-        assertEquals(PostRules(3_000, 2), parsePostRules("apis: {}".byteInputStream()))
-        assertEquals(PostRules(3_000, 2), parsePostRules("linkedin_post:\n  max_characters: lots\n  shorten_attempts: -1".byteInputStream()))
+        assertEquals(PostRules(3_000, 3), parsePostRules("apis: {}".byteInputStream()))
+        assertEquals(PostRules(3_000, 3), parsePostRules("linkedin_post:\n  max_characters: lots\n  shorten_attempts: -1".byteInputStream()))
     }
 
     @Test

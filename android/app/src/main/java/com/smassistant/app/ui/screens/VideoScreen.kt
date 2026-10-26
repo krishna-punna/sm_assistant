@@ -17,6 +17,7 @@ import com.smassistant.app.chat.VideoSaver
 import com.smassistant.app.generate.GenerateContentAndMediaUseCase
 import com.smassistant.app.generate.GeneratedVideo
 import com.smassistant.app.generate.appGenerateVideo
+import com.smassistant.app.generate.appSmartTrim
 import com.smassistant.app.linkedin.PostState
 import com.smassistant.app.linkedin.PostViewModel
 import com.smassistant.app.linkedin.appPostToLinkedIn
@@ -37,7 +38,7 @@ fun VideoScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToH
         ChatViewModel(createSavedStateHandle(), VideoSaver) { prompt -> useCase(prompt) }
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val postViewModel = viewModel { PostViewModel(appPostToLinkedIn(appContext)) }
+    val postViewModel = viewModel { PostViewModel(appPostToLinkedIn(appContext), appSmartTrim(appContext)) }
     val postState by postViewModel.state.collectAsStateWithLifecycle()
 
     ChatScreen(
@@ -60,6 +61,8 @@ fun VideoScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToH
     PostDialogs(
         state = postState,
         onTextChange = postViewModel::onTextChange,
+        onTrimWithAi = postViewModel::trimWithAi,
+        onCutToFit = postViewModel::cutToFit,
         onConfirm = postViewModel::confirm,
         onDismiss = postViewModel::dismiss,
         onOpenSettings = onSetUpLinkedIn,
