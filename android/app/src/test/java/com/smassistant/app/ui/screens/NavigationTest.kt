@@ -53,6 +53,7 @@ class NavigationTest {
             "AI Agent" to Routes.AI_AGENTS,
             "SM Assistant" to Routes.HUB,
             "Default Hash Tags" to Routes.DEFAULT_HASHTAGS,
+            "Themes" to Routes.THEMES,
         ).forEach { (button, expected) ->
             click(button)
             compose.waitForIdle()

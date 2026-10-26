@@ -1,5 +1,7 @@
 package com.smassistant.app.ui.components
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -9,8 +11,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -24,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -31,12 +36,13 @@ import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.smassistant.app.ui.theme.SmAmber
-import com.smassistant.app.ui.theme.SmBlue
-import com.smassistant.app.ui.theme.SmGreen
+import com.smassistant.app.ui.theme.ButtonColors
+import com.smassistant.app.ui.theme.ButtonStyle
+import com.smassistant.app.ui.theme.LocalSmTheme
+import com.smassistant.app.ui.theme.SmIcon
 
 /**
- * Common screen frame: blue "SM Assistant" app bar, optional yellow section chip and a
+ * Common screen frame: themed "SM Assistant" app bar, optional yellow section chip and a
  * scrollable body (UI-1, UI-3). When [onBackToHome] is set, the app bar shows a back arrow
  * on its left ("Back to Home" for TalkBack) instead of a footer button, so nothing sits on
  * top of the system navigation bar; the Scaffold pads the body for the status bar, the
@@ -63,9 +69,9 @@ fun SmScreen(
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = SmBlue,
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White,
+                    containerColor = LocalSmTheme.current.topBar.container,
+                    titleContentColor = LocalSmTheme.current.topBar.content,
+                    navigationIconContentColor = LocalSmTheme.current.topBar.content,
                 ),
             )
         },
@@ -110,42 +116,81 @@ private val BackArrow: ImageVector = ImageVector.Builder(
 
 @Composable
 fun SectionChip(text: String) {
-    Surface(color = SmAmber, shape = RoundedCornerShape(4.dp)) {
+    val theme = LocalSmTheme.current
+    Surface(color = theme.chip.container, shape = theme.chipShape) {
         Text(
             text = text,
-            color = Color.Black,
+            color = theme.chip.content,
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
         )
     }
 }
 
+/**
+ * Full-width button drawn in the theme's shape and [ButtonStyle], with [icon] in the theme's
+ * icon style (none in Classic).
+ */
 @Composable
 fun SmButton(
     label: String,
-    color: Color,
+    colors: ButtonColors,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    icon: SmIcon? = null,
 ) {
+    val theme = LocalSmTheme.current
+    val shape = theme.buttonShape
+    val gradient = theme.buttonStyle == ButtonStyle.GRADIENT && enabled
     Button(
         onClick = onClick,
         enabled = enabled,
-        colors = ButtonDefaults.buttonColors(containerColor = color, contentColor = Color.White),
-        shape = RoundedCornerShape(6.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (gradient) Color.Transparent else colors.container,
+            contentColor = colors.content,
+        ),
+        shape = shape,
+        border = if (theme.buttonStyle == ButtonStyle.BORDERED) BorderStroke(2.dp, theme.colors.outline) else null,
+        elevation = if (theme.buttonStyle == ButtonStyle.ELEVATED) {
+            ButtonDefaults.buttonElevation(defaultElevation = 6.dp, pressedElevation = 2.dp)
+        } else {
+            ButtonDefaults.buttonElevation()
+        },
         modifier = modifier
             .fillMaxWidth()
-            .height(52.dp),
+            .height(52.dp)
+            .then(
+                if (gradient) {
+                    Modifier.background(Brush.horizontalGradient(listOf(colors.container, colors.gradientEnd)), shape)
+                } else {
+                    Modifier
+                },
+            ),
     ) {
+        icon?.vector(theme.iconStyle)?.let {
+            Icon(it, contentDescription = null, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(10.dp))
+        }
         Text(label)
     }
 }
 
-/** Full-width blue button used for menus (Home, AI Agent list, hub). */
+/** Full-width menu button (Home, AI Agent list, hub). */
 @Composable
-fun MenuButton(label: String, onClick: () -> Unit) = SmButton(label, SmBlue, onClick)
+fun MenuButton(label: String, onClick: () -> Unit) = MenuButton(label, icon = null, onClick)
 
-/** Full-width green button for commit actions (SAVE, Submit). */
+/** Menu button with a leading [icon], drawn in the theme's icon style. */
+@Composable
+fun MenuButton(label: String, icon: SmIcon?, onClick: () -> Unit) =
+    SmButton(label, LocalSmTheme.current.menu, onClick, icon = icon)
+
+/** Full-width button for commit actions (SAVE, Submit). */
 @Composable
 fun PrimaryButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) =
-    SmButton(label, SmGreen, onClick, modifier, enabled)
+    SmButton(label, LocalSmTheme.current.action, onClick, modifier, enabled)
+
+/** Full-width "Back to Home" button, for dialogs that cover the app bar (image preview). */
+@Composable
+fun BackToHomeButton(onClick: () -> Unit) =
+    SmButton("Back to Home", LocalSmTheme.current.back, onClick, icon = SmIcon.HOME)
