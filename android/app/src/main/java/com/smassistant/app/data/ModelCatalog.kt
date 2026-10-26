@@ -1,5 +1,6 @@
 package com.smassistant.app.data
 
+import com.smassistant.app.agents.HUGGING_FACE_IMAGE_PROVIDERS
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
 import com.smassistant.app.net.Http
@@ -66,12 +67,12 @@ open class ModelCatalog(private val client: OkHttpClient = Http.client) {
         }
     }
 
-    /** Text-to-image models that Hugging Face's hf-inference provider serves, most liked first. */
+    /** Text-to-image models served by the Hugging Face providers the image agent can call, most liked first. */
     private fun huggingFaceImageRequest(config: ApiConfig): Request? {
         val hub = origin(config)?.let(::huggingFaceHub) ?: return null
         val url = hub.newBuilder().encodedPath("/api/models")
             .addQueryParameter("pipeline_tag", "text-to-image")
-            .addQueryParameter("inference_provider", "hf-inference")
+            .addQueryParameter("inference_provider", HUGGING_FACE_IMAGE_PROVIDERS.joinToString(","))
             .addQueryParameter("sort", "likes")
             .addQueryParameter("limit", "100")
             .build()

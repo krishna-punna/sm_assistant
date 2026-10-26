@@ -30,12 +30,13 @@ apis:
     model: llama-3.3-70b-versatile
     key: ""
 
-  # Hugging Face Inference Providers: text through the OpenAI-compatible router,
-  # images through the hf-inference provider. The key is a Hugging Face access token.
+  # Hugging Face Inference Providers: text through the OpenAI-compatible router, images
+  # through whichever provider serves the image model (Qwen-Image runs on fal-ai).
+  # The key is a Hugging Face access token with "Make calls to Inference Providers".
   huggingface:
     api: https://router.huggingface.co/v1/chat/completions
     model: openai/gpt-oss-120b
-    image_model: black-forest-labs/FLUX.1-schnell
+    image_model: Qwen/Qwen-Image
     key: ""
 
   # Cloudflare Workers AI. {account_id} is filled in from the Account ID setting;
