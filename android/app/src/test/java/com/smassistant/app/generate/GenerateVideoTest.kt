@@ -1,6 +1,8 @@
 package com.smassistant.app.generate
 
 import com.smassistant.app.agents.ImageAgent
+import com.smassistant.app.agents.VideoClipAgent
+import com.smassistant.app.data.ApiService
 import com.smassistant.app.chat.Outcome
 import com.smassistant.app.media.SlideshowMaker
 import com.smassistant.app.net.ApiError
@@ -67,5 +69,51 @@ class GenerateVideoTest {
     fun `video slide asset keeps its placeholders`() {
         val text = File("src/main/assets/prompts/video.md").readText()
         listOf("{{prompt}}", "{{slide}}", "{{slides}}").forEach { assertTrue(it, text.contains(it)) }
+    }
+
+    private fun clipAgent(result: ApiResult<File>?) = object : VideoClipAgent {
+        override val service = ApiService.HUGGINGFACE
+        override suspend fun generate(prompt: String): ApiResult<File>? {
+            synchronized(prompts) { prompts += prompt }
+            return result
+        }
+    }
+
+    private fun clipUseCase(clip: VideoClipAgent) = GenerateVideoUseCase(
+        "slide {{slide}} of {{slides}}: {{prompt}}",
+        { agent },
+        maker,
+        { File("out.mp4") },
+        slides = 4,
+        clips = { clip },
+        clipTemplate = "clip: {{prompt}}",
+    )
+
+    @Test
+    fun `a text-to-video model makes a clip instead of a slideshow`() = runTest {
+        val outcome = clipUseCase(clipAgent(ApiResult.Ok(File("clip.mp4"))))(" URL shortener ")
+
+        assertEquals(Outcome.Ok(GeneratedVideo(File("clip.mp4"), emptyList())), outcome)
+        assertEquals(listOf("clip: URL shortener"), prompts)
+        assertEquals(null, encoded)
+    }
+
+    @Test
+    fun `a model that can't make clips falls back to the slideshow`() = runTest {
+        val outcome = clipUseCase(clipAgent(null))("x")
+
+        assertEquals(Outcome.Ok(GeneratedVideo(File("out.mp4"), (1..4).map { File("s$it.png") })), outcome)
+        assertEquals(4, encoded?.size)
+    }
+
+    @Test
+    fun `a failed clip names Hugging Face`() = runTest {
+        assertEquals(Outcome.Failed(ApiError.RateLimited, "Hugging Face"), clipUseCase(clipAgent(ApiResult.Failed(ApiError.RateLimited)))("x"))
+        assertEquals(null, encoded)
+    }
+
+    @Test
+    fun `video clip asset keeps its placeholder`() {
+        assertTrue(File("src/main/assets/prompts/video_clip.md").readText().contains("{{prompt}}"))
     }
 }
