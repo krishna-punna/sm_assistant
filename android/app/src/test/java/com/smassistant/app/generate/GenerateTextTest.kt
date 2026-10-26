@@ -52,7 +52,9 @@ class GenerateTextTest {
 
     private var tags = listOf("#JavaDeveloper", "#AIEngineer")
     private var tagsOn = true
-    private fun guard(limit: Int = 100, attempts: Int = 2) = PostLengthGuard({ limit }, { tags }, { tagsOn }, attempts)
+    private var aiTags = 0
+    private fun guard(limit: Int = 100, attempts: Int = 2) =
+        PostLengthGuard({ limit }, { tags }, { tagsOn }, attempts, aiHashtags = { aiTags })
 
     @Test
     fun `budget leaves room for the default hashtags`() {
@@ -101,6 +103,22 @@ class GenerateTextTest {
     fun `a failed shorten keeps the first post`() = runTest {
         val agent = FakeAgent(listOf(ApiResult.Ok("x".repeat(90)), ApiResult.Failed(ApiError.RateLimited)))
         assertEquals(Outcome.Ok("x".repeat(90)), GenerateTextUseCase("S", { agent }, guard())("p"))
+    }
+
+    @Test
+    fun `asks for topic hashtags only when AI-suggested hashtags are on`() {
+        assertFalse(guard().instructions().contains("Hashtags:"))
+        aiTags = 3
+        val instructions = guard().instructions()
+        assertTrue(instructions.contains("up to 3 hashtags that fit this post's topic"))
+        assertTrue(instructions.contains("(#JavaDeveloper #AIEngineer) on that line too"))
+        assertTrue(guard().shortenRequest("p", guard().measure("p")).contains("Keep the last line of hashtags"))
+    }
+
+    @Test
+    fun `the agent's hashtags are measured with the defaults on one line`() {
+        aiTags = 3
+        assertEquals("Body\n\n#JavaDeveloper #AIEngineer #Java", guard().measure("Body\n\n#Java").text)
     }
 
     @Test

@@ -2,6 +2,7 @@ package com.smassistant.app.ui.screens
 
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -46,6 +47,7 @@ fun DefaultHashtagsScreen(onBackToHome: () -> Unit) {
         onSave = viewModel::onSave,
         onClear = viewModel::onClear,
         onEnabledChange = viewModel::onEnabledChange,
+        onAiEnabledChange = viewModel::onAiEnabledChange,
         onBackToHome = onBackToHome,
     )
 }
@@ -57,6 +59,7 @@ fun DefaultHashtagsContent(
     onSave: () -> Unit,
     onClear: () -> Unit,
     onEnabledChange: (Boolean) -> Unit,
+    onAiEnabledChange: (Boolean) -> Unit,
     onBackToHome: () -> Unit,
 ) {
     val error = state.error
@@ -89,6 +92,20 @@ fun DefaultHashtagsContent(
                 checked = state.enabled,
                 onCheckedChange = onEnabledChange,
                 modifier = Modifier.testTag("hashtagToggle"),
+            )
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("AI-suggested hashtags")
+                Text(
+                    "The AI agent adds a few hashtags that fit each post, alongside your default hashtags.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            Switch(
+                checked = state.aiEnabled,
+                onCheckedChange = onAiEnabledChange,
+                modifier = Modifier.testTag("aiHashtagToggle"),
             )
         }
     }

@@ -29,6 +29,7 @@ class DefaultHashtagsScreenTest {
             onSave = { calls += "save" },
             onClear = { calls += "clear" },
             onEnabledChange = { calls += "toggle:$it" },
+            onAiEnabledChange = { calls += "ai:$it" },
             onBackToHome = { calls += "home" },
         )
     }
@@ -40,6 +41,17 @@ class DefaultHashtagsScreenTest {
         compose.onNodeWithText("Default Hash Tags#").assertExists()
         compose.onNodeWithText("#JavaDeveloper #AIEngineer").assertExists()
         compose.onNodeWithTag("hashtagToggle").assertIsOn()
+        compose.onNodeWithText("AI-suggested hashtags").assertExists()
+        compose.onNodeWithTag("aiHashtagToggle").assertIsOff()
+    }
+
+    @Test
+    fun aiToggleShowsStateAndCallsBack() {
+        show(DefaultHashtagsUiState(aiEnabled = true))
+        compose.onNodeWithTag("aiHashtagToggle").assertIsOn()
+
+        compose.onNodeWithTag("aiHashtagToggle").performClick()
+        assertEquals(listOf("ai:false"), calls)
     }
 
     @Test

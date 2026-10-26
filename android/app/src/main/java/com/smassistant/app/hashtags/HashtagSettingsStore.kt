@@ -3,7 +3,8 @@ package com.smassistant.app.hashtags
 import android.content.Context
 
 /**
- * Saved default hashtags and the "Add default hashtags to LinkedIn posts" toggle.
+ * Saved default hashtags, the "Add default hashtags to LinkedIn posts" toggle and the
+ * "AI-suggested hashtags" toggle (HT-20).
  * Not secret, so plain SharedPreferences (excluded from backup with the rest of the app data).
  */
 class HashtagSettingsStore(context: Context) {
@@ -37,9 +38,18 @@ class HashtagSettingsStore(context: Context) {
         prefs.edit().putBoolean(KEY_ENABLED, enabled).apply()
     }
 
+    /** Whether the AI agent adds hashtags that fit each generated post. Off on first install (HT-20). */
+    val aiEnabled: Boolean
+        get() = prefs.getBoolean(KEY_AI_ENABLED, false)
+
+    fun setAiEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_AI_ENABLED, enabled).apply()
+    }
+
     private companion object {
         const val KEY_TAGS = "tags"
         const val KEY_ENABLED = "enabled"
         const val KEY_AUTO_ENABLED = "auto_enabled_once"
+        const val KEY_AI_ENABLED = "ai_enabled"
     }
 }

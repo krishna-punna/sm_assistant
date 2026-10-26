@@ -133,6 +133,18 @@ class HashtagSettingsTest {
     }
 
     @Test
+    fun `AI-suggested hashtags start off and persist separately from the default toggle`() {
+        assertFalse(store().aiEnabled)
+        store().save(listOf("#A"))
+        viewModel().onAiEnabledChange(true)
+
+        assertTrue(store().aiEnabled)
+        assertTrue(viewModel().state.value.aiEnabled)
+        viewModel().onEnabledChange(false)
+        assertTrue(store().aiEnabled)
+    }
+
+    @Test
     fun `message is cleared once shown`() {
         val vm = viewModel()
         vm.onTextChange("#A")
