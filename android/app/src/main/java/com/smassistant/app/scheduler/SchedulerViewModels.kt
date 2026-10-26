@@ -1,0 +1,108 @@
+package com.smassistant.app.scheduler
+
+import androidx.lifecycle.ViewModel
+import java.time.DayOfWeek
+import java.time.Instant
+import java.time.LocalTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+
+/** "Tue 27 Oct, 09:00" for the list and the editor's preview. */
+fun formatRunTime(epochMillis: Long, zone: ZoneId = ZoneId.systemDefault()): String =
+    DateTimeFormatter.ofPattern("EEE d MMM, HH:mm", Locale.getDefault()).format(Instant.ofEpochMilli(epochMillis).atZone(zone))
+
+/** [message] is a one-off note for a toast, e.g. after Run now. */
+data class SchedulersUiState(val schedulers: List<AutoPostScheduler> = emptyList(), val message: String? = null)
+
+/**
+ * Scheduled Posts list (SC-I5): every saved scheduler, its switch, Run now and Delete (SC-8, SC-10).
+ * The [engine] is only created on the first change, so opening the screen doesn't need WorkManager.
+ */
+class SchedulersViewModel(
+    private val store: SchedulerStore,
+    engine: () -> SchedulerEngine,
+) : ViewModel() {
+    private val engine by lazy(engine)
+    private val _state = MutableStateFlow(SchedulersUiState(store.all()))
+    val state: StateFlow<SchedulersUiState> = _state.asStateFlow()
+
+    /** Re-reads the list, e.g. when the screen comes back after a background run. */
+    fun refresh() = _state.update { it.copy(schedulers = store.all()) }
+
+    fun setEnabled(id: String, enabled: Boolean) {
+        engine.setEnabled(id, enabled)
+        refresh()
+    }
+
+    fun runNow(id: String) {
+        engine.runNow(id)
+        _state.update { it.copy(message = "Running now. You'll get a notification when it's done.") }
+    }
+
+    fun delete(id: String) {
+        engine.delete(id)
+        refresh()
+    }
+
+    fun messageShown() = _state.update { it.copy(message = null) }
+}
+
+/** The editor's draft, the topic search text and the reason Save was refused, if any. */
+data class SchedulerEditorUiState(
+    val draft: AutoPostScheduler,
+    val query: String = "",
+    val error: String? = null,
+    val isNew: Boolean = true,
+)
+
+/** Add / edit one scheduler (SC-I6). [id] null makes a new one. */
+class SchedulerEditorViewModel(
+    store: SchedulerStore,
+    engine: () -> SchedulerEngine,
+    id: String?,
+) : ViewModel() {
+    private val engine by lazy(engine)
+    private val existing = id?.let(store::get)
+    private val _state = MutableStateFlow(SchedulerEditorUiState(existing ?: AutoPostScheduler(), isNew = existing == null))
+    val state: StateFlow<SchedulerEditorUiState> = _state.asStateFlow()
+
+    private fun draft(change: (AutoPostScheduler) -> AutoPostScheduler) =
+        _state.update { it.copy(draft = change(it.draft), error = null) }
+
+    private fun schedule(change: (Schedule) -> Schedule) = draft { it.copy(schedule = change(it.schedule)) }
+
+    fun onName(name: String) = draft { it.copy(name = name) }
+    fun onQuery(query: String) = _state.update { it.copy(query = query) }
+
+    /** Adds or removes [topic]; topics keep the order they were picked in, which is the order they take turns. */
+    fun onToggleTopic(topic: String) = draft {
+        it.copy(topics = if (topic in it.topics) it.topics - topic else it.topics + topic, nextTopic = 0)
+    }
+
+    fun onPostType(type: PostType) = draft { it.copy(postType = type) }
+    fun onFrequency(frequency: Frequency) = schedule { it.copy(frequency = frequency) }
+    fun onTime(time: LocalTime) = schedule { it.copy(time = time) }
+    fun onEveryHours(hours: Int) = schedule { it.copy(everyHours = hours) }
+    fun onWindowStart(time: LocalTime) = schedule { it.copy(windowStart = time) }
+    fun onWindowEnd(time: LocalTime) = schedule { it.copy(windowEnd = time) }
+    fun onToggleDay(day: DayOfWeek) = schedule { it.copy(days = if (day in it.days) it.days - day else it.days + day) }
+    fun onDayOfMonth(day: Int) = schedule { it.copy(dayOfMonth = day) }
+    fun onWeekdaysOnly(on: Boolean) = schedule { it.copy(weekdaysOnly = on) }
+    fun onEnabled(on: Boolean) = draft { it.copy(enabled = on) }
+
+    /** Saves and plans the next run; false, with the reason shown, when the settings can't run. */
+    fun save(): Boolean {
+        val draft = _state.value.draft
+        draft.problem()?.let { problem ->
+            _state.update { it.copy(error = problem) }
+            return false
+        }
+        engine.save(draft.copy(name = draft.name.trim()))
+        return true
+    }
+}

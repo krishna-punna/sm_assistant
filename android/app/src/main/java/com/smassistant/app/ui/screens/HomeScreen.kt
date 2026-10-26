@@ -16,6 +16,7 @@ fun HomeScreen(onNavigate: (String) -> Unit) {
         MenuButton("LinkedIn API", SmIcon.LINKEDIN) { onNavigate(Routes.LINKEDIN_SETTINGS) }
         MenuButton("AI Agent", SmIcon.AGENT) { onNavigate(Routes.AI_AGENTS) }
         MenuButton("SM Assistant", SmIcon.ASSISTANT) { onNavigate(Routes.HUB) }
+        MenuButton("Scheduled Posts", SmIcon.SCHEDULE) { onNavigate(Routes.SCHEDULERS) }
         MenuButton("Default Hash Tags", SmIcon.HASHTAGS) { onNavigate(Routes.DEFAULT_HASHTAGS) }
         MenuButton("API Status", SmIcon.STATUS) { onNavigate(Routes.API_STATUS) }
         MenuButton("Themes", SmIcon.THEMES) { onNavigate(Routes.THEMES) }

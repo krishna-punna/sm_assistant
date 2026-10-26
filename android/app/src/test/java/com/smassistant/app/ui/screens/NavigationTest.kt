@@ -52,6 +52,7 @@ class NavigationTest {
             "LinkedIn API" to Routes.LINKEDIN_SETTINGS,
             "AI Agent" to Routes.AI_AGENTS,
             "SM Assistant" to Routes.HUB,
+            "Scheduled Posts" to Routes.SCHEDULERS,
             "Default Hash Tags" to Routes.DEFAULT_HASHTAGS,
             "Themes" to Routes.THEMES,
         ).forEach { (button, expected) ->

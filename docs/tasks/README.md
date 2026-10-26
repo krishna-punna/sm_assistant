@@ -29,6 +29,7 @@ Status values: **done** (implemented and matches the requirement), **partial** (
 | [05-prepare-prompt.md](05-prepare-prompt.md) | Prepare LinkedIn Post Prompt | PP-1…7 |
 | [06-content-generation.md](06-content-generation.md) | Shared generation, Technical Content, Image, Video, Content & Image, Content & Video | GEN-1…4, TC-1…3, IM-1…5, VI-1…3, CI-1…2, CV-1…2 |
 | [07-post-to-linkedin.md](07-post-to-linkedin.md) | Post in LinkedIn | LP-1…5 |
+| [08-scheduled-posts.md](08-scheduled-posts.md) | Scheduled LinkedIn posts | SC-1…10 |
 
 ## Phases
 
@@ -71,6 +72,7 @@ P1 and P2 can run in parallel once P0 is in.
 | Prepare prompt (PP) | 7 | 0 | 1 | 0 |
 | Content generation | 20 | 0 | 1 | 0 |
 | Post to LinkedIn (LP) | 7 | 0 | 0 | 0 |
+| Scheduled posts (SC) | 12 | 0 | 0 | 0 |
 
 Counts are per requirement row in each file (per task for Foundation). What's left: the optional rows waiting on Q-06, Q-22 and Q-23; the release tasks (REL-*); and the manual validation (`-V`) checks, which need a device. Unit and Robolectric UI tests run in CI on every PR.
 

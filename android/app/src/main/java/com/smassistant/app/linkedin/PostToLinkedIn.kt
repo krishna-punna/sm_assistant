@@ -172,13 +172,20 @@ class PostViewModel(
         if (_state.value != PostState.Posting) _state.value = PostState.Idle
     }
 
-    private fun failure(error: ApiError) = when (error) {
-        ApiError.NotConfigured -> PostState.Failed("Set up LinkedIn first: sign in or paste an access token in LinkedIn settings.", openSettings = true)
-        ApiError.InvalidKey -> PostState.Failed("LinkedIn token expired or invalid. Sign in again in LinkedIn settings.", openSettings = true)
-        ApiError.NoAccess -> PostState.Failed("This LinkedIn token can't post. It needs the w_member_social permission.", openSettings = true)
-        else -> PostState.Failed(error.userMessage(ApiService.LINKEDIN.displayName), openSettings = false)
-    }
+    private fun failure(error: ApiError) = PostState.Failed(linkedInErrorMessage(error), openSettings = needsLinkedInSettings(error))
 }
+
+/** What to tell the user when posting failed with [error]; also used for scheduled posts (SC-7). */
+fun linkedInErrorMessage(error: ApiError): String = when (error) {
+    ApiError.NotConfigured -> "Set up LinkedIn first: sign in or paste an access token in LinkedIn settings."
+    ApiError.InvalidKey -> "LinkedIn token expired or invalid. Sign in again in LinkedIn settings."
+    ApiError.NoAccess -> "This LinkedIn token can't post. It needs the w_member_social permission."
+    else -> error.userMessage(ApiService.LINKEDIN.displayName)
+}
+
+/** True when the fix for [error] is on the LinkedIn settings screen (LP-3). */
+fun needsLinkedInSettings(error: ApiError) =
+    error == ApiError.NotConfigured || error == ApiError.InvalidKey || error == ApiError.NoAccess
 
 /** The use case the screens use: saved hashtags, saved LinkedIn settings, the real client. */
 fun appPostToLinkedIn(context: Context): PostToLinkedInUseCase {

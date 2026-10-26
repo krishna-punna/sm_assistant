@@ -14,6 +14,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.luminance
 import com.smassistant.app.media.MediaCache
 import com.smassistant.app.navigation.SmNavHost
+import com.smassistant.app.scheduler.SchedulerEngine
 import com.smassistant.app.ui.theme.SmAssistantTheme
 import com.smassistant.app.ui.theme.SmTheme
 import com.smassistant.app.ui.theme.SmThemes
@@ -25,7 +26,11 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         if (savedInstanceState == null) {
             val media = MediaCache(applicationContext)
-            Thread { media.clearOlderThan() }.start()
+            Thread {
+                media.clearOlderThan()
+                // Safety net for scheduled posts; WorkManager normally still has every run planned.
+                runCatching { SchedulerEngine(applicationContext).ensurePlanned() }
+            }.start()
         }
         val themes = ThemeStore(applicationContext)
         setContent {
