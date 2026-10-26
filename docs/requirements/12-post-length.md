@@ -34,6 +34,7 @@ LinkedIn allows at most **3,000 characters** per post, counting spaces, emoji an
 linkedin_post:
   max_characters: 3000
   shorten_attempts: 2
+  ai_hashtags: 3      # most hashtags the agent adds when AI-suggested hashtags are on (1 to 10, HT-21)
 ```
 
 Missing or invalid values fall back to the defaults above. `shorten_attempts: 0` turns off the automatic shortening but keeps the budget in the prompt and the warning.

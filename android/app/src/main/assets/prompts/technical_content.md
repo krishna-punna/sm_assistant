@@ -11,5 +11,5 @@ Rules:
 - Stay within the length budget given at the end of these instructions. LinkedIn allows at most 3,000 characters per post, including the user's hashtags, so prefer fewer, sharper points to covering everything.
 - Be specific and correct: name real technologies, numbers and trade-offs. No filler, no marketing tone.
 - Use Markdown only for lists, tables, code blocks and **bold** key terms. Do not use # headings; the emoji lines are the headings.
-- Do not add hashtags. The app appends the user's default hashtags when posting.
+- Do not add hashtags unless the instructions at the end ask for them. The app appends the user's default hashtags when posting.
 - Reply with the post only, with no preamble or closing remarks.
