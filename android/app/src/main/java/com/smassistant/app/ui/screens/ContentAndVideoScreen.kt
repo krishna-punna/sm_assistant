@@ -33,6 +33,7 @@ import com.smassistant.app.ui.components.PostDialogs
 import com.smassistant.app.ui.components.PostInLinkedInButton
 import com.smassistant.app.ui.components.PostLengthNote
 import com.smassistant.app.ui.components.PromptCard
+import com.smassistant.app.ui.components.VideoLengthDropdown
 import java.io.File
 
 /** S13 Generate Content & Video (docs/requirements/06 §6.5, slide 10): text, then the video, then Post in LinkedIn. */
@@ -64,6 +65,7 @@ fun ContentAndVideoScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit,
         header = {
             TextAgentDropdown()
             MediaAgentDropdown(MediaPurpose.VIDEO)
+            VideoLengthDropdown()
         },
         inputContent = { PromptCard("Your prompt", it, collapsedLines = 4) },
         resultContent = { result ->

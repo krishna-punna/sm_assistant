@@ -4,6 +4,9 @@ import com.smassistant.app.agents.ImageAgent
 import com.smassistant.app.agents.VideoClipAgent
 import com.smassistant.app.data.ApiService
 import com.smassistant.app.chat.Outcome
+import com.smassistant.app.infographic.InfographicComposer
+import com.smassistant.app.infographic.InfographicPipeline
+import com.smassistant.app.infographic.InfographicRenderer
 import com.smassistant.app.media.SlideshowMaker
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
@@ -24,11 +27,17 @@ class GenerateVideoTest {
         if (slide in failing) ApiResult.Failed(error) else ApiResult.Ok(listOf(File("s$slide.png")))
     }
     private var encoded: List<File>? = null
+    private var slideMillis = 0L
     private var encodeResult: (File) -> Result<File> = { Result.success(it) }
-    private val maker = SlideshowMaker { slides, output -> encoded = slides; encodeResult(output) }
+    private val maker = SlideshowMaker { slides, output, millis ->
+        encoded = slides
+        slideMillis = millis
+        encodeResult(output)
+    }
+    private var seconds = DEFAULT_VIDEO_SECONDS
 
     private fun useCase(agent: ImageAgent? = this.agent) =
-        GenerateVideoUseCase("slide {{slide}} of {{slides}}: {{prompt}}", { agent }, maker, { File("out.mp4") }, slides = 4)
+        GenerateVideoUseCase("slide {{slide}} of {{slides}}: {{prompt}}", { agent }, maker, { File("out.mp4") }, seconds = { seconds })
 
     @Test
     fun `asks for each slide in order and encodes them into the video`() = runTest {
@@ -38,6 +47,17 @@ class GenerateVideoTest {
         assertEquals(Outcome.Ok(GeneratedVideo(File("out.mp4"), slides)), outcome)
         assertEquals((1..4).map { "slide $it of 4: URL shortener" }, prompts.sorted())
         assertEquals(slides, encoded)
+        assertEquals(7500L, slideMillis)
+    }
+
+    @Test
+    fun `the picked length sets the slide count and the slides fill it`() = runTest {
+        seconds = 120
+        val outcome = useCase()("x")
+
+        assertEquals(10, prompts.size)
+        assertEquals(12_000L, slideMillis)
+        assertEquals(120, (outcome as Outcome.Ok).value.seconds)
     }
 
     @Test
@@ -45,6 +65,8 @@ class GenerateVideoTest {
         failing += 2
         useCase()("x")
         assertEquals(listOf(File("s1.png"), File("s3.png"), File("s4.png")), encoded)
+        // The slides left share the whole length.
+        assertEquals(10_000L, slideMillis)
     }
 
     @Test
@@ -71,6 +93,52 @@ class GenerateVideoTest {
         listOf("{{prompt}}", "{{slide}}", "{{slides}}").forEach { assertTrue(it, text.contains(it)) }
     }
 
+    private var undrawable = setOf<String>()
+    private val pipeline = InfographicPipeline(
+        InfographicRenderer(),
+        "{{prompt}}",
+        InfographicComposer { rendered, _ ->
+            val title = Regex("<tspan>([^<]*)</tspan>").find(rendered.svg)!!.groupValues[1]
+            if (title in undrawable) null else File("$title.png")
+        },
+    )
+    private val deck = """{"palette": "teal", "slides": [
+        {"title": "One", "hero": "slide 1 of 4: picture"}, {"title": "Two"}, {"title": "Three"}, {"title": "Four"}]}"""
+
+    private fun deckUseCase(writer: ScriptedTextAgent?, agent: ImageAgent? = this.agent) = GenerateVideoUseCase(
+        "slide {{slide}} of {{slides}}: {{prompt}}", { agent }, maker, { File("out.mp4") }, seconds = { seconds },
+        decks = SlideDecks({ writer }, SlideDeckWriter("Plan {{slides}} slides of {{seconds}} s.{{examples}}"), pipeline),
+    )
+
+    @Test
+    fun `with a text agent one call plans the deck and every slide goes through the pipeline`() = runTest {
+        val writer = ScriptedTextAgent(ApiResult.Ok(deck))
+
+        val outcome = deckUseCase(writer)(" Retries ")
+
+        val slides = listOf("One", "Two", "Three", "Four").map { File("$it.png") }
+        assertEquals(Outcome.Ok(GeneratedVideo(File("out.mp4"), slides)), outcome)
+        assertEquals(listOf("Plan 4 slides of 7 s." to "Topic: Retries"), writer.calls)
+        assertEquals(slides, encoded)
+        // Only the hero of slide one asked the video agent for a picture.
+        assertEquals(listOf("slide 1 of 4: picture"), prompts)
+    }
+
+    @Test
+    fun `deck slides that can't be drawn are left out, and too few fail`() = runTest {
+        undrawable = setOf("Two")
+        deckUseCase(ScriptedTextAgent(ApiResult.Ok(deck)))("x")
+        assertEquals(listOf("One", "Three", "Four").map { File("$it.png") }, encoded)
+
+        encoded = null
+        undrawable = setOf("One", "Two", "Three")
+        assertEquals(
+            Outcome.Failed(ApiError.BadResponse("only 1 slide could be drawn"), INFOGRAPHIC_RENDERER),
+            deckUseCase(ScriptedTextAgent(ApiResult.Ok(deck)))("x"),
+        )
+        assertEquals(null, encoded)
+    }
+
     private fun clipAgent(result: ApiResult<File>?) = object : VideoClipAgent {
         override val service = ApiService.HUGGINGFACE
         override suspend fun generate(prompt: String): ApiResult<File>? {
@@ -84,7 +152,7 @@ class GenerateVideoTest {
         { agent },
         maker,
         { File("out.mp4") },
-        slides = 4,
+        seconds = { seconds },
         clips = { clip },
         clipTemplate = "clip: {{prompt}}",
     )
@@ -93,9 +161,28 @@ class GenerateVideoTest {
     fun `a text-to-video model makes a clip instead of a slideshow`() = runTest {
         val outcome = clipUseCase(clipAgent(ApiResult.Ok(File("clip.mp4"))))(" URL shortener ")
 
-        assertEquals(Outcome.Ok(GeneratedVideo(File("clip.mp4"), emptyList())), outcome)
+        assertEquals(Outcome.Ok(GeneratedVideo(File("clip.mp4"), emptyList(), seconds = 0)), outcome)
         assertEquals(listOf("clip: URL shortener"), prompts)
         assertEquals(null, encoded)
+    }
+
+    @Test
+    fun `deck errors name the text agent and the video works without a video agent`() = runTest {
+        assertEquals(Outcome.Failed(ApiError.RateLimited, "Groq"), deckUseCase(ScriptedTextAgent(ApiResult.Failed(ApiError.RateLimited)))("x"))
+        assertTrue(deckUseCase(ScriptedTextAgent(ApiResult.Ok(deck)), agent = null)("x") is Outcome.Ok)
+    }
+
+    @Test
+    fun `without a text agent the video agent paints the slides as before`() = runTest {
+        deckUseCase(writer = null)("x")
+        assertEquals((1..4).map { "slide $it of 4: x" }, prompts.sorted())
+        assertEquals(Outcome.NoAgent, deckUseCase(writer = null, agent = null)("x"))
+    }
+
+    @Test
+    fun `video deck asset keeps its placeholders`() {
+        val text = File("src/main/assets/prompts/video_deck.md").readText()
+        listOf("{{slides}}", "{{seconds}}", "{{examples}}").forEach { assertTrue(it, text.contains(it)) }
     }
 
     @Test

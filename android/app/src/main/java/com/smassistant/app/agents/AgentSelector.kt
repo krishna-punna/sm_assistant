@@ -6,6 +6,8 @@ import com.smassistant.app.data.ApiService
 import com.smassistant.app.data.ApiSettingsStore
 import com.smassistant.app.data.MediaPurpose
 import com.smassistant.app.data.forMedia
+import com.smassistant.app.generate.DEFAULT_VIDEO_SECONDS
+import com.smassistant.app.generate.VIDEO_LENGTHS
 import com.smassistant.app.media.AndroidSvgRenderer
 import com.smassistant.app.media.MediaCache
 import com.smassistant.app.net.Http
@@ -73,7 +75,15 @@ class AgentPreferences(context: Context) {
         if (purpose == MediaPurpose.VIDEO) defaultVideoAgent = service else defaultImageAgent = service
     }
 
+    /** How long Generate Video makes videos, in seconds, one of [VIDEO_LENGTHS] (Requirement 9). */
+    var videoSeconds: Int
+        get() = prefs.getInt(KEY_VIDEO_SECONDS, DEFAULT_VIDEO_SECONDS).takeIf { it in VIDEO_LENGTHS } ?: DEFAULT_VIDEO_SECONDS
+        set(value) {
+            prefs.edit().putInt(KEY_VIDEO_SECONDS, value).apply()
+        }
+
     private companion object {
+        const val KEY_VIDEO_SECONDS = "video_seconds"
         const val KEY_DEFAULT_TEXT = "default_text_agent"
         const val KEY_DEFAULT_IMAGE = "default_image_agent"
         const val KEY_DEFAULT_VIDEO = "default_video_agent"
