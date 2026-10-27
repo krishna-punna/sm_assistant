@@ -68,7 +68,7 @@ class SchedulerScreensTest {
     fun listShowsEachSchedulerWithItsSwitchAndActions() {
         showList(SchedulersUiState(listOf(kafka, java)), notificationsAllowed = false)
         compose.onNodeWithText("Kafka mornings").assertExists()
-        compose.onNodeWithText("Tue, Thu at 09:00 · Text with image").assertExists()
+        compose.onNodeWithText("Tue, Thu at 09:00 · Text & Image").assertExists()
         compose.onNodeWithText("Kafka, Kafka Streams, Spring Kafka +1 more").assertExists()
         compose.onNodeWithText("LinkedIn token expired or invalid.", substring = true).assertExists()
         compose.onNodeWithTag("schedulerSwitch-k").assertIsOn()
