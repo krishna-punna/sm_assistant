@@ -2,6 +2,8 @@ package com.smassistant.app.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -27,10 +29,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.platform.testTag
@@ -40,6 +45,9 @@ import com.smassistant.app.ui.theme.ButtonColors
 import com.smassistant.app.ui.theme.ButtonStyle
 import com.smassistant.app.ui.theme.LocalSmTheme
 import com.smassistant.app.ui.theme.SmIcon
+import com.smassistant.app.ui.theme.currentMotion
+import com.smassistant.app.ui.theme.rememberButtonMotion
+import com.smassistant.app.ui.theme.rememberIconMotion
 
 /**
  * Common screen frame: themed "SM Assistant" app bar, optional yellow section chip and a
@@ -117,7 +125,16 @@ private val BackArrow: ImageVector = ImageVector.Builder(
 @Composable
 fun SectionChip(text: String) {
     val theme = LocalSmTheme.current
-    Surface(color = theme.chip.container, shape = theme.chipShape) {
+    val motion = rememberButtonMotion(pressed = false, style = currentMotion())
+    Surface(
+        color = theme.chip.container,
+        shape = theme.chipShape,
+        modifier = Modifier.graphicsLayer {
+            scaleX = motion.scale
+            scaleY = motion.scale
+            alpha = motion.alpha
+        },
+    ) {
         Text(
             text = text,
             color = theme.chip.content,
@@ -129,7 +146,8 @@ fun SectionChip(text: String) {
 
 /**
  * Full-width button drawn in the theme's shape and [ButtonStyle], with [icon] in the theme's
- * icon style (none in Classic).
+ * icon style (none in Classic). It moves in the theme's [AnimationStyle][com.smassistant.app.ui.theme.AnimationStyle]
+ * on presses, and not at all when the system asks for reduced motion.
  */
 @Composable
 fun SmButton(
@@ -143,9 +161,14 @@ fun SmButton(
     val theme = LocalSmTheme.current
     val shape = theme.buttonShape
     val gradient = theme.buttonStyle == ButtonStyle.GRADIENT && enabled
+    val style = currentMotion()
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val motion = rememberButtonMotion(pressed, style)
     Button(
         onClick = onClick,
         enabled = enabled,
+        interactionSource = interaction,
         colors = ButtonDefaults.buttonColors(
             containerColor = if (gradient) Color.Transparent else colors.container,
             contentColor = colors.content,
@@ -158,6 +181,12 @@ fun SmButton(
             ButtonDefaults.buttonElevation()
         },
         modifier = modifier
+            .graphicsLayer {
+                scaleX = motion.scale
+                scaleY = motion.scale
+                alpha = motion.alpha
+                translationY = motion.dropDp.dp.toPx()
+            }
             .fillMaxWidth()
             .height(52.dp)
             .then(
@@ -169,7 +198,20 @@ fun SmButton(
             ),
     ) {
         icon?.vector(theme.iconStyle)?.let {
-            Icon(it, contentDescription = null, modifier = Modifier.size(20.dp))
+            val iconMotion = rememberIconMotion(pressed, style)
+            Icon(
+                it,
+                contentDescription = null,
+                modifier = Modifier
+                    .size(20.dp)
+                    .graphicsLayer {
+                        rotationZ = iconMotion.rotation.value
+                        scaleX = iconMotion.scale.value
+                        scaleY = iconMotion.scale.value
+                        translationY = iconMotion.offsetY.value.dp.toPx()
+                        alpha = iconMotion.alpha.value
+                    },
+            )
             Spacer(Modifier.width(10.dp))
         }
         Text(label)

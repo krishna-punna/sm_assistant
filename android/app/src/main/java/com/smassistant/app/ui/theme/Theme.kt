@@ -13,22 +13,24 @@ val LocalSmTheme = staticCompositionLocalOf { SmThemes.Classic }
 
 @Composable
 fun SmAssistantTheme(theme: SmTheme = SmThemes.Classic, content: @Composable () -> Unit) {
-    CompositionLocalProvider(LocalSmTheme provides theme) {
+    CompositionLocalProvider(LocalSmTheme provides theme, LocalReduceMotion provides systemReduceMotion()) {
         MaterialTheme(
             colorScheme = theme.colors,
-            typography = Typography().withFont(theme.fontFamily),
+            typography = Typography().withFonts(body = theme.fontFamily, heading = theme.headingFontFamily),
             content = content,
         )
     }
 }
 
-private fun Typography.withFont(family: FontFamily?): Typography {
-    if (family == null) return this
-    fun TextStyle.f() = copy(fontFamily = family)
+/** Display, headline and title styles take [heading]; body and label styles (buttons) take [body]. */
+private fun Typography.withFonts(body: FontFamily?, heading: FontFamily?): Typography {
+    if (body == null && heading == null) return this
+    fun TextStyle.f() = if (body == null) this else copy(fontFamily = body)
+    fun TextStyle.h() = if (heading == null) this else copy(fontFamily = heading)
     return Typography(
-        displayLarge = displayLarge.f(), displayMedium = displayMedium.f(), displaySmall = displaySmall.f(),
-        headlineLarge = headlineLarge.f(), headlineMedium = headlineMedium.f(), headlineSmall = headlineSmall.f(),
-        titleLarge = titleLarge.f(), titleMedium = titleMedium.f(), titleSmall = titleSmall.f(),
+        displayLarge = displayLarge.h(), displayMedium = displayMedium.h(), displaySmall = displaySmall.h(),
+        headlineLarge = headlineLarge.h(), headlineMedium = headlineMedium.h(), headlineSmall = headlineSmall.h(),
+        titleLarge = titleLarge.h(), titleMedium = titleMedium.h(), titleSmall = titleSmall.h(),
         bodyLarge = bodyLarge.f(), bodyMedium = bodyMedium.f(), bodySmall = bodySmall.f(),
         labelLarge = labelLarge.f(), labelMedium = labelMedium.f(), labelSmall = labelSmall.f(),
     )
