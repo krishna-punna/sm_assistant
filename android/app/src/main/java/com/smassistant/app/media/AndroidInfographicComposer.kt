@@ -59,6 +59,7 @@ class AndroidInfographicComposer(
         try {
             val canvas = Canvas(bitmap)
             document.setDocumentViewBox(0f, 0f, rendered.width.toFloat(), rendered.height.toFloat())
+            fillCanvas(document, width, height)
             document.renderToCanvas(canvas, RectF(0f, 0f, width.toFloat(), height.toFloat()))
             rendered.slots.zip(illustrations).forEach { (slot, file) -> file?.let { paint(canvas, slot, it, scale) } }
             return ByteArrayOutputStream().use { out ->
@@ -99,6 +100,16 @@ class AndroidInfographicComposer(
         while (bounds.outWidth / (sample * 2) >= width && bounds.outHeight / (sample * 2) >= height) sample *= 2
         return BitmapFactory.decodeFile(file.absolutePath, BitmapFactory.Options().apply { inSampleSize = sample })
     }
+}
+
+/**
+ * Sizes the SVG's root to the whole [width] x [height] bitmap. AndroidSVG draws the root at its
+ * own width and height attributes, not the viewport passed to renderToCanvas, so a 1080 px wide
+ * document drawn into a 2160 px bitmap filled only its top-left quarter.
+ */
+internal fun fillCanvas(document: SVG, width: Int, height: Int) {
+    document.setDocumentWidth(width.toFloat())
+    document.setDocumentHeight(height.toFloat())
 }
 
 /**
