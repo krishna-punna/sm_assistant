@@ -27,6 +27,7 @@ import com.smassistant.app.ui.components.ImageStrip
 import com.smassistant.app.ui.components.PostDialogs
 import com.smassistant.app.ui.components.PostInLinkedInButton
 import com.smassistant.app.ui.components.PromptCard
+import com.smassistant.app.ui.components.TextAgentDropdown
 import com.smassistant.app.ui.components.BackToHomeButton
 import java.io.File
 
@@ -52,7 +53,10 @@ fun ImageScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToH
         onCancel = viewModel::cancel,
         onSetUpAgent = onSetUpAgent,
         onBackToHome = onBackToHome,
-        header = { MediaAgentDropdown() },
+        header = {
+            TextAgentDropdown(label = "Text agent", showModel = true)
+            MediaAgentDropdown()
+        },
         inputContent = { PromptCard("Your prompt", it, collapsedLines = 4) },
         resultContent = { images ->
             ImageResult(

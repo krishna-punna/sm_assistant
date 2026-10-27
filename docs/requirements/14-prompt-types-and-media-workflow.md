@@ -20,3 +20,4 @@ Images and videos were drawn straight from the topic, so they were only as deep 
 - **MW-2** Generate Video: the same, with the content passed to the video pipeline (the slide deck).
 - **MW-3** Content & Image / Content & Video: the LinkedIn post is generated exactly as today, within the post limit. The image or video is generated from separate no-limit content, as in MW-1 and MW-2. The screen shows the post and the image or video.
 - **MW-4** Post in LinkedIn is unchanged.
+- **MW-5** The content is written by the text agent and model, and the image or video is drawn by the image or video agent and model; each screen lets the user pick both.

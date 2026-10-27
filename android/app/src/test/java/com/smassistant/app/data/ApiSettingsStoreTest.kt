@@ -101,6 +101,16 @@ class ApiSettingsStoreTest {
     }
 
     @Test
+    fun `the text model is saved apart from the image model`() {
+        val defaultModel = store.load(ApiService.GEMINI).model
+        store.saveTextModel(ApiService.GEMINI, " gemini-3-pro ")
+        assertEquals("gemini-3-pro", store.load(ApiService.GEMINI).model)
+        assertEquals("gemini-2.5-flash-image", store.load(ApiService.GEMINI).imageModel)
+        store.saveTextModel(ApiService.GEMINI, "")
+        assertEquals(defaultModel, store.load(ApiService.GEMINI).model)
+    }
+
+    @Test
     fun `fetched model lists are cached with their time`() {
         assertNull(store.cachedModels(ApiService.CLAUDE))
         val lists = ModelLists(text = listOf(AiModel("claude-sonnet-5-5", "Claude Sonnet 5.5")), image = listOf(AiModel("x")))

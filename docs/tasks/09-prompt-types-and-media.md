@@ -9,6 +9,7 @@ Requirements: [14](../requirements/14-prompt-types-and-media-workflow.md).
 | PT-I1 | `PromptType` enum, `AgentPreferences.promptType`, `PromptTypeDropdown` on Prepare Prompt (PT-1). | done |
 | PT-I2 | `prepare_content_prompt.md` (no-limit content prompt, `{{medium}}` image or video) and `PreparePromptsUseCase` giving a `PromptSet` of post and/or content prompt, both in parallel (PT-2 to PT-4). Saved with `PromptSetSaver`; old results restore as Text. | done |
 | PT-I3 | Labelled prompt cards for non-Text types (PT-3, PT-4). | done |
+| MW-I2 | Separate models (deck slides 6 to 9, "Text Agent Model: ABC", "Image/Video AI Agent Model: XYZ"): the image and video screens show "Text agent" and "Text model" pickers for the content, next to the existing image or video agent and model pickers. | done |
 | MW-I1 | `media_content.md` and `MediaContentWriter`: the image and video pipelines first have the text agent write no-limit technical content, and `InfographicWriter` and `SlideDeckWriter` plan the infographic or deck from it (MW-1, MW-2). Content & Image and Content & Video get it through the same pipelines while the post is unchanged (MW-3). The fallbacks without a text agent and Hugging Face AI clips still use the prompt directly. | done |
 
 ## Tests
