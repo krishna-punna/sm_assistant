@@ -8,6 +8,8 @@ import com.smassistant.app.linkedin.PostToLinkedInUseCase
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
 import com.smassistant.app.prompt.PreparedPrompt
+import com.smassistant.app.prompt.PromptSet
+import com.smassistant.app.prompt.PromptType
 import java.io.File
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -22,6 +24,7 @@ class AutoPostRunTest {
     private val topics = mutableListOf<String>()
     private val published = mutableListOf<Pair<String, List<File>>>()
     private var prepare: Outcome<PreparedPrompt> = Outcome.Ok(PreparedPrompt("Kafka Partitions", "Act as a Kafka expert"))
+    private val content = PreparedPrompt("Kafka Partitions In Depth", "Explain everything about partitions")
     private var text: Outcome<String> = Outcome.Ok("Kafka partitions explained")
     private var images: Outcome<List<File>> = Outcome.Ok(listOf(File("a.png"), File("b.png")))
     private var video: Outcome<GeneratedVideo> = Outcome.Ok(GeneratedVideo(File("v.mp4"), emptyList()))
@@ -37,7 +40,14 @@ class AutoPostRunTest {
     )
 
     private val run = AutoPostRun(
-        preparePrompt = { topics += it; prepare },
+        preparePrompt = { topic, type ->
+            topics += topic
+            when (val post = prepare) {
+                is Outcome.Ok -> Outcome.Ok(PromptSet(type, post.value.takeIf { type.post }, content.takeIf { type.media != null }))
+                is Outcome.Failed -> post
+                Outcome.NoAgent -> Outcome.NoAgent
+            }
+        },
         generateText = { prompts += it; text },
         generateImages = { prompts += "images: $it"; images },
         generateVideo = { prompts += "video: $it"; video },
@@ -60,11 +70,34 @@ class AutoPostRunTest {
     }
 
     @Test
-    fun `image and video posts attach their media`() = runTest {
+    fun `text and media posts write the post from the post prompt and the media from the content prompt`() = runTest {
         run(scheduler(PostType.TEXT_WITH_IMAGE))
-        assertEquals(listOf(File("a.png"), File("b.png")), published.last().second)
+        assertEquals("Kafka partitions explained\n\n#java" to listOf(File("a.png"), File("b.png")), published.last())
         run(scheduler(PostType.TEXT_WITH_VIDEO))
         assertEquals(listOf(File("v.mp4")), published.last().second)
+        assertEquals(
+            setOf("Act as a Kafka expert", "images: Explain everything about partitions", "video: Explain everything about partitions"),
+            prompts.toSet(),
+        )
+    }
+
+    @Test
+    fun `image and video posts have the media with the title and hashtags as the caption`() = runTest {
+        val outcome = run(scheduler(PostType.IMAGE))
+        assertEquals("Posted “Kafka Partitions In Depth”", outcome.record.message)
+        assertEquals("Kafka Partitions In Depth\n\n#java" to listOf(File("a.png"), File("b.png")), published.last())
+        run(scheduler(PostType.VIDEO))
+        assertEquals("Kafka Partitions In Depth\n\n#java" to listOf(File("v.mp4")), published.last())
+        assertEquals(listOf("images: Explain everything about partitions", "video: Explain everything about partitions"), prompts)
+    }
+
+    @Test
+    fun `every post type asks Prepare Prompt for its prompt type`() {
+        assertEquals(
+            listOf(PromptType.TEXT, PromptType.IMAGE, PromptType.VIDEO, PromptType.TEXT_AND_IMAGE, PromptType.TEXT_AND_VIDEO),
+            PostType.entries.map { it.promptType },
+        )
+        assertEquals(listOf("Text", "Image", "Video", "Text & Image", "Text & Video"), PostType.entries.map { it.label })
     }
 
     @Test
@@ -75,8 +108,11 @@ class AutoPostRunTest {
         assertEquals("Couldn't make the images. Gemini rejected the API key. Check it in settings.", outcome.record.message)
         assertTrue(published.isEmpty())
 
+        assertFalse(run(scheduler(PostType.IMAGE)).record.ok)
+
         video = Outcome.NoAgent
         assertEquals(GenerateContentAndMediaUseCase.VIDEO_NOT_SET_UP, run(scheduler(PostType.TEXT_WITH_VIDEO)).record.message)
+        assertEquals(GenerateContentAndMediaUseCase.VIDEO_NOT_SET_UP, run(scheduler(PostType.VIDEO)).record.message)
         assertTrue(published.isEmpty())
     }
 

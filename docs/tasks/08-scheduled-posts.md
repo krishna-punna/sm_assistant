@@ -11,7 +11,7 @@ Requirement: [13 Scheduled LinkedIn posts](../requirements/13-scheduled-posts.md
 | SC-3 | Searchable multi-select of 200 technical content types | done | `TechTopics`; picker on the editor |
 | SC-3a / 3b | Validate length with default hashtags, then post | done | `AutoPostRun`; media failure posts nothing |
 | SC-4 | Every few hours / daily / weekly / monthly | done | `Schedule`; options on the editor |
-| SC-5 | Post type Text / Text with image / Text with video | done | |
+| SC-5 | Post type Text / Image / Video / Text & Image / Text & Video | done | Image and Video added after #67 |
 | SC-6 | Topics take turns | done | `AutoPostScheduler.currentTopic` / `advanced` |
 | SC-7 | Result on the scheduler and in a notification | done | `lastRun` on the list with Open post; `RunNotifier`; Allow notifications prompt on Android 13+ |
 | SC-8 | Several schedulers, each on or off | done | Scheduled Posts list |
