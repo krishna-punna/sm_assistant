@@ -3,6 +3,8 @@ package com.smassistant.app.chat
 import com.smassistant.app.generate.ContentAndMedia
 import com.smassistant.app.generate.GeneratedVideo
 import com.smassistant.app.prompt.PreparedPrompt
+import com.smassistant.app.prompt.PromptSet
+import com.smassistant.app.prompt.PromptType
 import java.io.File
 import kotlinx.serialization.json.JsonObject
 import java.nio.file.Files
@@ -20,6 +22,16 @@ class ResultSaverTest {
     fun `text and prepared prompts round trip`() {
         assertEquals("## Post\\n#java", roundTrip(TextSaver, "## Post\\n#java"))
         assertEquals(PreparedPrompt("Short URL", "Design…"), roundTrip(PreparedPromptSaver, PreparedPrompt("Short URL", "Design…")))
+    }
+
+    @Test
+    fun `prompt sets round trip and old prepared prompts come back as Text`() {
+        val both = PromptSet(PromptType.TEXT_AND_VIDEO, PreparedPrompt("Post", "P"), PreparedPrompt("Content", "C"))
+        assertEquals(both, roundTrip(PromptSetSaver, both))
+        val image = PromptSet(PromptType.IMAGE, content = PreparedPrompt("Content", "C"))
+        assertEquals(image, roundTrip(PromptSetSaver, image))
+        val old = PreparedPromptSaver.save(PreparedPrompt("Short URL", "Design…"))
+        assertEquals(PromptSet(PromptType.TEXT, post = PreparedPrompt("Short URL", "Design…")), PromptSetSaver.restore(old))
     }
 
     @Test

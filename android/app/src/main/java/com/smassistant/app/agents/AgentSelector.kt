@@ -11,6 +11,7 @@ import com.smassistant.app.generate.VIDEO_LENGTHS
 import com.smassistant.app.media.AndroidSvgRenderer
 import com.smassistant.app.media.MediaCache
 import com.smassistant.app.net.Http
+import com.smassistant.app.prompt.PromptType
 import com.smassistant.app.prompt.loadPromptAsset
 import java.util.concurrent.TimeUnit
 
@@ -82,7 +83,15 @@ class AgentPreferences(context: Context) {
             prefs.edit().putInt(KEY_VIDEO_SECONDS, value).apply()
         }
 
+    /** The Prompt Type last picked on Prepare Prompt (docs/requirements/14); Text until one is picked. */
+    var promptType: PromptType
+        get() = prefs.getString(KEY_PROMPT_TYPE, null)?.let { name -> PromptType.entries.firstOrNull { it.name == name } } ?: PromptType.TEXT
+        set(value) {
+            prefs.edit().putString(KEY_PROMPT_TYPE, value.name).apply()
+        }
+
     private companion object {
+        const val KEY_PROMPT_TYPE = "prompt_type"
         const val KEY_VIDEO_SECONDS = "video_seconds"
         const val KEY_DEFAULT_TEXT = "default_text_agent"
         const val KEY_DEFAULT_IMAGE = "default_image_agent"

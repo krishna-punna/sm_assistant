@@ -23,6 +23,7 @@ This knowledge base is derived from the wireframe deck [`requirements/SM Assista
 | 11 | [API connection status](11-api-status.md) | Screen that tests each API and key and shows whether it connects | — (request 2026-10-25) |
 | 12 | [LinkedIn post length](12-post-length.md) | Generating posts within 3,000 characters including default hashtags, checking, shortening and cutting to fit; Trim post | — (requests 2026-10-25, 2026-10-26) |
 | 13 | [Scheduled LinkedIn posts](13-scheduled-posts.md) | Schedulers that pick a technical topic, prepare a prompt, generate a text, image or video post, check its length and publish it on a schedule | — (request 2026-10-26) |
+| 14 | [Prompt types and the image/video content workflow](14-prompt-types-and-media-workflow.md) | Prompt Type on Prepare Prompt; images and videos drawn from no-limit technical content | — (request 2026-10-27) |
 
 ## Slide index
 

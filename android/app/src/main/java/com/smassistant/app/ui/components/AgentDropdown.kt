@@ -32,6 +32,7 @@ import com.smassistant.app.data.MediaPurpose
 import com.smassistant.app.data.forMedia
 import com.smassistant.app.generate.VIDEO_LENGTHS
 import com.smassistant.app.generate.videoLengthLabel
+import com.smassistant.app.prompt.PromptType
 
 /**
  * "Agent: Claude ▾" above a text feature's conversation: picks which set-up agent writes the
@@ -99,6 +100,28 @@ fun VideoLengthDropdown() {
             seconds = it
         },
         testTag = "videoLengthDropdown",
+    )
+}
+
+/**
+ * "Prompt Type: Text ▾" on Prepare Prompt (docs/requirements/14): Text, Image, Video, Text & Image or
+ * Text & Video. The choice is saved, and the next prompt is prepared for it.
+ */
+@Composable
+fun PromptTypeDropdown() {
+    val appContext = LocalContext.current.applicationContext
+    val preferences = remember { AgentPreferences(appContext) }
+    var type by remember { mutableStateOf(preferences.promptType) }
+    SelectDropdown(
+        label = "Prompt Type",
+        selected = type,
+        options = PromptType.entries,
+        optionLabel = { it.label },
+        onSelect = {
+            preferences.promptType = it
+            type = it
+        },
+        testTag = "promptTypeDropdown",
     )
 }
 

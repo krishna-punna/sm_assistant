@@ -34,4 +34,13 @@ class PreparePromptScreenTest {
         assertEquals(1, setUp)
         compose.onAllNodesWithText("Post in LinkedIn").assertCountEquals(0)
     }
+
+    @Test
+    fun promptTypeOffersEveryType() {
+        compose.setContent { PreparePromptScreen(onSetUpAgent = {}, onBackToHome = {}) }
+
+        compose.onNodeWithText("Prompt Type").assertExists()
+        compose.onNodeWithTag("promptTypeDropdown").performClick()
+        listOf("Image", "Video", "Text & Image", "Text & Video").forEach { compose.onNodeWithText(it).assertExists() }
+    }
 }
