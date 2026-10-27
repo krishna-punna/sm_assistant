@@ -29,9 +29,9 @@ class InfographicWriter(
     private val systemPrompt: String,
     private val examples: List<ImageExample> = emptyList(),
 ) {
-    suspend fun write(agent: TextAgent, topic: String, layoutIdea: String): ApiResult<InfographicSpec> {
+    suspend fun write(agent: TextAgent, topic: String, layoutIdea: String, content: String = ""): ApiResult<InfographicSpec> {
         val system = systemPrompt.replace("{{examples}}", formatImageExamples(pickImageExamples(examples, topic)))
-        return askTwice(agent, system, "Topic: $topic\n\nLayout idea: $layoutIdea", ::parseInfographic)
+        return askTwice(agent, system, "Topic: $topic${contentBlock(content)}\n\nLayout idea: $layoutIdea", ::parseInfographic)
     }
 }
 
@@ -44,14 +44,30 @@ class SlideDeckWriter(
     private val systemPrompt: String,
     private val examples: List<ImageExample> = emptyList(),
 ) {
-    suspend fun write(agent: TextAgent, topic: String, slides: Int, secondsPerSlide: Int): ApiResult<SlideDeck> {
+    suspend fun write(agent: TextAgent, topic: String, slides: Int, secondsPerSlide: Int, content: String = ""): ApiResult<SlideDeck> {
         val system = systemPrompt
             .replace("{{slides}}", slides.toString())
             .replace("{{seconds}}", secondsPerSlide.toString())
             .replace("{{examples}}", formatImageExamples(pickImageExamples(examples, topic)))
-        return askTwice(agent, system, "Topic: $topic", ::parseSlideDeck)
+        return askTwice(agent, system, "Topic: $topic${contentBlock(content)}", ::parseSlideDeck)
     }
 }
+
+/**
+ * The workflow's first step (docs/requirements/14, MW-1 and MW-2): the text agent writes technical
+ * content on the prompt with no length limit ([systemPrompt] is `prompts/media_content.md`), and
+ * the infographic or the video's deck is planned from that content rather than the bare prompt.
+ */
+class MediaContentWriter(private val systemPrompt: String) {
+    suspend fun write(agent: TextAgent, prompt: String): ApiResult<String> = when (val result = agent.generate(systemPrompt, prompt)) {
+        is ApiResult.Failed -> result
+        is ApiResult.Ok -> result.value.trim().takeIf { it.isNotEmpty() }?.let { ApiResult.Ok(it) }
+            ?: ApiResult.Failed(ApiError.BadResponse("no technical content in the reply"))
+    }
+}
+
+private fun contentBlock(content: String) =
+    if (content.isBlank()) "" else "\n\nTechnical content to represent:\n${content.trim()}"
 
 private suspend fun <T> askTwice(agent: TextAgent, system: String, user: String, parse: (String) -> Result<T>): ApiResult<T> {
     var problem = ""

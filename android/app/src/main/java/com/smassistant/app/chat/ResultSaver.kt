@@ -5,6 +5,8 @@ import com.smassistant.app.generate.GeneratedVideo
 import com.smassistant.app.net.path
 import com.smassistant.app.net.textOrNull
 import com.smassistant.app.prompt.PreparedPrompt
+import com.smassistant.app.prompt.PromptSet
+import com.smassistant.app.prompt.PromptType
 import java.io.File
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -40,6 +42,25 @@ object PreparedPromptSaver : ResultSaver<PreparedPrompt> {
         val title = json.path("title")?.textOrNull ?: return null
         val prompt = json.path("prompt")?.textOrNull ?: return null
         return PreparedPrompt(title, prompt)
+    }
+}
+
+/** Saves a Prepare Prompt result. Results saved before Prompt Type come back as Text. */
+object PromptSetSaver : ResultSaver<PromptSet> {
+    override fun save(value: PromptSet) = buildJsonObject {
+        put("type", value.type.name)
+        put("post", value.post?.let(PreparedPromptSaver::save) ?: JsonNull)
+        put("content", value.content?.let(PreparedPromptSaver::save) ?: JsonNull)
+    }
+
+    override fun restore(json: JsonElement): PromptSet? {
+        if (json !is JsonObject) return null
+        val type = json.path("type")?.textOrNull?.let { name -> PromptType.entries.firstOrNull { it.name == name } }
+            ?: return PreparedPromptSaver.restore(json)?.let { PromptSet(PromptType.TEXT, post = it) }
+        val post = json["post"]?.takeIf { it !is JsonNull }?.let(PreparedPromptSaver::restore)
+        val content = json["content"]?.takeIf { it !is JsonNull }?.let(PreparedPromptSaver::restore)
+        if (post == null && content == null) return null
+        return PromptSet(type, post, content)
     }
 }
 

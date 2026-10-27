@@ -30,6 +30,7 @@ Status values: **done** (implemented and matches the requirement), **partial** (
 | [06-content-generation.md](06-content-generation.md) | Shared generation, Technical Content, Image, Video, Content & Image, Content & Video | GEN-1…4, TC-1…3, IM-1…5, VI-1…3, CI-1…2, CV-1…2 |
 | [07-post-to-linkedin.md](07-post-to-linkedin.md) | Post in LinkedIn | LP-1…5 |
 | [08-scheduled-posts.md](08-scheduled-posts.md) | Scheduled LinkedIn posts | SC-1…10 |
+| [09-prompt-types-and-media.md](09-prompt-types-and-media.md) | Prompt types and the image/video content workflow | PT-1…5, MW-1…4 |
 
 ## Phases
 

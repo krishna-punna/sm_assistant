@@ -27,6 +27,7 @@ import com.smassistant.app.ui.components.MediaAgentDropdown
 import com.smassistant.app.ui.components.PostDialogs
 import com.smassistant.app.ui.components.PostInLinkedInButton
 import com.smassistant.app.ui.components.PromptCard
+import com.smassistant.app.ui.components.TextAgentDropdown
 import com.smassistant.app.ui.components.VideoLengthDropdown
 import com.smassistant.app.ui.components.VideoPlayer
 
@@ -53,6 +54,7 @@ fun VideoScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToH
         onSetUpAgent = onSetUpAgent,
         onBackToHome = onBackToHome,
         header = {
+            TextAgentDropdown(label = "Text agent", showModel = true)
             MediaAgentDropdown(MediaPurpose.VIDEO)
             VideoLengthDropdown()
         },

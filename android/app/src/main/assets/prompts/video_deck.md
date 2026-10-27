@@ -23,6 +23,7 @@ Reply with one JSON object only, with no explanation, no Markdown and no code fe
 Section types, as in a cheat sheet: "bullets" (items), "steps" (items), "pros_cons" (pros, cons), "code" (language, code with lines joined by \n), "table" (columns, rows), "flow" (nodes), "compare" (left and right, each with label and items), "stats" (items of value and label).
 
 Story rules:
+- The user may give you technical content written for this video. Then the slides represent that content: take the sections, facts, numbers, flows and code from it, in its order, merging or choosing sections so they fit {{slides}} slides. Do not add facts that contradict it.
 - Write exactly {{slides}} slides that tell one story: slide 1 introduces the problem or idea, the middle slides walk through how it works step by step, and the last slide sums up with best practices and a takeaway. Each slide shows the next step; don't repeat content between slides.
 - Each slide stays on screen for about {{seconds}} seconds, so give it as much as can be read in that time: 1 or 2 sections for up to 10 seconds, 2 or 3 sections for longer. Headings up to 4 words, at most 5 items of up to 8 words, flows of up to 5 nodes of up to 3 words, code at most 8 lines.
 - Every fact must be technically accurate and every word spelled correctly.

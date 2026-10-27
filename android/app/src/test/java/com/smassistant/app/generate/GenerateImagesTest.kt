@@ -85,6 +85,34 @@ class GenerateImagesTest {
     }
 
     @Test
+    fun `the text agent first writes no-limit content and every infographic represents it`() = runTest {
+        val writer = ScriptedTextAgent(ApiResult.Ok("1. Cache-aside\n- read the cache first"), ApiResult.Ok("""{"title": "Caching"}"""))
+        val parts = Infographics({ writer }, InfographicWriter("Plan.{{examples}}"), pipeline, MediaContentWriter("Write it all."))
+
+        val outcome = GenerateImagesUseCase("{{prompt}}", { agent }, count = 2, infographics = parts)("Caching")
+
+        assertEquals(Outcome.Ok(listOf(File("Caching.png"), File("Caching.png"))), outcome)
+        assertEquals("Write it all." to "Caching", writer.calls.first())
+        val plans = writer.calls.drop(1).map { it.second }
+        assertEquals(2, plans.size)
+        plans.forEach { assertTrue(it.startsWith("Topic: Caching\n\nTechnical content to represent:\n1. Cache-aside\n- read the cache first\n\nLayout idea: ")) }
+    }
+
+    @Test
+    fun `a failed content step fails the images and names the text agent`() = runTest {
+        val writer = ScriptedTextAgent(ApiResult.Failed(ApiError.RateLimited))
+        val parts = Infographics({ writer }, InfographicWriter("Plan.{{examples}}"), pipeline, MediaContentWriter("Write it all."))
+        assertEquals(Outcome.Failed(ApiError.RateLimited, "Groq"), GenerateImagesUseCase("{{prompt}}", { agent }, 2, infographics = parts)("x"))
+        assertEquals(1, writer.calls.size)
+    }
+
+    @Test
+    fun `media content asset asks for no-limit sectioned content`() {
+        val asset = File("src/main/assets/prompts/media_content.md").readText()
+        listOf("no length limit", "Sections", "Key takeaways").forEach { assertTrue("media_content.md is missing $it", asset.contains(it)) }
+    }
+
+    @Test
     fun `infographics work without an image agent`() = runTest {
         val writer = ScriptedTextAgent(ApiResult.Ok("""{"title": "Caching"}"""))
         assertEquals(Outcome.Ok(listOf(File("Caching.png"))), GenerateImagesUseCase("{{prompt}}", { null }, 1, infographics = infographics(writer))("x"))

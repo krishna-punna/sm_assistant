@@ -61,7 +61,7 @@ fun ContentAndImageScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit,
         onSetUpAgent = onSetUpAgent,
         onBackToHome = onBackToHome,
         header = {
-            TextAgentDropdown()
+            TextAgentDropdown(label = "Text agent", showModel = true)
             MediaAgentDropdown()
         },
         inputContent = { PromptCard("Your prompt", it, collapsedLines = 4) },

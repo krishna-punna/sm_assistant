@@ -32,26 +32,50 @@ import com.smassistant.app.data.MediaPurpose
 import com.smassistant.app.data.forMedia
 import com.smassistant.app.generate.VIDEO_LENGTHS
 import com.smassistant.app.generate.videoLengthLabel
+import com.smassistant.app.prompt.PromptType
 
 /**
  * "Agent: Claude ▾" above a text feature's conversation: picks which set-up agent writes the
  * next result. The choice is the same default as on the AI Agent screen, so it sticks.
+ *
+ * The image and video screens show it as "Text agent" with a "Text model" picker ([showModel]),
+ * because there the text agent and model write the content that the separate image or video
+ * agent and model then draw (docs/requirements/14).
  */
 @Composable
-fun TextAgentDropdown() {
+fun TextAgentDropdown(label: String = "Agent", showModel: Boolean = false) {
     val appContext = LocalContext.current.applicationContext
     val preferences = remember { AgentPreferences(appContext) }
-    val agents = remember {
-        val store = ApiSettingsStore(appContext)
-        TEXT_AGENTS.filter { store.load(it).isUsableAgent() }
-    }
+    val store = remember { ApiSettingsStore(appContext) }
+    val agents = remember { TEXT_AGENTS.filter { store.load(it).isUsableAgent() } }
     if (agents.isEmpty()) return
     // Same rule as AgentSelector: the default if it's set up, otherwise the first set-up agent.
     var selected by remember { mutableStateOf(preferences.defaultTextAgent?.takeIf { it in agents } ?: agents.first()) }
-    AgentDropdown(agents, selected) {
+    AgentDropdown(agents, selected, label = label) {
         preferences.defaultTextAgent = it
         selected = it
     }
+    if (showModel) TextModelDropdown(store, selected)
+}
+
+/** "Text model: … ▾": the models last listed on the agent's settings screen; hidden until there are some. */
+@Composable
+private fun TextModelDropdown(store: ApiSettingsStore, agent: ApiService) {
+    var model by remember(agent) { mutableStateOf(store.load(agent).model) }
+    val listed = remember(agent) { store.cachedModels(agent)?.lists?.text.orEmpty() }
+    if (listed.isEmpty()) return
+    val options = if (listed.any { it.id == model }) listed else listOf(AiModel(model)) + listed
+    SelectDropdown(
+        label = "Text model",
+        selected = model,
+        options = options.map { it.id },
+        optionLabel = { id -> options.firstOrNull { it.id == id }?.label ?: id },
+        onSelect = {
+            store.saveTextModel(agent, it)
+            model = it
+        },
+        testTag = "textModelDropdown",
+    )
 }
 
 /**
@@ -99,6 +123,28 @@ fun VideoLengthDropdown() {
             seconds = it
         },
         testTag = "videoLengthDropdown",
+    )
+}
+
+/**
+ * "Prompt Type: Text ▾" on Prepare Prompt (docs/requirements/14): Text, Image, Video, Text & Image or
+ * Text & Video. The choice is saved, and the next prompt is prepared for it.
+ */
+@Composable
+fun PromptTypeDropdown() {
+    val appContext = LocalContext.current.applicationContext
+    val preferences = remember { AgentPreferences(appContext) }
+    var type by remember { mutableStateOf(preferences.promptType) }
+    SelectDropdown(
+        label = "Prompt Type",
+        selected = type,
+        options = PromptType.entries,
+        optionLabel = { it.label },
+        onSelect = {
+            preferences.promptType = it
+            type = it
+        },
+        testTag = "promptTypeDropdown",
     )
 }
 

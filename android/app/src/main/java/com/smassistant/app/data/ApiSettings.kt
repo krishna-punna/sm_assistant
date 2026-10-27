@@ -53,6 +53,11 @@ class ApiSettingsStore(context: Context, private val cipher: SecretCipher = Keys
         }.apply()
     }
 
+    /** Saves just the text model, e.g. from the text model picker on the image and video screens. */
+    fun saveTextModel(service: ApiService, model: String) {
+        prefs.edit().apply { if (model.isBlank()) remove(modelPref(service)) else putString(modelPref(service), model.trim()) }.apply()
+    }
+
     /** Saves just the image or video model, e.g. from the picker on the image and video screens. */
     fun saveMediaModel(service: ApiService, purpose: MediaPurpose, model: String) {
         val pref = if (purpose == MediaPurpose.VIDEO) videoModelPref(service) else imageModelPref(service)

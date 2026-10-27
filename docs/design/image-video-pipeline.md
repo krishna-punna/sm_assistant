@@ -154,3 +154,7 @@ replaced by a short illustration prompt for Claude.
 | 1 | This design, the JSON definition and parser, the renderer, built-in icons and palettes, unit tests. No change in the app yet. |
 | 2 | `prompts/infographic.md`, `InfographicPipeline` (LLM → JSON → render → illustrations → compose), `PaintTextMeasurer`, `InfographicComposer`; Generate Image and Content & Image use it, with the old flow as fallback. |
 | 3 | `prompts/video_deck.md`; Generate Video and Content & Video build slides through the pipeline. |
+
+## Update 2026-10-27: no-limit content first
+
+With a text agent set up, both pipelines now start with one extra call: the text agent writes in-depth technical content on the prompt with no length limit (`prompts/media_content.md`). The infographic definitions and the video deck are then planned from that content instead of the bare prompt, so images and slides carry the depth of a full write-up. See [requirements 14](../requirements/14-prompt-types-and-media-workflow.md).

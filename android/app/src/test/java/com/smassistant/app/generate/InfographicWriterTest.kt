@@ -42,6 +42,14 @@ class InfographicWriterTest {
     }
 
     @Test
+    fun `content steps reject empty replies and pass errors through`() = runTest {
+        val content = MediaContentWriter("Write it all.")
+        assertEquals(ApiResult.Ok("Body"), content.write(ScriptedTextAgent(ApiResult.Ok("  Body \n")), "x"))
+        assertTrue(content.write(ScriptedTextAgent(ApiResult.Ok("  ")), "x") is ApiResult.Failed)
+        assertEquals(ApiResult.Failed(ApiError.RateLimited), content.write(ScriptedTextAgent(ApiResult.Failed(ApiError.RateLimited)), "x"))
+    }
+
+    @Test
     fun `asks once more when the reply isn't a definition`() = runTest {
         val agent = ScriptedTextAgent(ApiResult.Ok("Sure! Here you go."), ApiResult.Ok("""{"title": "Second try"}"""))
         assertEquals("Second try", (writer.write(agent, "x", "y") as ApiResult.Ok).value.title)
