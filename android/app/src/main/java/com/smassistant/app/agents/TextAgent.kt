@@ -15,6 +15,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
+import java.util.Base64
 import okhttp3.OkHttpClient
 
 /** An AI agent that turns a system prompt and a user message into text (docs/tasks AGC-1). */
@@ -22,6 +23,14 @@ interface TextAgent {
     val service: ApiService
 
     suspend fun generate(system: String, user: String): ApiResult<String>
+
+    /**
+     * Like [generate], with a [jpeg] image sent along with the user message, for models that can
+     * see images (Claude, Gemini, and vision models behind the OpenAI-compatible APIs). A model
+     * that can't answers with an error.
+     */
+    suspend fun see(system: String, user: String, jpeg: ByteArray): ApiResult<String> =
+        ApiResult.Failed(ApiError.BadResponse("${service.displayName} can't look at images"))
 }
 
 /** Builds the client for [service] from its current settings, read at call time so a newly saved key applies. */
@@ -44,10 +53,15 @@ fun claudeAgent(config: () -> ApiConfig, client: OkHttpClient, maxTokens: Int): 
 fun ApiConfig.isUsableAgent() = isConfigured() && model.isNotBlank()
 
 private abstract class BaseAgent(private val config: () -> ApiConfig) : TextAgent {
-    override suspend fun generate(system: String, user: String): ApiResult<String> {
+    override suspend fun generate(system: String, user: String): ApiResult<String> = reply { call(it, system, user, null) }
+
+    override suspend fun see(system: String, user: String, jpeg: ByteArray): ApiResult<String> =
+        reply { call(it, system, user, Base64.getEncoder().encodeToString(jpeg)) }
+
+    private suspend fun reply(send: suspend (ApiConfig) -> ApiResult<JsonObject>): ApiResult<String> {
         val current = config()
         if (!current.isUsableAgent()) return ApiResult.Failed(ApiError.NotConfigured)
-        return when (val result = call(current, system, user)) {
+        return when (val result = send(current)) {
             is ApiResult.Failed -> ApiResult.Failed(refine(result.error))
             is ApiResult.Ok -> text(result.value)?.takeIf { it.isNotBlank() }
                 ?.let { ApiResult.Ok(it.trim()) }
@@ -55,7 +69,8 @@ private abstract class BaseAgent(private val config: () -> ApiConfig) : TextAgen
         }
     }
 
-    protected abstract suspend fun call(config: ApiConfig, system: String, user: String): ApiResult<JsonObject>
+    /** Sends the request; [jpegBase64] is an image to send with the user message, or null. */
+    protected abstract suspend fun call(config: ApiConfig, system: String, user: String, jpegBase64: String?): ApiResult<JsonObject>
 
     protected abstract fun text(response: JsonObject): String?
 
@@ -70,7 +85,7 @@ private class ClaudeAgent(
 ) : BaseAgent(config) {
     override val service = ApiService.CLAUDE
 
-    override suspend fun call(config: ApiConfig, system: String, user: String) = client.postJson(
+    override suspend fun call(config: ApiConfig, system: String, user: String, jpegBase64: String?) = client.postJson(
         url = config.api,
         headers = mapOf("x-api-key" to config.key, "anthropic-version" to "2023-06-01"),
         body = buildJsonObject {
@@ -80,7 +95,24 @@ private class ClaudeAgent(
             putJsonArray("messages") {
                 addJsonObject {
                     put("role", "user")
-                    put("content", user)
+                    if (jpegBase64 == null) {
+                        put("content", user)
+                    } else {
+                        putJsonArray("content") {
+                            addJsonObject {
+                                put("type", "image")
+                                putJsonObject("source") {
+                                    put("type", "base64")
+                                    put("media_type", "image/jpeg")
+                                    put("data", jpegBase64)
+                                }
+                            }
+                            addJsonObject {
+                                put("type", "text")
+                                put("text", user)
+                            }
+                        }
+                    }
                 }
             }
         },
@@ -96,7 +128,7 @@ private class ClaudeAgent(
 private class GeminiAgent(config: () -> ApiConfig, private val client: OkHttpClient) : BaseAgent(config) {
     override val service = ApiService.GEMINI
 
-    override suspend fun call(config: ApiConfig, system: String, user: String) = client.postJson(
+    override suspend fun call(config: ApiConfig, system: String, user: String, jpegBase64: String?) = client.postJson(
         url = "${config.api.trimEnd('/')}/models/${config.model}:generateContent",
         headers = mapOf("x-goog-api-key" to config.key),
         body = buildJsonObject {
@@ -106,7 +138,17 @@ private class GeminiAgent(config: () -> ApiConfig, private val client: OkHttpCli
             putJsonArray("contents") {
                 addJsonObject {
                     put("role", "user")
-                    putJsonArray("parts") { addJsonObject { put("text", user) } }
+                    putJsonArray("parts") {
+                        jpegBase64?.let { data ->
+                            addJsonObject {
+                                putJsonObject("inlineData") {
+                                    put("mimeType", "image/jpeg")
+                                    put("data", data)
+                                }
+                            }
+                        }
+                        addJsonObject { put("text", user) }
+                    }
                 }
             }
         },
@@ -132,7 +174,7 @@ private class OpenAiChatAgent(
     private val client: OkHttpClient,
     private val urlOf: (ApiConfig) -> String,
 ) : BaseAgent(config) {
-    override suspend fun call(config: ApiConfig, system: String, user: String) = client.postJson(
+    override suspend fun call(config: ApiConfig, system: String, user: String, jpegBase64: String?) = client.postJson(
         url = urlOf(config),
         headers = mapOf("Authorization" to "Bearer ${config.key}"),
         body = buildJsonObject {
@@ -144,7 +186,20 @@ private class OpenAiChatAgent(
                 }
                 addJsonObject {
                     put("role", "user")
-                    put("content", user)
+                    if (jpegBase64 == null) {
+                        put("content", user)
+                    } else {
+                        putJsonArray("content") {
+                            addJsonObject {
+                                put("type", "text")
+                                put("text", user)
+                            }
+                            addJsonObject {
+                                put("type", "image_url")
+                                putJsonObject("image_url") { put("url", "data:image/jpeg;base64,$jpegBase64") }
+                            }
+                        }
+                    }
                 }
             }
         },

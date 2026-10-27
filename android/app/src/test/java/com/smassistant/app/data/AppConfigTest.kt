@@ -1,5 +1,6 @@
 package com.smassistant.app.data
 
+import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -118,5 +119,16 @@ class AppConfigTest {
         assertEquals("sonnet", claude.forMedia(MediaPurpose.IMAGE).model)
         assertEquals("opus", claude.copy(imageModel = "opus").forMedia(MediaPurpose.VIDEO).model)
         assertEquals("haiku", claude.copy(imageModel = "opus", videoModel = "haiku").forMedia(MediaPurpose.VIDEO).model)
+    }
+
+    @Test
+    fun `image checks come from app yml with defaults for missing or invalid values`() {
+        assertEquals(
+            ImageCheckRules(visionReview = false, minScore = 8, retries = 2),
+            parseImageCheckRules("image_checks:\n  vision_review: false\n  min_score: 8\n  retries: 2".byteInputStream()),
+        )
+        assertEquals(ImageCheckRules(), parseImageCheckRules("apis: {}".byteInputStream()))
+        assertEquals(ImageCheckRules(), parseImageCheckRules("image_checks:\n  vision_review: maybe\n  min_score: 11\n  retries: 9".byteInputStream()))
+        assertEquals(ImageCheckRules(), File("src/main/assets/app.yml").inputStream().use(::parseImageCheckRules))
     }
 }
