@@ -23,17 +23,22 @@ import kotlinx.coroutines.coroutineScope
 /** Name used when a definition can't be drawn, e.g. "Unexpected response from the infographic renderer: …". */
 const val INFOGRAPHIC_RENDERER = "the infographic renderer"
 
-/** The infographic pipeline's parts: the text agent that writes each definition, and how it is drawn. */
+/**
+ * The infographic pipeline's parts: the text agent that writes each definition, how it is drawn,
+ * and the [content] step that first writes the no-limit technical content the definitions represent.
+ */
 class Infographics(
     val textAgent: () -> TextAgent?,
     val writer: InfographicWriter,
     val pipeline: InfographicPipeline,
+    val content: MediaContentWriter? = null,
 )
 
 /**
  * Generate Image (docs/tasks IM-I1, IM-I6). With a text agent set up it runs the infographic
- * pipeline (docs/design/image-video-pipeline.md): [count] definitions written in parallel, each
- * with its own layout idea, drawn with illustrations from the selected image agent. Without a text
+ * pipeline (docs/design/image-video-pipeline.md): the text agent first writes technical content
+ * on the prompt with no length limit (docs/requirements/14), then [count] definitions of that
+ * content are written in parallel, each with its own layout idea, drawn with illustrations from the selected image agent. Without a text
  * agent it falls back to asking the image agent for finished images, with the style from
  * `assets/prompts/image.md` and the few-shot [examples] closest to the topic.
  */
@@ -55,12 +60,18 @@ class GenerateImagesUseCase(
     }
 
     private suspend fun infographics(parts: Infographics, writer: TextAgent, topic: String): Outcome<List<File>> {
+        val content = parts.content?.let { step ->
+            when (val result = step.write(writer, topic)) {
+                is ApiResult.Failed -> return Outcome.Failed(result.error, writer.service.displayName)
+                is ApiResult.Ok -> result.value
+            }
+        }.orEmpty()
         val illustrator = agent()
         val outcomes = coroutineScope {
             List(count) { i ->
                 async {
                     val idea = INFOGRAPHIC_LAYOUT_IDEAS[i % INFOGRAPHIC_LAYOUT_IDEAS.size]
-                    when (val spec = parts.writer.write(writer, topic, idea)) {
+                    when (val spec = parts.writer.write(writer, topic, idea, content)) {
                         is ApiResult.Failed -> Outcome.Failed(spec.error, writer.service.displayName)
                         is ApiResult.Ok -> parts.pipeline.draw(spec.value, illustrator)?.let { Outcome.Ok(it) }
                             ?: Outcome.Failed(ApiError.BadResponse("the infographic couldn't be drawn"), INFOGRAPHIC_RENDERER)
@@ -93,7 +104,10 @@ fun appGenerateImages(context: Context): GenerateImagesUseCase {
     )
 }
 
-/** The pipeline's real parts: the default text agent, the infographic prompt, Paint-measured layout and 2x composing. */
+/**
+ * The pipeline's real parts: the default text agent, the no-limit content and infographic
+ * prompts, Paint-measured layout and 2x composing.
+ */
 internal fun appInfographics(context: Context, cache: MediaCache, examples: List<ImageExample>) = Infographics(
     textAgent = appAgentSelector(context)::textAgent,
     writer = InfographicWriter(loadPromptAsset(context, "infographic"), examples),
@@ -102,4 +116,8 @@ internal fun appInfographics(context: Context, cache: MediaCache, examples: List
         illustrationTemplate = loadPromptAsset(context, "illustration"),
         composer = AndroidInfographicComposer(cache),
     ),
+    content = appMediaContentWriter(context),
 )
+
+/** Writes the no-limit technical content an image or video represents (docs/requirements/14). */
+internal fun appMediaContentWriter(context: Context) = MediaContentWriter(loadPromptAsset(context, "media_content"))

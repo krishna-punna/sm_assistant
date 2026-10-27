@@ -25,6 +25,7 @@ Reply with one JSON object only, with no explanation, no Markdown and no code fe
 }
 
 Planning rules:
+- The user may give you technical content written for this infographic. Then represent that content: take the sections, facts, numbers, flows and code from it, and choose what fits best on one infographic. Do not add facts that contradict it.
 - Explain the real mechanism, like a senior engineer's cheat sheet: how it works, the steps, trade-offs, numbers, a short code sample, when to use it. Every fact must be technically accurate and every word spelled correctly.
 - Use 5 to 8 sections for portrait, 4 to 6 for square, 6 to 8 for landscape. Mix the types: a good infographic has a flow or steps, a table or compare, a few bullets cards and usually code. Use at most one "illustration" section.
 - Keep text short: headings up to 4 words, items up to 10 words, at most 6 items per card, flow nodes up to 3 words, code at most 10 lines of 50 characters, tables at most 4 columns and 6 rows.

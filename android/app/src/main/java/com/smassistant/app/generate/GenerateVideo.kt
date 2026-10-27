@@ -45,17 +45,22 @@ const val VIDEO_MAKER = "the video maker"
  */
 data class GeneratedVideo(val file: File, val slides: List<File>, val seconds: Int = DEFAULT_VIDEO_SECONDS)
 
-/** The video pipeline's parts: the text agent that plans the deck, and how each slide is drawn. */
+/**
+ * The video pipeline's parts: the text agent that plans the deck, how each slide is drawn, and
+ * the [content] step that first writes the no-limit technical content the deck represents.
+ */
 class SlideDecks(
     val textAgent: () -> TextAgent?,
     val writer: SlideDeckWriter,
     val pipeline: InfographicPipeline,
+    val content: MediaContentWriter? = null,
 )
 
 /**
  * Generate Video (docs/tasks VI-I1, VI-I4, Q-08 = slideshow). With a text agent set up it runs the
- * infographic pipeline (docs/design/image-video-pipeline.md): one call plans all slides as a
- * deck, each slide is drawn with its illustration from the video agent, and [maker] encodes them
+ * infographic pipeline (docs/design/image-video-pipeline.md): the text agent first writes
+ * technical content on the prompt with no length limit (docs/requirements/14), one call plans
+ * all slides of that content as a deck, each slide is drawn with its illustration from the video agent, and [maker] encodes them
  * in order into an MP4. Without a text agent the video agent paints each slide from
  * `assets/prompts/video.md`, as before. Slides that fail are left out.
  *
@@ -107,7 +112,13 @@ class GenerateVideoUseCase(
         slides: Int,
         secondsPerSlide: Int,
     ): Outcome<List<File>> {
-        val deck = when (val result = parts.writer.write(writer, topic, slides, secondsPerSlide)) {
+        val content = parts.content?.let { step ->
+            when (val result = step.write(writer, topic)) {
+                is ApiResult.Failed -> return Outcome.Failed(result.error, writer.service.displayName)
+                is ApiResult.Ok -> result.value
+            }
+        }.orEmpty()
+        val deck = when (val result = parts.writer.write(writer, topic, slides, secondsPerSlide, content)) {
             is ApiResult.Failed -> return Outcome.Failed(result.error, writer.service.displayName)
             is ApiResult.Ok -> result.value
         }
@@ -142,7 +153,7 @@ class GenerateVideoUseCase(
 }
 
 /**
- * The video generator the screens use: the default text agent plans the deck, the selected video
+ * The video generator the screens use: the default text agent writes the content and plans the deck, the selected video
  * agent and model paint the illustrations, slides are drawn at 1080 px (the video's size) and
  * encoded on the device, as long as the length picked on the screen.
  */
@@ -167,6 +178,7 @@ fun appGenerateVideo(context: Context): GenerateVideoUseCase {
                 illustrationTemplate = loadPromptAsset(context, "illustration"),
                 composer = AndroidInfographicComposer(cache, scale = 1f),
             ),
+            content = appMediaContentWriter(context),
         ),
         clips = {
             if (selector.imageAgent()?.service == ApiService.HUGGINGFACE) {

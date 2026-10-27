@@ -125,6 +125,24 @@ class GenerateVideoTest {
     }
 
     @Test
+    fun `the deck is planned from the no-limit content the text agent writes first`() = runTest {
+        val writer = ScriptedTextAgent(ApiResult.Ok("1. Why retries\n2. Backoff"), ApiResult.Ok(deck))
+        val useCase = GenerateVideoUseCase(
+            "slide {{slide}} of {{slides}}: {{prompt}}", { agent }, maker, { File("out.mp4") }, seconds = { seconds },
+            decks = SlideDecks({ writer }, SlideDeckWriter("Plan {{slides}} slides of {{seconds}} s.{{examples}}"), pipeline, MediaContentWriter("Write it all.")),
+        )
+
+        assertTrue(useCase("Retries") is Outcome.Ok)
+        assertEquals(
+            listOf(
+                "Write it all." to "Retries",
+                "Plan 4 slides of 7 s." to "Topic: Retries\n\nTechnical content to represent:\n1. Why retries\n2. Backoff",
+            ),
+            writer.calls,
+        )
+    }
+
+    @Test
     fun `deck slides that can't be drawn are left out, and too few fail`() = runTest {
         undrawable = setOf("Two")
         deckUseCase(ScriptedTextAgent(ApiResult.Ok(deck)))("x")
