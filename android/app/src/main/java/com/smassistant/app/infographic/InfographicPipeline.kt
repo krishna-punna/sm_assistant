@@ -23,12 +23,18 @@ fun interface InfographicComposer {
  * ask [illustrator] for the first [maxIllustrations] slots' pictures in parallel (with the house
  * style from `prompts/illustration.md`), and compose them. A failed illustration keeps its
  * placeholder, and without an illustrator the image is drawn from the definition alone.
+ *
+ * With an [inspector], every illustration is checked before it is painted in (a blank, transparent
+ * or tiny one is painted once more, then left as the placeholder), and the finished PNG is checked
+ * too: one that is blank or smaller than [minSide] isn't returned.
  */
 class InfographicPipeline(
     private val renderer: InfographicRenderer,
     private val illustrationTemplate: String,
     private val composer: InfographicComposer,
     private val maxIllustrations: Int = MAX_ILLUSTRATIONS,
+    private val inspector: ImageInspector? = null,
+    private val minSide: Int = MIN_INFOGRAPHIC_SIDE,
 ) {
     suspend fun draw(spec: InfographicSpec, illustrator: ImageAgent?, maxIllustrations: Int = this.maxIllustrations): File? {
         val rendered = renderer.render(spec)
@@ -37,17 +43,27 @@ class InfographicPipeline(
         } else {
             coroutineScope {
                 rendered.slots.take(maxIllustrations).map { slot ->
-                    async {
-                        when (val result = illustrator.generate(illustrationPrompt(slot.prompt, spec.palette), 1)) {
-                            is ApiResult.Ok -> result.value.firstOrNull()
-                            is ApiResult.Failed -> null
-                        }
-                    }
+                    async { illustrate(illustrator, illustrationPrompt(slot.prompt, spec.palette)) }
                 }.awaitAll()
             }
         }
-        return composer.compose(rendered, rendered.slots.indices.map { painted.getOrNull(it) })
+        val png = composer.compose(rendered, rendered.slots.indices.map { painted.getOrNull(it) }) ?: return null
+        return png.takeIf { usable(it, minSide) }
     }
+
+    /** One illustration, asked for once more when the first one comes back unusable. */
+    private suspend fun illustrate(illustrator: ImageAgent, prompt: String): File? {
+        repeat(2) {
+            val file = when (val result = illustrator.generate(prompt, 1)) {
+                is ApiResult.Ok -> result.value.firstOrNull()
+                is ApiResult.Failed -> return null
+            }
+            if (file != null && usable(file, MIN_ILLUSTRATION_SIDE)) return file
+        }
+        return null
+    }
+
+    private suspend fun usable(file: File, minSide: Int) = inspector == null || imageProblem(inspector.facts(file), minSide) == null
 
     internal fun illustrationPrompt(prompt: String, palette: Palette) = illustrationTemplate
         .replace("{{prompt}}", prompt.trim().trimEnd('.'))

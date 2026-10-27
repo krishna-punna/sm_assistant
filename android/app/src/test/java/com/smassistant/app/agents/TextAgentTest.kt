@@ -176,4 +176,38 @@ class TextAgentTest {
         reply("""{"error":"Model is loading"}""", 503)
         assertEquals(ApiResult.Failed(ApiError.Server(503, "Model is loading")), generate(agent(ApiService.HUGGINGFACE, "/x")))
     }
+
+    private fun see(agent: TextAgent) = runBlocking { agent.see("Review it", "Topic: Caching", byteArrayOf(1, 2, 3)) }
+
+    @Test
+    fun `see sends the image as base64 JPEG in each API's own shape`() {
+        reply("""{"content":[{"type":"text","text":"{\"score\": 8}"}]}""")
+        assertEquals(ApiResult.Ok("{\"score\": 8}"), see(agent(ApiService.CLAUDE, "/v1/messages")))
+        val claude = server.takeRequest().json()
+        assertEquals("image", claude.path("messages", 0, "content", 0, "type")?.textOrNull)
+        assertEquals("image/jpeg", claude.path("messages", 0, "content", 0, "source", "media_type")?.textOrNull)
+        assertEquals("AQID", claude.path("messages", 0, "content", 0, "source", "data")?.textOrNull)
+        assertEquals("Topic: Caching", claude.path("messages", 0, "content", 1, "text")?.textOrNull)
+
+        reply("""{"candidates":[{"content":{"parts":[{"text":"ok"}]}}]}""")
+        assertEquals(ApiResult.Ok("ok"), see(agent(ApiService.GEMINI, "/v1beta")))
+        val gemini = server.takeRequest().json()
+        assertEquals("AQID", gemini.path("contents", 0, "parts", 0, "inlineData", "data")?.textOrNull)
+        assertEquals("Topic: Caching", gemini.path("contents", 0, "parts", 1, "text")?.textOrNull)
+
+        reply("""{"choices":[{"message":{"content":"ok"}}]}""")
+        assertEquals(ApiResult.Ok("ok"), see(agent(ApiService.POLLINATIONS, "/v1/chat/completions")))
+        val openAi = server.takeRequest().json()
+        assertEquals("Topic: Caching", openAi.path("messages", 1, "content", 0, "text")?.textOrNull)
+        assertEquals("data:image/jpeg;base64,AQID", openAi.path("messages", 1, "content", 1, "image_url", "url")?.textOrNull)
+    }
+
+    @Test
+    fun `agents without vision say so instead of sending a request`() = runBlocking {
+        val textOnly = object : TextAgent {
+            override val service = ApiService.GROQ
+            override suspend fun generate(system: String, user: String) = ApiResult.Ok("x")
+        }
+        assertTrue(textOnly.see("s", "u", byteArrayOf(1)) is ApiResult.Failed)
+    }
 }

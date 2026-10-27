@@ -21,6 +21,11 @@ object AppConfig {
 
     fun postRules(context: Context): PostRules =
         cachedRules ?: context.assets.open("app.yml").use(::parsePostRules).also { cachedRules = it }
+
+    @Volatile private var cachedImageChecks: ImageCheckRules? = null
+
+    fun imageChecks(context: Context): ImageCheckRules =
+        cachedImageChecks ?: context.assets.open("app.yml").use(::parseImageCheckRules).also { cachedImageChecks = it }
 }
 
 /**

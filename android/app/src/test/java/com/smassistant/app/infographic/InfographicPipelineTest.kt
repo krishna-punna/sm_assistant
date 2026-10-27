@@ -52,6 +52,39 @@ class InfographicPipelineTest {
     }
 
     @Test
+    fun `an unusable illustration is painted once more, then left as the placeholder`() = runTest {
+        val blank = ImageFacts(1024, 1024, contrast = 0f, dominantShare = 1f, opaqueShare = 1f)
+        val fine = ImageFacts(1024, 1024, contrast = 40f, dominantShare = 0.5f, opaqueShare = 1f)
+        val checked = InfographicPipeline(
+            InfographicRenderer(), "{{prompt}}", composer, maxIllustrations = 2,
+            inspector = { file -> if (file.name.startsWith("blank") || file.name == "tiny.png") blank else fine },
+        )
+        val calls = mutableMapOf<String, Int>()
+        val agent = ImageAgent { prompt, _ ->
+            val n = synchronized(calls) { calls.merge(prompt, 1, Int::plus)!! }
+            // The hero is blank the first time only; the box is blank every time.
+            val name = if (prompt.contains("box") || n == 1) "blank-$n.png" else "hero-$n.png"
+            ApiResult.Ok(listOf(File(name)))
+        }
+
+        checked.draw(spec, agent)
+
+        assertEquals(mapOf("a server with a lightning bolt" to 2, "a box of cards" to 2), calls)
+        assertEquals(listOf(File("hero-2.png"), null, null), composed!!.second)
+    }
+
+    @Test
+    fun `a finished image that is blank or too small isn't returned`() = runTest {
+        var facts = ImageFacts(2160, 3240, contrast = 0f, dominantShare = 1f, opaqueShare = 1f)
+        val checked = InfographicPipeline(InfographicRenderer(), "{{prompt}}", composer, inspector = { facts })
+        assertEquals(null, checked.draw(spec, null))
+        facts = ImageFacts(800, 1200, contrast = 40f, dominantShare = 0.5f, opaqueShare = 1f)
+        assertEquals(null, checked.draw(spec, null))
+        facts = facts.copy(width = 2160, height = 3240)
+        assertEquals(File("out.png"), checked.draw(spec, null))
+    }
+
+    @Test
     fun `illustration assets keep their placeholders and forbid text`() {
         val style = File("src/main/assets/prompts/illustration.md").readText()
         listOf("{{prompt}}", "{{colors}}").forEach { assertTrue(it, style.contains(it)) }

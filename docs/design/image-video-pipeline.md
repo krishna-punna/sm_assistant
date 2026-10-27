@@ -158,3 +158,31 @@ replaced by a short illustration prompt for Claude.
 ## Update 2026-10-27: no-limit content first
 
 With a text agent set up, both pipelines now start with one extra call: the text agent writes in-depth technical content on the prompt with no length limit (`prompts/media_content.md`). The infographic definitions and the video deck are then planned from that content instead of the bare prompt, so images and slides carry the depth of a full write-up. See [requirements 14](../requirements/14-prompt-types-and-media-workflow.md).
+
+## Checks before an image is finished
+
+Added 2026-10-27, because Krishna saw images that weren't generated properly and asked for checks
+that an image matches what was expected before it is finished. Every check that fails leads to a
+retry, not an error, so a bad check can't stop Generate Image.
+
+| Step | Check | On failure |
+|---|---|---|
+| JSON definition (`InfographicSpec`) | `infographicProblems`: at least 3 sections, the title shares a word with the topic, no blank or repeated headings, no placeholder text (lorem ipsum, TODO, `{{…}}`), and no illustration prompt that asks for text, labels or a diagram (diffusion models garble those). Video decks: `slideDeckProblems` (no empty or repeated slides). | The text agent is asked once more, with the problems listed. If the second definition still has problems, the one with fewer is used. |
+| Each AI illustration | `ImageInspector` + `imageProblem`: it decodes, its short side is at least 256 px, it isn't fully transparent, and it isn't one flat colour. | It is painted once more, then left as the placeholder icon. |
+| Finished PNG | The same checks, with a short side of at least 1024 px. | The PNG isn't used (counts as "couldn't be drawn"). |
+| Finished infographic (Generate Image only) | `ImageReviewer`: the text agent looks at a 1568 px JPEG of the image with `prompts/image_review.md` and scores it from 0 to 10 for topic, plan, readable text, clean illustrations, layout and facts. | Under `min_score`, the definition is written again with the review's problems and drawn again, up to `retries` times. The best-scored image is kept. |
+| Painted images (no text agent) | `imageProblem` with a 512 px minimum. | Blank ones are painted once more, then left out. |
+
+The review uses `TextAgent.see`, which sends the image to Claude (image block), Gemini
+(`inlineData`) or an OpenAI-compatible API (`image_url`). A model that can't see images returns an
+error, and the image is kept without a review. The settings are in `app.yml`:
+
+```yaml
+image_checks:
+  vision_review: true
+  min_score: 7
+  retries: 1
+```
+
+Cost: with the review on, each image costs one more text-agent call, and a rejected one costs
+another definition, its illustrations and another review.

@@ -103,7 +103,8 @@ class GenerateVideoTest {
         },
     )
     private val deck = """{"palette": "teal", "slides": [
-        {"title": "One", "hero": "slide 1 of 4: picture"}, {"title": "Two"}, {"title": "Three"}, {"title": "Four"}]}"""
+        {"title": "One", "hero": "slide 1 of 4: picture"}, {"title": "Two", "takeaway": "b"},
+        {"title": "Three", "takeaway": "c"}, {"title": "Four", "takeaway": "d"}]}"""
 
     private fun deckUseCase(writer: ScriptedTextAgent?, agent: ImageAgent? = this.agent) = GenerateVideoUseCase(
         "slide {{slide}} of {{slides}}: {{prompt}}", { agent }, maker, { File("out.mp4") }, seconds = { seconds },

@@ -14,6 +14,7 @@ import com.smassistant.app.data.ApiSettingsStore
 import com.smassistant.app.data.MediaPurpose
 import com.smassistant.app.infographic.InfographicPipeline
 import com.smassistant.app.infographic.InfographicRenderer
+import com.smassistant.app.media.AndroidImageInspector
 import com.smassistant.app.media.AndroidInfographicComposer
 import com.smassistant.app.media.Media3SlideshowMaker
 import com.smassistant.app.media.MediaCache
@@ -177,6 +178,7 @@ fun appGenerateVideo(context: Context): GenerateVideoUseCase {
                 renderer = InfographicRenderer(PaintTextMeasurer),
                 illustrationTemplate = loadPromptAsset(context, "illustration"),
                 composer = AndroidInfographicComposer(cache, scale = 1f),
+                inspector = AndroidImageInspector,
             ),
             content = appMediaContentWriter(context),
         ),

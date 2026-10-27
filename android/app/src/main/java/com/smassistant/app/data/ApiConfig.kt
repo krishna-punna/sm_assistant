@@ -116,3 +116,30 @@ fun parsePostRules(input: InputStream): PostRules {
         aiHashtags = entry["ai_hashtags"]?.toString()?.toIntOrNull()?.takeIf { it in 1..10 } ?: defaults.aiHashtags,
     )
 }
+
+/**
+ * The checks before a generated image is finished (docs/design/image-video-pipeline.md), from app.yml:
+ *
+ * ```yaml
+ * image_checks:
+ *   vision_review: true
+ *   min_score: 7
+ *   retries: 1
+ * ```
+ *
+ * With [visionReview] on, the text agent looks at each finished infographic and scores it out of
+ * 10; one under [minScore] is written and drawn again, up to [retries] times, and the best one is
+ * kept. Missing or invalid values fall back to the defaults.
+ */
+data class ImageCheckRules(val visionReview: Boolean = true, val minScore: Int = 7, val retries: Int = 1)
+
+fun parseImageCheckRules(input: InputStream): ImageCheckRules {
+    val root = Yaml().load<Any?>(input) as? Map<*, *> ?: emptyMap<String, Any?>()
+    val entry = root["image_checks"] as? Map<*, *> ?: emptyMap<String, Any?>()
+    val defaults = ImageCheckRules()
+    return ImageCheckRules(
+        visionReview = entry["vision_review"]?.toString()?.toBooleanStrictOrNull() ?: defaults.visionReview,
+        minScore = entry["min_score"]?.toString()?.toIntOrNull()?.takeIf { it in 0..10 } ?: defaults.minScore,
+        retries = entry["retries"]?.toString()?.toIntOrNull()?.takeIf { it in 0..3 } ?: defaults.retries,
+    )
+}
