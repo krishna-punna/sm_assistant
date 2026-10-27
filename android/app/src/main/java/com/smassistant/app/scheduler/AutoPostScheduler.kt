@@ -1,5 +1,6 @@
 package com.smassistant.app.scheduler
 
+import com.smassistant.app.prompt.PromptType
 import java.time.DayOfWeek
 import java.time.LocalTime
 import java.util.UUID
@@ -18,11 +19,17 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 
-/** What a scheduler posts (SC-5). */
-enum class PostType(val label: String) {
-    TEXT("Text"),
-    TEXT_WITH_IMAGE("Text with image"),
-    TEXT_WITH_VIDEO("Text with video"),
+/**
+ * What a scheduler posts (SC-5), the same choices as Prepare Prompt's Prompt Type
+ * (docs/requirements/14). Image and Video post the media with the title and hashtags as the
+ * caption. The names of the combined types are kept from older saves.
+ */
+enum class PostType(val label: String, val promptType: PromptType) {
+    TEXT("Text", PromptType.TEXT),
+    IMAGE("Image", PromptType.IMAGE),
+    VIDEO("Video", PromptType.VIDEO),
+    TEXT_WITH_IMAGE("Text & Image", PromptType.TEXT_AND_IMAGE),
+    TEXT_WITH_VIDEO("Text & Video", PromptType.TEXT_AND_VIDEO),
 }
 
 /** How the last run went, shown on the scheduler list. [postUrl] opens the post when it was published. */

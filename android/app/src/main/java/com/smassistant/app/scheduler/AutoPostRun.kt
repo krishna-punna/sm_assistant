@@ -3,6 +3,7 @@ package com.smassistant.app.scheduler
 import android.content.Context
 import com.smassistant.app.agents.appAgentSelector
 import com.smassistant.app.chat.Outcome
+import com.smassistant.app.data.MediaPurpose
 import com.smassistant.app.generate.GenerateContentAndMediaUseCase.Companion.IMAGES_NOT_SET_UP
 import com.smassistant.app.generate.GenerateContentAndMediaUseCase.Companion.TEXT_NOT_SET_UP
 import com.smassistant.app.generate.GenerateContentAndMediaUseCase.Companion.VIDEO_NOT_SET_UP
@@ -16,8 +17,9 @@ import com.smassistant.app.linkedin.linkedInErrorMessage
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
 import com.smassistant.app.net.userMessage
-import com.smassistant.app.prompt.PreparePromptUseCase
-import com.smassistant.app.prompt.PreparedPrompt
+import com.smassistant.app.prompt.PreparePromptsUseCase
+import com.smassistant.app.prompt.PromptSet
+import com.smassistant.app.prompt.PromptType
 import com.smassistant.app.prompt.loadPromptAsset
 import java.io.File
 import kotlinx.coroutines.async
@@ -32,12 +34,12 @@ data class RunOutcome(val record: RunRecord, val title: String? = null, val retr
 
 /**
  * One scheduled run (docs/requirements/13-scheduled-posts.md, SC-1…3b): the scheduler's next topic
- * → Prepare Prompt → Generate Technical Content (with images or a video for those post types) →
+ * → Prepare Prompt for the post type → Generate Technical Content and/or the images or video →
  * the length check with default hashtags → Post in LinkedIn. Nothing is posted unless every part
  * the post type needs came back and the text fits.
  */
 class AutoPostRun(
-    private val preparePrompt: suspend (String) -> Outcome<PreparedPrompt>,
+    private val preparePrompt: suspend (String, PromptType) -> Outcome<PromptSet>,
     private val generateText: suspend (String) -> Outcome<String>,
     private val generateImages: suspend (String) -> Outcome<List<File>>,
     private val generateVideo: suspend (String) -> Outcome<GeneratedVideo>,
@@ -48,15 +50,22 @@ class AutoPostRun(
         val topic = scheduler.currentTopic() ?: return failed("Choose at least one technical content type.")
         if (!linkedIn.isConfigured()) return failed(linkedInErrorMessage(ApiError.NotConfigured))
 
-        val prepared = when (val outcome = preparePrompt(topicRequest(topic, scheduler.recentTitles))) {
+        val type = scheduler.postType.promptType
+        val prompts = when (val outcome = preparePrompt(topicRequest(topic, scheduler.recentTitles), type)) {
             is Outcome.Ok -> outcome.value
             else -> return failed(outcome, "prepare the prompt", TEXT_NOT_SET_UP)
         }
-        val title = prepared.title
+        // The post prompt for the text, the "no limit" content prompt for the images or video
+        // (docs/requirements/14); each falls back to the other if the agent left one out.
+        val postPrompt = prompts.post ?: prompts.content
+        val contentPrompt = prompts.content ?: prompts.post
+        if (postPrompt == null || contentPrompt == null) return failed("The agent didn't write a prompt, so nothing was posted.")
+        val title = postPrompt.title
 
         val (text, media) = coroutineScope {
-            val writing = async { generateText(prepared.prompt) }
-            val making = async { media(scheduler.postType, prepared.prompt) }
+            // Image and Video posts have no written post: the title is the caption, before the hashtags.
+            val writing = async { if (type.post) generateText(postPrompt.prompt) else Outcome.Ok(postPrompt.title) }
+            val making = async { media(type.media, contentPrompt.prompt) }
             writing.await() to making.await()
         }
         val markdown = when (text) {
@@ -65,7 +74,7 @@ class AutoPostRun(
         }
         val files = when (media) {
             is Outcome.Ok -> media.value
-            else -> return if (scheduler.postType == PostType.TEXT_WITH_VIDEO) {
+            else -> return if (type.media == MediaPurpose.VIDEO) {
                 failed(media, "make the video", VIDEO_NOT_SET_UP, title)
             } else {
                 failed(media, "make the images", IMAGES_NOT_SET_UP, title)
@@ -88,10 +97,10 @@ class AutoPostRun(
         }
     }
 
-    private suspend fun media(type: PostType, prompt: String): Outcome<List<File>> = when (type) {
-        PostType.TEXT -> Outcome.Ok(emptyList())
-        PostType.TEXT_WITH_IMAGE -> generateImages(prompt)
-        PostType.TEXT_WITH_VIDEO -> when (val video = generateVideo(prompt)) {
+    private suspend fun media(purpose: MediaPurpose?, prompt: String): Outcome<List<File>> = when (purpose) {
+        null -> Outcome.Ok(emptyList())
+        MediaPurpose.IMAGE -> generateImages(prompt)
+        MediaPurpose.VIDEO -> when (val video = generateVideo(prompt)) {
             is Outcome.Ok -> Outcome.Ok(listOf(video.value.file))
             is Outcome.Failed -> video
             Outcome.NoAgent -> Outcome.NoAgent
@@ -137,8 +146,10 @@ class AutoPostRun(
 /** The run with the app's saved agents, prompts, hashtags and LinkedIn sign-in, as the screens use them. */
 fun appAutoPostRun(context: Context): AutoPostRun {
     val textAgent = appAgentSelector(context)::textAgent
+    val postPrompt = loadPromptAsset(context, "prepare_prompt")
+    val contentPrompt = loadPromptAsset(context, "prepare_content_prompt")
     return AutoPostRun(
-        preparePrompt = PreparePromptUseCase(loadPromptAsset(context, "prepare_prompt"), textAgent)::invoke,
+        preparePrompt = { topic, type -> PreparePromptsUseCase(postPrompt, contentPrompt, textAgent) { type }(topic) },
         generateText = appGenerateTechnicalContent(context)::invoke,
         generateImages = appGenerateImages(context)::invoke,
         generateVideo = appGenerateVideo(context)::invoke,
