@@ -1,6 +1,9 @@
 package com.smassistant.app.generate
 
 import com.smassistant.app.agents.ImageAgent
+import com.smassistant.app.agents.TextAgent
+import com.smassistant.app.infographic.ImageFacts
+import com.smassistant.app.infographic.ImageInspector
 import com.smassistant.app.infographic.InfographicComposer
 import com.smassistant.app.infographic.InfographicPipeline
 import com.smassistant.app.infographic.InfographicRenderer
@@ -69,12 +72,17 @@ class GenerateImagesTest {
         },
     )
 
+    /** A definition that passes the writer's checks for the topic "Caching". */
+    private fun caching(hero: String? = null) = """{"title": "Caching", ${hero?.let { "\"hero\": \"$it\", " }.orEmpty()}"sections": [
+        {"heading": "Cache-aside", "items": ["read the cache first"]}, {"heading": "TTL", "items": ["expire entries"]},
+        {"heading": "Eviction", "items": ["LRU drops the coldest"]}]}"""
+
     private fun infographics(agent: ScriptedTextAgent?) =
         Infographics({ agent }, InfographicWriter("Plan.{{examples}}"), pipeline)
 
     @Test
     fun `with a text agent each image is an infographic with its own layout idea`() = runTest {
-        val writer = ScriptedTextAgent(ApiResult.Ok("""{"title": "Caching", "hero": "a server"}"""))
+        val writer = ScriptedTextAgent(ApiResult.Ok(caching(hero = "a server")))
 
         val outcome = GenerateImagesUseCase("{{prompt}}", { agent }, count = 2, infographics = infographics(writer))(" Caching ")
 
@@ -85,8 +93,36 @@ class GenerateImagesTest {
     }
 
     @Test
+    fun `the text agent first writes no-limit content and every infographic represents it`() = runTest {
+        val writer = ScriptedTextAgent(ApiResult.Ok("1. Cache-aside\n- read the cache first"), ApiResult.Ok(caching()))
+        val parts = Infographics({ writer }, InfographicWriter("Plan.{{examples}}"), pipeline, MediaContentWriter("Write it all."))
+
+        val outcome = GenerateImagesUseCase("{{prompt}}", { agent }, count = 2, infographics = parts)("Caching")
+
+        assertEquals(Outcome.Ok(listOf(File("Caching.png"), File("Caching.png"))), outcome)
+        assertEquals("Write it all." to "Caching", writer.calls.first())
+        val plans = writer.calls.drop(1).map { it.second }
+        assertEquals(2, plans.size)
+        plans.forEach { assertTrue(it.startsWith("Topic: Caching\n\nTechnical content to represent:\n1. Cache-aside\n- read the cache first\n\nLayout idea: ")) }
+    }
+
+    @Test
+    fun `a failed content step fails the images and names the text agent`() = runTest {
+        val writer = ScriptedTextAgent(ApiResult.Failed(ApiError.RateLimited))
+        val parts = Infographics({ writer }, InfographicWriter("Plan.{{examples}}"), pipeline, MediaContentWriter("Write it all."))
+        assertEquals(Outcome.Failed(ApiError.RateLimited, "Groq"), GenerateImagesUseCase("{{prompt}}", { agent }, 2, infographics = parts)("x"))
+        assertEquals(1, writer.calls.size)
+    }
+
+    @Test
+    fun `media content asset asks for no-limit sectioned content`() {
+        val asset = File("src/main/assets/prompts/media_content.md").readText()
+        listOf("no length limit", "Sections", "Key takeaways").forEach { assertTrue("media_content.md is missing $it", asset.contains(it)) }
+    }
+
+    @Test
     fun `infographics work without an image agent`() = runTest {
-        val writer = ScriptedTextAgent(ApiResult.Ok("""{"title": "Caching"}"""))
+        val writer = ScriptedTextAgent(ApiResult.Ok(caching()))
         assertEquals(Outcome.Ok(listOf(File("Caching.png"))), GenerateImagesUseCase("{{prompt}}", { null }, 1, infographics = infographics(writer))("x"))
     }
 
@@ -96,7 +132,7 @@ class GenerateImagesTest {
         assertEquals(Outcome.Failed(ApiError.RateLimited, "Groq"), GenerateImagesUseCase("{{prompt}}", { agent }, 2, infographics = infographics(limited))("x"))
 
         drawable = false
-        val writer = ScriptedTextAgent(ApiResult.Ok("""{"title": "Caching"}"""))
+        val writer = ScriptedTextAgent(ApiResult.Ok(caching()))
         assertEquals(
             Outcome.Failed(ApiError.BadResponse("the infographic couldn't be drawn"), INFOGRAPHIC_RENDERER),
             GenerateImagesUseCase("{{prompt}}", { agent }, 1, infographics = infographics(writer))("x"),
@@ -109,5 +145,73 @@ class GenerateImagesTest {
         assertEquals(Outcome.Ok(listOf(File("a.png"), File("b.png"))), outcome)
         assertEquals(listOf("Style: x" to 4), requests)
         assertTrue(drawn.isEmpty())
+    }
+
+    @Test
+    fun `an infographic the review scores too low is written again with the review's problems`() = runTest {
+        val writer = ScriptedTextAgent(ApiResult.Ok(caching()))
+        val scores = ArrayDeque(listOf("""{"score": 4, "problems": ["The TTL card's text is cut off"]}""", """{"score": 9, "problems": []}"""))
+        val seeing = object : TextAgent by writer {
+            override suspend fun see(system: String, user: String, jpeg: ByteArray) = ApiResult.Ok(scores.removeFirst())
+        }
+        val useCase = GenerateImagesUseCase(
+            "{{prompt}}", { null }, 1,
+            infographics = Infographics({ seeing }, InfographicWriter("Plan.{{examples}}"), pipeline, reviewer = ImageReviewer("R.", { byteArrayOf(1) })),
+        )
+
+        assertEquals(Outcome.Ok(listOf(File("Caching.png"))), useCase("Caching"))
+        assertEquals(2, writer.calls.size)
+        assertTrue(writer.calls[1].second.contains("A review rejected the last image drawn for this topic:\n- The TTL card's text is cut off"))
+        assertEquals(2, drawn.size)
+        assertTrue(scores.isEmpty())
+    }
+
+    @Test
+    fun `after the retries the best-scored image is kept`() = runTest {
+        var round = 0
+        val titles = listOf("Caching", "Caches")
+        val writer = object : TextAgent {
+            override val service = ApiService.CLAUDE
+            override suspend fun generate(system: String, user: String) =
+                ApiResult.Ok(caching().replace("\"Caching\"", "\"${titles[round++ % 2]}\""))
+            override suspend fun see(system: String, user: String, jpeg: ByteArray) =
+                ApiResult.Ok(if (user.contains("Planned title: Caches")) """{"score": 6}""" else """{"score": 3}""")
+        }
+        val useCase = GenerateImagesUseCase(
+            "{{prompt}}", { null }, 1,
+            infographics = Infographics({ writer }, InfographicWriter("Plan.{{examples}}"), pipeline, reviewer = ImageReviewer("R.", { byteArrayOf(1) })),
+        )
+
+        assertEquals(Outcome.Ok(listOf(File("Caches.png"))), useCase("Caching"))
+        assertEquals(listOf("Caching", "Caches"), drawn)
+    }
+
+    @Test
+    fun `an image that can't be reviewed is kept as it is`() = runTest {
+        val writer = ScriptedTextAgent(ApiResult.Ok(caching()))
+        val useCase = GenerateImagesUseCase(
+            "{{prompt}}", { null }, 1,
+            infographics = Infographics({ writer }, InfographicWriter("Plan.{{examples}}"), pipeline, reviewer = ImageReviewer("R.", { byteArrayOf(1) })),
+        )
+        assertEquals(Outcome.Ok(listOf(File("Caching.png"))), useCase("Caching"))
+        assertEquals(1, writer.calls.size)
+    }
+
+    @Test
+    fun `painted images that come back blank are painted once more, then left out`() = runTest {
+        val blank = ImageFacts(1024, 1024, 0f, 1f, 1f)
+        val fine = ImageFacts(1024, 1024, 40f, 0.4f, 1f)
+        val inspector = ImageInspector { if (it.name.startsWith("blank")) blank else fine }
+        var replies = ArrayDeque(listOf(listOf(File("a.png"), File("blank1.png")), listOf(File("c.png"))))
+        val painter = ImageAgent { prompt, count -> requests += prompt to count; ApiResult.Ok(replies.removeFirst()) }
+
+        assertEquals(Outcome.Ok(listOf(File("a.png"), File("c.png"))), GenerateImagesUseCase("{{prompt}}", { painter }, 2, inspector = inspector)("x"))
+        assertEquals(listOf("x" to 2, "x" to 1), requests)
+
+        replies = ArrayDeque(listOf(listOf(File("blank1.png")), listOf(File("blank2.png"))))
+        assertEquals(
+            Outcome.Failed(ApiError.BadResponse("the images came back blank or too small"), "Gemini"),
+            GenerateImagesUseCase("{{prompt}}", { painter }, 1, inspector = inspector)("x"),
+        )
     }
 }

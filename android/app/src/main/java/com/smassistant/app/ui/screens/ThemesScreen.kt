@@ -39,7 +39,8 @@ import com.smassistant.app.ui.theme.SmThemes
 import com.smassistant.app.ui.theme.ThemeId
 
 /**
- * Themes: every theme drawn as a live preview in its own colours, font, buttons and icons.
+ * Themes: every theme, grouped by [com.smassistant.app.ui.theme.ThemeCategory], drawn as a live
+ * preview in its own colours, fonts, buttons, icons and animations.
  * Tap one to select it, then Apply theme to switch the whole app and save the choice.
  */
 @Composable
@@ -47,14 +48,22 @@ fun ThemesScreen(onApply: (ThemeId) -> Unit, onBackToHome: () -> Unit) {
     val current = LocalSmTheme.current.id
     var selected by rememberSaveable { mutableStateOf(current) }
     SmScreen(sectionTitle = "Themes", onBackToHome = onBackToHome) {
-        Text("Pick a look for the app. Each card is a live preview of that theme.")
-        SmThemes.all.forEach { theme ->
-            ThemePreviewCard(
-                theme = theme,
-                selected = theme.id == selected,
-                inUse = theme.id == current,
-                onSelect = { selected = theme.id },
+        Text("Pick a look for the app. Each card is a live preview of that theme; tap its buttons to see them move.")
+        SmThemes.all.groupBy { it.category }.forEach { (category, themes) ->
+            Text(
+                category.label,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(top = 4.dp).testTag("themeCategory_${category.name}"),
             )
+            themes.forEach { theme ->
+                ThemePreviewCard(
+                    theme = theme,
+                    selected = theme.id == selected,
+                    inUse = theme.id == current,
+                    onSelect = { selected = theme.id },
+                )
+            }
         }
         PrimaryButton(
             if (selected == current) "${SmThemes.byId(current).name} is in use" else "Apply ${SmThemes.byId(selected).name}",
@@ -106,7 +115,7 @@ fun ThemePreviewCard(theme: SmTheme, selected: Boolean, inUse: Boolean, onSelect
                     }
                     Text(theme.tagline, style = MaterialTheme.typography.bodyMedium)
                     Text(
-                        "${theme.fontName} · ${theme.buttonStyle.label} · ${theme.iconStyle.label}",
+                        "${theme.fontName} · ${theme.buttonStyle.label} · ${theme.iconStyle.label} · ${theme.animation.label}",
                         style = MaterialTheme.typography.labelMedium,
                         color = theme.colors.onSurfaceVariant,
                     )

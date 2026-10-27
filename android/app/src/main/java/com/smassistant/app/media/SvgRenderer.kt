@@ -34,6 +34,7 @@ class AndroidSvgRenderer(private val width: Int = SVG_PNG_WIDTH) : SvgRenderer {
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         Canvas(bitmap).apply {
             drawColor(Color.WHITE)
+            fillCanvas(document, width, height)
             document.renderToCanvas(this, RectF(0f, 0f, width.toFloat(), height.toFloat()))
         }
         ByteArrayOutputStream().use { out ->

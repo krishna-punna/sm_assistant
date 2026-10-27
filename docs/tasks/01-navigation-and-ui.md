@@ -28,7 +28,8 @@ Requirements: [02 Screens and navigation](../requirements/02-screens-and-navigat
 | UI-3 | Header and footer fixed; body scrolls | done | `SmScreen` scrolls its body; chat screens scroll their list |
 | UI-4 | Components: menu button, labelled field, primary button, chat input bar, prompt card, result view, toggle | done | `ChatComponents`, `MarkdownText`, `ImageComponents`, `VideoPlayer` |
 | UI-5 | Final visual design beyond Office theme colours | blocked | No design yet; not needed for MVP |
-| UI-6 | Themes: at least 5 themes plus the current look, each with its own font, button shape/style, icon style and colours; a Themes screen to pick one; a Home button to open it; the choice is saved | done | `SmThemes` (Classic + Midnight Neon, Sunset Pop, Forest Calm, Mono Brutalist, Royal Serif, Ocean Breeze), `ThemesScreen`, `ThemeStore`; fonts bundled from Google Fonts (OFL) |
+| UI-6 | Themes: at least 5 themes plus the current look, each with its own font, button shape/style, icon style and colours; a Themes screen to pick one; a Home button to open it; the choice is saved | done | `SmThemes` (Classic + Midnight Neon, Sunset Pop, Forest Calm, Ocean Breeze; Mono Brutalist and Royal Serif removed in UI-7), `ThemesScreen`, `ThemeStore`; fonts bundled from Google Fonts (OFL) |
+| UI-7 | Theme refresh: drop Mono Brutalist and Royal Serif (saved choice falls back to Classic); add funky (Bubblegum Blast, Retro Arcade, Comic Boom), professional (Corporate Slate, Graphite Pro, Minimal Studio) and unique-font themes (Handwritten Notes, Typewriter, Retro Diner); theme-specific animations for buttons, chips and icons, off when the system removes animations | done | `ThemeCategory`, `AnimationStyle`/`Motion.kt`, heading + body font pairs (`headingFontFamily`), Themes screen grouped by category |
 
 | ID | Type | Task | Depends on | Status |
 |----|------|------|-----------|--------|

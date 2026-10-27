@@ -21,6 +21,11 @@ object AppConfig {
 
     fun postRules(context: Context): PostRules =
         cachedRules ?: context.assets.open("app.yml").use(::parsePostRules).also { cachedRules = it }
+
+    @Volatile private var cachedImageChecks: ImageCheckRules? = null
+
+    fun imageChecks(context: Context): ImageCheckRules =
+        cachedImageChecks ?: context.assets.open("app.yml").use(::parseImageCheckRules).also { cachedImageChecks = it }
 }
 
 /**
@@ -51,6 +56,11 @@ class ApiSettingsStore(context: Context, private val cipher: SecretCipher = Keys
             if (imageModel.isBlank()) remove(imageModelPref(service)) else putString(imageModelPref(service), imageModel.trim())
             if (videoModel.isBlank()) remove(videoModelPref(service)) else putString(videoModelPref(service), videoModel.trim())
         }.apply()
+    }
+
+    /** Saves just the text model, e.g. from the text model picker on the image and video screens. */
+    fun saveTextModel(service: ApiService, model: String) {
+        prefs.edit().apply { if (model.isBlank()) remove(modelPref(service)) else putString(modelPref(service), model.trim()) }.apply()
     }
 
     /** Saves just the image or video model, e.g. from the picker on the image and video screens. */

@@ -103,7 +103,8 @@ class GenerateVideoTest {
         },
     )
     private val deck = """{"palette": "teal", "slides": [
-        {"title": "One", "hero": "slide 1 of 4: picture"}, {"title": "Two"}, {"title": "Three"}, {"title": "Four"}]}"""
+        {"title": "One", "hero": "slide 1 of 4: picture"}, {"title": "Two", "takeaway": "b"},
+        {"title": "Three", "takeaway": "c"}, {"title": "Four", "takeaway": "d"}]}"""
 
     private fun deckUseCase(writer: ScriptedTextAgent?, agent: ImageAgent? = this.agent) = GenerateVideoUseCase(
         "slide {{slide}} of {{slides}}: {{prompt}}", { agent }, maker, { File("out.mp4") }, seconds = { seconds },
@@ -122,6 +123,24 @@ class GenerateVideoTest {
         assertEquals(slides, encoded)
         // Only the hero of slide one asked the video agent for a picture.
         assertEquals(listOf("slide 1 of 4: picture"), prompts)
+    }
+
+    @Test
+    fun `the deck is planned from the no-limit content the text agent writes first`() = runTest {
+        val writer = ScriptedTextAgent(ApiResult.Ok("1. Why retries\n2. Backoff"), ApiResult.Ok(deck))
+        val useCase = GenerateVideoUseCase(
+            "slide {{slide}} of {{slides}}: {{prompt}}", { agent }, maker, { File("out.mp4") }, seconds = { seconds },
+            decks = SlideDecks({ writer }, SlideDeckWriter("Plan {{slides}} slides of {{seconds}} s.{{examples}}"), pipeline, MediaContentWriter("Write it all.")),
+        )
+
+        assertTrue(useCase("Retries") is Outcome.Ok)
+        assertEquals(
+            listOf(
+                "Write it all." to "Retries",
+                "Plan 4 slides of 7 s." to "Topic: Retries\n\nTechnical content to represent:\n1. Why retries\n2. Backoff",
+            ),
+            writer.calls,
+        )
     }
 
     @Test

@@ -32,13 +32,22 @@ class InfographicWriterTest {
     @Test
     fun `sends the topic, layout idea and closest examples, and reads the definition`() = runTest {
         val agent = ScriptedTextAgent(ApiResult.Ok("""```json
-            {"title": "Kafka Retries", "sections": [{"heading": "Why", "items": ["at least once"]}]}
+            {"title": "Kafka Retries", "sections": [{"heading": "Why", "items": ["at least once"]},
+              {"heading": "Backoff", "items": ["double the wait"]}, {"heading": "Dead letters", "items": ["park poison messages"]}]}
             ```"""))
 
         val result = writer.write(agent, "Kafka retries", "a square grid")
 
         assertEquals("Kafka Retries", (result as ApiResult.Ok).value.title)
         assertEquals("Plan it.\nExample 1: Kafka\nTopic: Kafka patterns\nImage: Five columns." to "Topic: Kafka retries\n\nLayout idea: a square grid", agent.calls.single())
+    }
+
+    @Test
+    fun `content steps reject empty replies and pass errors through`() = runTest {
+        val content = MediaContentWriter("Write it all.")
+        assertEquals(ApiResult.Ok("Body"), content.write(ScriptedTextAgent(ApiResult.Ok("  Body \n")), "x"))
+        assertTrue(content.write(ScriptedTextAgent(ApiResult.Ok("  ")), "x") is ApiResult.Failed)
+        assertEquals(ApiResult.Failed(ApiError.RateLimited), content.write(ScriptedTextAgent(ApiResult.Failed(ApiError.RateLimited)), "x"))
     }
 
     @Test
@@ -57,6 +66,37 @@ class InfographicWriterTest {
         val limited = ScriptedTextAgent(ApiResult.Failed(ApiError.RateLimited))
         assertEquals(ApiResult.Failed(ApiError.RateLimited), writer.write(limited, "x", "y"))
         assertEquals(1, limited.calls.size)
+    }
+
+    @Test
+    fun `a definition with problems is asked for again with the problems named`() = runTest {
+        val thin = """{"title": "Kafka Retries", "sections": [{"heading": "Why", "items": ["a"]}]}"""
+        val full = """{"title": "Kafka Retries", "sections": [{"heading": "A", "items": ["a"]}, {"heading": "B", "items": ["b"]}, {"heading": "C", "items": ["c"]}]}"""
+        val agent = ScriptedTextAgent(ApiResult.Ok(thin), ApiResult.Ok(full))
+
+        val result = writer.write(agent, "Kafka retries", "a grid")
+
+        assertEquals(3, (result as ApiResult.Ok).value.sections.size)
+        val retry = agent.calls[1].second
+        assertTrue(retry, retry.startsWith("Topic: Kafka retries\n\nLayout idea: a grid\n\nYour last reply couldn't be used: it has 1 sections"))
+        assertTrue(retry.endsWith("Reply with the corrected JSON only."))
+    }
+
+    @Test
+    fun `a definition that still has problems on the second try is used rather than failing`() = runTest {
+        val agent = ScriptedTextAgent(ApiResult.Ok("""{"title": "Docker"}"""), ApiResult.Ok("""{"title": "Kafka", "sections": [{"heading": "A", "items": ["a"]}]}"""))
+        assertEquals("Kafka", (writer.write(agent, "Kafka retries", "y") as ApiResult.Ok).value.title)
+        assertEquals(2, agent.calls.size)
+    }
+
+    @Test
+    fun `review feedback is passed to the text agent`() = runTest {
+        val agent = ScriptedTextAgent(ApiResult.Ok("""{"title": "x"}"""))
+        writer.write(agent, "x", "y", feedback = listOf("The TTL card's text is cut off"))
+        assertEquals(
+            "Topic: x\n\nLayout idea: y\n\nA review rejected the last image drawn for this topic:\n- The TTL card's text is cut off\nWrite a new definition that fixes these problems.",
+            agent.calls.first().second,
+        )
     }
 
     @Test

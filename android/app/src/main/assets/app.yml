@@ -65,3 +65,14 @@ linkedin_post:
   max_characters: 3000
   shorten_attempts: 3
   ai_hashtags: 3
+
+# Checks before a generated image is finished (docs/design/image-video-pipeline.md).
+# The app always checks the definition the text agent writes and that every picture is a real,
+# non-blank image of the right size. With vision_review on, the text agent also looks at each
+# finished infographic and scores it out of 10 (Claude, Gemini and vision models can; others skip it).
+# min_score: the score an image needs (0 to 10).
+# retries: how many times an image under min_score is written and drawn again (0 to 3); the best one is kept.
+image_checks:
+  vision_review: true
+  min_score: 7
+  retries: 1

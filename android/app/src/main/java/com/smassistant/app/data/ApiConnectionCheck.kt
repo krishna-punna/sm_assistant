@@ -67,8 +67,8 @@ class ApiConnectionCheck(private val client: OkHttpClient = Http.client) {
                 config.apiUrl.trimEnd('/').toHttpUrlOrNull()?.newBuilder()
                     ?.addPathSegments("models/search")?.addQueryParameter("per_page", "1")?.build() ?: return null,
             ).header("Authorization", "Bearer ${config.key}")
-            // Model lists are public, so check the key with an account endpoint.
-            ApiService.POLLINATIONS -> builder.url(origin.resolve("/account/integrations")!!)
+            // Model lists are public, so check the key with the key-info endpoint, which every key may read.
+            ApiService.POLLINATIONS -> builder.url(origin.resolve("/account/key")!!)
                 .header("Authorization", "Bearer ${config.key}")
         }
         return builder.build()

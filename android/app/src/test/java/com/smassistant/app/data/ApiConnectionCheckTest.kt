@@ -95,7 +95,7 @@ class ApiConnectionCheckTest {
     fun `new agents check their keys with an authenticated request`() = runBlocking {
         val expected = mapOf(
             ApiService.HUGGINGFACE to "/api/whoami-v2",
-            ApiService.POLLINATIONS to "/account/integrations",
+            ApiService.POLLINATIONS to "/account/key",
         )
         expected.forEach { (service, path) ->
             server.enqueue(MockResponse())
