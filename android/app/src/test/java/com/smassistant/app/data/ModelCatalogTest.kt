@@ -81,49 +81,6 @@ class ModelCatalogTest {
     }
 
     @Test
-    fun `hugging face lists router chat models and hub text-to-image models`() = runBlocking {
-        server.enqueue(
-            MockResponse().setBody(
-                """{"object":"list","data":[
-                    {"id":"openai/gpt-oss-120b","architecture":{"input_modalities":["text"],"output_modalities":["text"]}},
-                    {"id":"Qwen/Qwen3-4B"}
-                ]}""",
-            ),
-        )
-        server.enqueue(MockResponse().setBody("""[{"id":"black-forest-labs/FLUX.1-schnell","likes":9},{"id":"stabilityai/sdxl"}]"""))
-        server.enqueue(MockResponse().setBody("""[{"id":"Wan-AI/Wan2.2-T2V-A14B"},{"id":"Lightricks/LTX-Video"}]"""))
-
-        val result = catalog.fetch(ApiService.HUGGINGFACE, ApiConfig(server.url("/v1/chat/completions").toString(), "hf"))
-
-        assertEquals(
-            ApiResult.Ok(
-                ModelLists(
-                    text = listOf(AiModel("Qwen/Qwen3-4B"), AiModel("openai/gpt-oss-120b")),
-                    image = listOf(AiModel("black-forest-labs/FLUX.1-schnell"), AiModel("stabilityai/sdxl")),
-                    video = listOf(AiModel("Wan-AI/Wan2.2-T2V-A14B"), AiModel("Lightricks/LTX-Video")),
-                ),
-            ),
-            result,
-        )
-        assertEquals("/v1/models", server.takeRequest().path)
-        val hub = server.takeRequest()
-        assertEquals("/api/models?pipeline_tag=text-to-image&inference_provider=hf-inference%2Cfal-ai%2Ctogether&sort=likes&limit=100", hub.path)
-        assertEquals("Bearer hf", hub.getHeader("Authorization"))
-        assertEquals("/api/models?pipeline_tag=text-to-video&inference_provider=fal-ai&sort=likes&limit=100", server.takeRequest().path)
-    }
-
-    @Test
-    fun `hugging face keeps the text models when the hub list fails`() = runBlocking {
-        server.enqueue(MockResponse().setBody("""{"data":[{"id":"openai/gpt-oss-120b"}]}"""))
-        server.enqueue(MockResponse().setResponseCode(500))
-        server.enqueue(MockResponse().setResponseCode(500))
-
-        val result = catalog.fetch(ApiService.HUGGINGFACE, ApiConfig(server.url("/v1/chat/completions").toString(), "hf"))
-
-        assertEquals(ApiResult.Ok(ModelLists(text = listOf(AiModel("openai/gpt-oss-120b")))), result)
-    }
-
-    @Test
     fun `cloudflare splits models by task`() = runBlocking {
         server.enqueue(
             MockResponse().setBody(

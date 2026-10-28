@@ -110,8 +110,8 @@ slot already holds a tinted placeholder with an icon, so the SVG is a complete i
 
 ### 4. AI-generated illustrations
 
-For each slot, the **image agent** for that purpose (Gemini, or the new Hugging Face, Cloudflare
-and Pollinations agents from PR #56; Claude draws a small SVG) gets a short prompt:
+For each slot, the **image agent** for that purpose (Gemini, or the Cloudflare and Pollinations
+agents from PR #56; Claude draws a small SVG) gets a short prompt:
 the slot's prompt plus a fixed style suffix (*flat vector illustration, the palette's colours,
 plain background, no text, no letters, no logos*). Illustrations never carry text, which is what
 diffusion models are bad at. At most 2 slots per image (hero + one card) and 1 per video slide keep

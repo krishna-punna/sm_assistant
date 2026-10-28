@@ -53,30 +53,9 @@ suspend fun OkHttpClient.sendJson(request: Request): ApiResult<JsonObject> {
     }
 }
 
-/** Like [sendJson], for endpoints whose reply is a JSON array (the Hugging Face Hub's model search). */
-suspend fun OkHttpClient.sendJsonArray(request: Request): ApiResult<JsonArray> {
-    return try {
-        newCall(request).await().use { response ->
-            val text = response.body?.string().orEmpty()
-            val json = try {
-                Json.parseToJsonElement(text)
-            } catch (e: SerializationException) {
-                null
-            }
-            when {
-                !response.isSuccessful -> ApiResult.Failed(ApiError.fromHttp(response.code, (json as? JsonObject)?.errorMessage()))
-                json is JsonArray -> ApiResult.Ok(json)
-                else -> ApiResult.Failed(ApiError.BadResponse("not a JSON list"))
-            }
-        }
-    } catch (e: IOException) {
-        ApiResult.Failed(ApiError.fromException(e))
-    }
-}
-
 /**
  * The provider's message from an error body, if present: `error.message` (Anthropic, Google,
- * OpenAI-compatible), `error` as a string (Hugging Face) or `errors[0].message` (Cloudflare).
+ * OpenAI-compatible), `error` as a string or `errors[0].message` (Cloudflare).
  */
 fun JsonObject.errorMessage(): String? =
     path("error", "message")?.textOrNull

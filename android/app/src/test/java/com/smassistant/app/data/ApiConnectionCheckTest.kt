@@ -94,7 +94,6 @@ class ApiConnectionCheckTest {
     @Test
     fun `new agents check their keys with an authenticated request`() = runBlocking {
         val expected = mapOf(
-            ApiService.HUGGINGFACE to "/api/whoami-v2",
             ApiService.POLLINATIONS to "/account/key",
         )
         expected.forEach { (service, path) ->
@@ -117,11 +116,5 @@ class ApiConnectionCheckTest {
         val request = server.takeRequest()
         assertEquals("/client/v4/accounts/acc1/ai/models/search?per_page=1", request.path)
         assertEquals("Bearer secret", request.getHeader("Authorization"))
-    }
-
-    @Test
-    fun `hugging face router url is checked on the hub`() {
-        val request = check.request(ApiService.HUGGINGFACE, ApiConfig("https://router.huggingface.co/v1/chat/completions", "k"))!!
-        assertEquals("https://huggingface.co/api/whoami-v2", request.url.toString())
     }
 }

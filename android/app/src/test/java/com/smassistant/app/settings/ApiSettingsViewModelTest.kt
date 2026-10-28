@@ -229,7 +229,7 @@ class ApiSettingsViewModelTest {
 
     @Test
     fun `only agents that make images show an image model picker`() {
-        listOf(ApiService.GEMINI, ApiService.CLAUDE, ApiService.HUGGINGFACE, ApiService.CLOUDFLARE, ApiService.POLLINATIONS).forEach {
+        listOf(ApiService.GEMINI, ApiService.CLAUDE, ApiService.CLOUDFLARE, ApiService.POLLINATIONS).forEach {
             assertTrue(it.name, ApiSettingsViewModel(it, store, catalog).state.value.showImageModel)
         }
         assertFalse(ApiSettingsViewModel(ApiService.GROQ, store, catalog).state.value.showImageModel)
@@ -257,13 +257,5 @@ class ApiSettingsViewModelTest {
         assertEquals(listOf("image-b", "image-a"), gemini.videoOptions.map { it.id })
         val claude = gemini.copy(mediaFromTextModels = true, videoModel = "")
         assertEquals(listOf("text-a"), claude.videoOptions.map { it.id })
-    }
-
-    @Test
-    fun `video options list text-to-video models when the provider has them`() {
-        val lists = ModelLists(image = listOf(AiModel("Qwen/Qwen-Image")), video = listOf(AiModel("Wan-AI/Wan2.2-T2V-A14B")))
-        val state = ApiSettingsUiState(models = lists, videoModel = "Wan-AI/Wan2.2-T2V-A14B")
-        assertEquals(listOf("Wan-AI/Wan2.2-T2V-A14B"), state.videoOptions.map { it.id })
-        assertEquals(listOf("Qwen/Qwen-Image"), state.imageOptions.map { it.id })
     }
 }

@@ -135,8 +135,8 @@ class TextAgentTest {
     }
 
     @Test
-    fun `hugging face and pollinations use openai chat completions with a bearer key`() {
-        listOf(ApiService.HUGGINGFACE to "/v1/chat/completions", ApiService.POLLINATIONS to "/v1/chat/completions").forEach { (service, path) ->
+    fun `pollinations uses openai chat completions with a bearer key`() {
+        listOf(ApiService.POLLINATIONS to "/v1/chat/completions").forEach { (service, path) ->
             reply("""{"choices":[{"message":{"role":"assistant","content":"Hi"}}]}""")
 
             assertEquals(service.name, ApiResult.Ok("Hi"), generate(agent(service, path, model = "openai/gpt-oss-120b")))
@@ -169,12 +169,12 @@ class TextAgentTest {
     }
 
     @Test
-    fun `cloudflare and hugging face error messages are read`() {
+    fun `cloudflare and string error messages are read`() {
         reply("""{"success":false,"errors":[{"code":7003,"message":"No route for that URI"}]}""", 400)
-        assertEquals(ApiResult.Failed(ApiError.Server(400, "No route for that URI")), generate(agent(ApiService.HUGGINGFACE, "/x")))
+        assertEquals(ApiResult.Failed(ApiError.Server(400, "No route for that URI")), generate(agent(ApiService.POLLINATIONS, "/x")))
 
         reply("""{"error":"Model is loading"}""", 503)
-        assertEquals(ApiResult.Failed(ApiError.Server(503, "Model is loading")), generate(agent(ApiService.HUGGINGFACE, "/x")))
+        assertEquals(ApiResult.Failed(ApiError.Server(503, "Model is loading")), generate(agent(ApiService.POLLINATIONS, "/x")))
     }
 
     private fun see(agent: TextAgent) = runBlocking { agent.see("Review it", "Topic: Caching", byteArrayOf(1, 2, 3)) }
