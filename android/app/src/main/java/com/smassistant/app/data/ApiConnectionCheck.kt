@@ -60,9 +60,6 @@ class ApiConnectionCheck(private val client: OkHttpClient = Http.client) {
                 .header("Authorization", "Bearer ${config.key}")
             ApiService.LINKEDIN -> builder.url(origin.resolve("/v2/userinfo")!!)
                 .header("Authorization", "Bearer ${config.key}")
-            // The router lists models without a key, so check the token with the Hub instead.
-            ApiService.HUGGINGFACE -> builder.url(huggingFaceHub(origin).resolve("/api/whoami-v2")!!)
-                .header("Authorization", "Bearer ${config.key}")
             ApiService.CLOUDFLARE -> builder.url(
                 config.apiUrl.trimEnd('/').toHttpUrlOrNull()?.newBuilder()
                     ?.addPathSegments("models/search")?.addQueryParameter("per_page", "1")?.build() ?: return null,
@@ -78,7 +75,3 @@ class ApiConnectionCheck(private val client: OkHttpClient = Http.client) {
     private fun origin(api: String): HttpUrl? =
         api.trim().toHttpUrlOrNull()?.newBuilder()?.encodedPath("/")?.query(null)?.fragment(null)?.build()
 }
-
-/** Hugging Face's Hub (huggingface.co) for the router's URL, or the same host for any other URL, e.g. a test server. */
-internal fun huggingFaceHub(origin: HttpUrl): HttpUrl =
-    if (origin.host == "router.huggingface.co") origin.newBuilder().host("huggingface.co").build() else origin

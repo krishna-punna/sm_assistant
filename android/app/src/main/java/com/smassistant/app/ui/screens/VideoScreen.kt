@@ -79,10 +79,9 @@ fun VideoScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToH
 @Composable
 fun VideoResult(video: GeneratedVideo, posting: Boolean, onPost: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        // Slideshows are square; AI clips from text-to-video models are widescreen.
-        VideoPlayer(video.file, aspectRatio = if (video.slides.isEmpty()) 16f / 9f else 1f)
+        VideoPlayer(video.file, aspectRatio = 1f)
         Text(
-            if (video.slides.isEmpty()) "AI video clip" else "${video.slides.size} slides, ${videoLengthLabel(video.seconds)}",
+            "${video.slides.size} slides, ${videoLengthLabel(video.seconds)}",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

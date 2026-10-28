@@ -45,8 +45,7 @@ data class ApiSettingsUiState(
     /** The listed models, with the current choice kept even before the list has it. */
     val textOptions get() = withCurrent(model, models.text)
     val imageOptions get() = withCurrent(imageModel, mediaModels)
-    /** Text-to-video models when the provider lists them (Hugging Face), otherwise the image models, for slides. */
-    val videoOptions get() = withCurrent(videoModel, models.video.ifEmpty { mediaModels })
+    val videoOptions get() = withCurrent(videoModel, mediaModels)
     private val mediaModels get() = if (mediaFromTextModels) models.text else models.image
 
     private fun withCurrent(id: String, list: List<AiModel>) =

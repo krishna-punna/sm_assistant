@@ -84,7 +84,7 @@ class ImageAgentSelectorTest {
     }
     @Test
     fun `new agents can make images once they have an image model`() {
-        listOf(ApiService.HUGGINGFACE, ApiService.CLOUDFLARE, ApiService.POLLINATIONS).forEach { service ->
+        listOf(ApiService.CLOUDFLARE, ApiService.POLLINATIONS).forEach { service ->
             assertEquals(service.name, true, ApiConfig("https://x", "k", "", "img").isUsableImageAgent(service))
             assertEquals(service.name, false, ApiConfig("https://x", "k", "m", "").isUsableImageAgent(service))
             assertEquals(service.name, false, ApiConfig("https://x", "", "m", "img").isUsableImageAgent(service))

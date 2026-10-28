@@ -1,8 +1,6 @@
 package com.smassistant.app.generate
 
 import com.smassistant.app.agents.ImageAgent
-import com.smassistant.app.agents.VideoClipAgent
-import com.smassistant.app.data.ApiService
 import com.smassistant.app.chat.Outcome
 import com.smassistant.app.infographic.InfographicComposer
 import com.smassistant.app.infographic.InfographicPipeline
@@ -158,33 +156,6 @@ class GenerateVideoTest {
         assertEquals(null, encoded)
     }
 
-    private fun clipAgent(result: ApiResult<File>?) = object : VideoClipAgent {
-        override val service = ApiService.HUGGINGFACE
-        override suspend fun generate(prompt: String): ApiResult<File>? {
-            synchronized(prompts) { prompts += prompt }
-            return result
-        }
-    }
-
-    private fun clipUseCase(clip: VideoClipAgent) = GenerateVideoUseCase(
-        "slide {{slide}} of {{slides}}: {{prompt}}",
-        { agent },
-        maker,
-        { File("out.mp4") },
-        seconds = { seconds },
-        clips = { clip },
-        clipTemplate = "clip: {{prompt}}",
-    )
-
-    @Test
-    fun `a text-to-video model makes a clip instead of a slideshow`() = runTest {
-        val outcome = clipUseCase(clipAgent(ApiResult.Ok(File("clip.mp4"))))(" URL shortener ")
-
-        assertEquals(Outcome.Ok(GeneratedVideo(File("clip.mp4"), emptyList(), seconds = 0)), outcome)
-        assertEquals(listOf("clip: URL shortener"), prompts)
-        assertEquals(null, encoded)
-    }
-
     @Test
     fun `deck errors name the text agent and the video works without a video agent`() = runTest {
         assertEquals(Outcome.Failed(ApiError.RateLimited, "Groq"), deckUseCase(ScriptedTextAgent(ApiResult.Failed(ApiError.RateLimited)))("x"))
@@ -202,24 +173,5 @@ class GenerateVideoTest {
     fun `video deck asset keeps its placeholders`() {
         val text = File("src/main/assets/prompts/video_deck.md").readText()
         listOf("{{slides}}", "{{seconds}}", "{{examples}}").forEach { assertTrue(it, text.contains(it)) }
-    }
-
-    @Test
-    fun `a model that can't make clips falls back to the slideshow`() = runTest {
-        val outcome = clipUseCase(clipAgent(null))("x")
-
-        assertEquals(Outcome.Ok(GeneratedVideo(File("out.mp4"), (1..4).map { File("s$it.png") })), outcome)
-        assertEquals(4, encoded?.size)
-    }
-
-    @Test
-    fun `a failed clip names Hugging Face`() = runTest {
-        assertEquals(Outcome.Failed(ApiError.RateLimited, "Hugging Face"), clipUseCase(clipAgent(ApiResult.Failed(ApiError.RateLimited)))("x"))
-        assertEquals(null, encoded)
-    }
-
-    @Test
-    fun `video clip asset keeps its placeholder`() {
-        assertTrue(File("src/main/assets/prompts/video_clip.md").readText().contains("{{prompt}}"))
     }
 }
