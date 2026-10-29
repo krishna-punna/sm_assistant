@@ -7,7 +7,6 @@ enum class AiAgent(val service: ApiService) {
     CLAUDE(ApiService.CLAUDE),
     GEMINI(ApiService.GEMINI),
     GROQ(ApiService.GROQ),
-    HUGGINGFACE(ApiService.HUGGINGFACE),
     CLOUDFLARE(ApiService.CLOUDFLARE),
     POLLINATIONS(ApiService.POLLINATIONS);
 

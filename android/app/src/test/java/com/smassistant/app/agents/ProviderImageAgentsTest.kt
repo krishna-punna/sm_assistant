@@ -48,100 +48,6 @@ class ProviderImageAgentsTest {
 
     private fun ImageAgent.run(count: Int = 1, prompt: String = "Draw a cache") = runBlocking { generate(prompt, count) }
 
-    private fun hfConfig(model: String) = ApiConfig(server.url("/v1/chat/completions").toString(), "hf_token", "m", model)
-
-    private fun hfAgent(model: String) = HuggingFaceImageAgent({ hfConfig(model) }, cache, client, pollDelayMs = 0)
-
-    @Test
-    fun `hugging face falls back to hf-inference and saves the image bytes`() {
-        json("""{"error":"Repository not found"}""", 404)
-        bytes(png, "image/png")
-        bytes(jpeg, "image/jpeg")
-
-        val files = (hfAgent("black-forest-labs/FLUX.1-schnell").run(count = 2) as ApiResult.Ok).value
-
-        assertEquals(2, files.size)
-        assertEquals(setOf("png", "jpg"), files.map { it.extension }.toSet())
-        val lookup = server.takeRequest()
-        assertEquals("/api/models/black-forest-labs/FLUX.1-schnell?expand%5B%5D=inferenceProviderMapping", lookup.path)
-        assertEquals("Bearer hf_token", lookup.getHeader("Authorization"))
-        val request = server.takeRequest()
-        assertEquals("/hf-inference/models/black-forest-labs/FLUX.1-schnell", request.path)
-        assertEquals("Bearer hf_token", request.getHeader("Authorization"))
-        assertEquals("Draw a cache", request.json().path("inputs")?.textOrNull)
-        assertEquals(3, server.requestCount)
-    }
-
-    @Test
-    fun `hugging face error text is passed on`() {
-        json("""{"inferenceProviderMapping":{"hf-inference":{"status":"live","providerId":"black-forest-labs/x","task":"text-to-image"}}}""")
-        json("""{"error":"Model black-forest-labs/x is not supported by provider hf-inference"}""", 400)
-
-        val result = hfAgent("black-forest-labs/x").run()
-
-        assertEquals(ApiResult.Failed(ApiError.Server(400, "Model black-forest-labs/x is not supported by provider hf-inference")), result)
-    }
-
-    @Test
-    fun `hugging face runs Qwen-Image on fal-ai through the queue`() {
-        json(
-            """{"inferenceProviderMapping":[
-                {"provider":"replicate","providerId":"qwen/qwen-image","status":"live","task":"text-to-image"},
-                {"provider":"fal-ai","providerId":"fal-ai/qwen-image","status":"live","task":"text-to-image"}
-            ]}""",
-        )
-        val requestUrl = server.url("/fal-ai/qwen-image/requests/r1").toString()
-        json("""{"request_id":"r1","status":"IN_QUEUE","response_url":"$requestUrl"}""")
-        json("""{"status":"IN_PROGRESS"}""")
-        json("""{"status":"COMPLETED"}""")
-        json("""{"images":[{"url":"${server.url("/files/out.png")}","width":1024}]}""")
-        bytes(png, "image/png")
-
-        val file = (hfAgent("Qwen/Qwen-Image").run() as ApiResult.Ok).value.single()
-
-        assertArrayEquals(png, file.readBytes())
-        assertEquals("/api/models/Qwen/Qwen-Image?expand%5B%5D=inferenceProviderMapping", server.takeRequest().path)
-        val submit = server.takeRequest()
-        assertEquals("POST", submit.method)
-        assertEquals("/fal-ai/fal-ai/qwen-image?_subdomain=queue", submit.path)
-        assertEquals("Bearer hf_token", submit.getHeader("Authorization"))
-        assertEquals("Draw a cache", submit.json().path("prompt")?.textOrNull)
-        assertEquals("/fal-ai/qwen-image/requests/r1/status", server.takeRequest().path)
-        assertEquals("/fal-ai/qwen-image/requests/r1/status", server.takeRequest().path)
-        assertEquals("/fal-ai/qwen-image/requests/r1", server.takeRequest().path)
-        val download = server.takeRequest()
-        assertEquals("/files/out.png", download.path)
-        assertNull(download.getHeader("Authorization"))
-    }
-
-    @Test
-    fun `hugging face fal-ai request that fails is reported`() {
-        json("""{"inferenceProviderMapping":{"fal-ai":{"status":"live","providerId":"fal-ai/qwen-image","task":"text-to-image"}}}""")
-        json("""{"request_id":"r1","response_url":"${server.url("/fal-ai/qwen-image/requests/r1")}"}""")
-        json("""{"status":"FAILED"}""")
-
-        assertEquals(ApiResult.Failed(ApiError.BadResponse("the request failed")), hfAgent("Qwen/Qwen-Image").run())
-    }
-
-    @Test
-    fun `hugging face uses together when it is the first live provider`() {
-        json(
-            """{"inferenceProviderMapping":{
-                "fal-ai":{"status":"staging","providerId":"fal-ai/x","task":"text-to-image"},
-                "together":{"status":"live","providerId":"black-forest-labs/FLUX.1-schnell-Free","task":"text-to-image"}
-            }}""",
-        )
-        json("""{"data":[{"b64_json":"${base64(jpeg)}"}]}""")
-
-        assertArrayEquals(jpeg, (hfAgent("black-forest-labs/FLUX.1-schnell").run() as ApiResult.Ok).value.single().readBytes())
-        server.takeRequest()
-        val request = server.takeRequest()
-        assertEquals("/together/v1/images/generations", request.path)
-        val body = request.json()
-        assertEquals("black-forest-labs/FLUX.1-schnell-Free", body.path("model")?.textOrNull)
-        assertEquals("base64", body.path("response_format")?.textOrNull)
-    }
-
     @Test
     fun `cloudflare reads flux base64 json and stable diffusion png bytes`() {
         json("""{"result":{"image":"${base64(jpeg)}"},"success":true}""")
@@ -197,7 +103,6 @@ class ProviderImageAgentsTest {
     @Test
     fun `missing key, image model or account id sends nothing`() {
         val url = server.url("/x").toString()
-        assertEquals(ApiResult.Failed(ApiError.NotConfigured), HuggingFaceImageAgent({ ApiConfig(url, "", "m", "img") }, cache, client).run())
         assertEquals(ApiResult.Failed(ApiError.NotConfigured), PollinationsImageAgent({ ApiConfig(url, "k", "m", "") }, cache, client).run())
         assertEquals(
             ApiResult.Failed(ApiError.NotConfigured),

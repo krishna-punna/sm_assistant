@@ -10,21 +10,17 @@ import com.smassistant.app.net.BinaryReply
 import com.smassistant.app.net.Http
 import com.smassistant.app.net.path
 import com.smassistant.app.net.postForBytes
-import com.smassistant.app.net.postJson
 import com.smassistant.app.net.textOrNull
 import java.io.File
 import java.util.Base64
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 
@@ -70,85 +66,6 @@ abstract class ProviderImageAgent(
     protected abstract suspend fun generateOne(config: ApiConfig, prompt: String): ApiResult<ByteArray>
 
     protected fun bearer(config: ApiConfig) = mapOf("Authorization" to "Bearer ${config.key}")
-}
-
-/** The Hugging Face providers this app can call for text-to-image, as the Hub names them. */
-internal val HUGGING_FACE_IMAGE_PROVIDERS = listOf("hf-inference", "fal-ai", "together")
-
-/**
- * Hugging Face text-to-image through the router (https://router.huggingface.co/{provider}/...).
- * The Hub says which providers serve the model, in the user's preferred order ([HuggingFaceRouter]);
- * the first live one this app supports is used, else hf-inference:
- * - hf-inference: POST /hf-inference/models/{model} with `{"inputs": prompt}`; the reply is the image.
- * - fal-ai (e.g. Qwen/Qwen-Image): a queued request ([HuggingFaceRouter.falAi]), then `images[0].url` downloaded.
- * - together: POST /together/v1/images/generations, asking for base64.
- */
-class HuggingFaceImageAgent(
-    config: () -> ApiConfig,
-    cache: MediaCache,
-    client: OkHttpClient = Http.generationClient,
-    pollDelayMs: Long = 1_000,
-) : ProviderImageAgent(ApiService.HUGGINGFACE, config, cache, client) {
-    private val router = HuggingFaceRouter(client, pollDelayMs)
-    private val providers = mutableMapOf<String, HfProvider>()
-    private val providerLock = Mutex()
-
-    override suspend fun generateOne(config: ApiConfig, prompt: String): ApiResult<ByteArray> {
-        val origin = config.apiUrl.toHttpUrlOrNull()?.newBuilder()?.encodedPath("/")?.query(null)?.build()
-            ?: return ApiResult.Failed(ApiError.Unreachable("Invalid API URL"))
-        val model = config.imageModel.trim()
-        val target = providerLock.withLock {
-            providers.getOrPut(model) {
-                router.provider(origin, config.key, model, "text-to-image", HUGGING_FACE_IMAGE_PROVIDERS)
-                    ?: HfProvider("hf-inference", model)
-            }
-        }
-        return when (target.provider) {
-            "fal-ai" -> falAi(origin, config, target.providerId, prompt)
-            "together" -> together(origin, config, target.providerId, prompt)
-            else -> hfInference(origin, config, model, prompt)
-        }
-    }
-
-    private suspend fun hfInference(origin: HttpUrl, config: ApiConfig, model: String, prompt: String): ApiResult<ByteArray> {
-        val url = origin.newBuilder().addPathSegments("hf-inference/models").addPathSegments(model).build()
-        val reply = client.postForBytes(
-            url = url.toString(),
-            headers = bearer(config) + ("Accept" to "image/png"),
-            body = buildJsonObject { put("inputs", prompt) },
-        )
-        return when (reply) {
-            is ApiResult.Failed -> reply
-            is ApiResult.Ok -> imageBytes(reply.value)
-        }
-    }
-
-    private suspend fun falAi(origin: HttpUrl, config: ApiConfig, providerId: String, prompt: String): ApiResult<ByteArray> {
-        val result = when (val reply = router.falAi(origin, config.key, providerId, buildJsonObject { put("prompt", prompt) })) {
-            is ApiResult.Failed -> return reply
-            is ApiResult.Ok -> reply.value
-        }
-        val imageUrl = result.path("images", 0, "url")?.textOrNull
-            ?: return ApiResult.Failed(ApiError.BadResponse("no image in the reply"))
-        if (imageUrl.startsWith("data:")) return base64Image(imageUrl)
-        return when (val file = router.download(imageUrl)) {
-            is ApiResult.Failed -> file
-            is ApiResult.Ok -> imageBytes(file.value)
-        }
-    }
-
-    private suspend fun together(origin: HttpUrl, config: ApiConfig, providerId: String, prompt: String): ApiResult<ByteArray> {
-        val url = origin.newBuilder().addPathSegments("together/v1/images/generations").build()
-        val body = buildJsonObject {
-            put("model", providerId)
-            put("prompt", prompt)
-            put("response_format", "base64")
-        }
-        return when (val reply = client.postJson(url.toString(), bearer(config), body)) {
-            is ApiResult.Failed -> reply
-            is ApiResult.Ok -> base64Image(reply.value.path("data", 0, "b64_json")?.textOrNull)
-        }
-    }
 }
 
 /**

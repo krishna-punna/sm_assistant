@@ -41,7 +41,7 @@ fun textAgentFor(
 ): TextAgent = when (service) {
     ApiService.CLAUDE -> ClaudeAgent(config, client)
     ApiService.GEMINI -> GeminiAgent(config, client)
-    ApiService.GROQ, ApiService.HUGGINGFACE, ApiService.POLLINATIONS -> OpenAiChatAgent(service, config, client) { it.apiUrl }
+    ApiService.GROQ, ApiService.POLLINATIONS -> OpenAiChatAgent(service, config, client) { it.apiUrl }
     ApiService.CLOUDFLARE -> OpenAiChatAgent(service, config, client) { "${it.apiUrl.trimEnd('/')}/v1/chat/completions" }
     ApiService.LINKEDIN -> error("LinkedIn is not an AI agent")
 }
@@ -163,8 +163,7 @@ private class GeminiAgent(config: () -> ApiConfig, private val client: OkHttpCli
 
 /**
  * OpenAI-compatible chat completions, POST to [urlOf] the settings with a Bearer key: Groq
- * (https://api.groq.com/openai/v1/chat/completions), Hugging Face's router
- * (https://router.huggingface.co/v1/chat/completions), Pollinations.AI
+ * (https://api.groq.com/openai/v1/chat/completions), Pollinations.AI
  * (https://gen.pollinations.ai/v1/chat/completions) and Cloudflare Workers AI
  * ({api}/v1/chat/completions, with the account id in {api}).
  */

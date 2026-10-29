@@ -30,17 +30,6 @@ apis:
     model: llama-3.3-70b-versatile
     key: ""
 
-  # Hugging Face Inference Providers: text through the OpenAI-compatible router, images
-  # through whichever provider serves the image model (Qwen-Image runs on fal-ai).
-  # The key is a Hugging Face access token with "Make calls to Inference Providers".
-  huggingface:
-    api: https://router.huggingface.co/v1/chat/completions
-    model: openai/gpt-oss-120b
-    image_model: Qwen/Qwen-Image
-    # A text-to-video model makes a real AI clip instead of a slideshow (runs on fal-ai).
-    video_model: Wan-AI/Wan2.2-T2V-A14B
-    key: ""
-
   # Cloudflare Workers AI. {account_id} is filled in from the Account ID setting;
   # the key is an API token with Workers AI permission.
   cloudflare:

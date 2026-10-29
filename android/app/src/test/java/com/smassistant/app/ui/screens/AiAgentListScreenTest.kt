@@ -25,7 +25,7 @@ class AiAgentListScreenTest {
         AiAgent.entries.forEach { compose.onNodeWithText("${it.displayName} AI Agent").performScrollTo().performClick() }
 
         assertEquals(AiAgent.entries.toList(), opened)
-        assertEquals(listOf("Claude", "Gemini", "Groq", "Hugging Face", "Cloudflare", "Pollinations.AI"), opened.map { it.displayName })
+        assertEquals(listOf("Claude", "Gemini", "Groq", "Cloudflare", "Pollinations.AI"), opened.map { it.displayName })
     }
 
     @Test

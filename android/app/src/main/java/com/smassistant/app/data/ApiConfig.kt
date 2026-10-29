@@ -9,7 +9,6 @@ enum class ApiService(val displayName: String, val configKey: String) {
     CLAUDE("Claude", "claude"),
     GEMINI("Gemini", "gemini"),
     GROQ("Groq", "groq"),
-    HUGGINGFACE("Hugging Face", "huggingface"),
     CLOUDFLARE("Cloudflare", "cloudflare"),
     POLLINATIONS("Pollinations.AI", "pollinations"),
 }
