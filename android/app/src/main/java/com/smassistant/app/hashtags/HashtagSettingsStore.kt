@@ -1,29 +1,36 @@
 package com.smassistant.app.hashtags
 
 import android.content.Context
+import com.smassistant.app.data.AppConfig
 
 /**
  * Saved default hashtags, the "Add default hashtags to LinkedIn posts" toggle and the
  * "AI-suggested hashtags" toggle (HT-20).
  * Not secret, so plain SharedPreferences (excluded from backup with the rest of the app data).
+ *
+ * Until the user saves a list, [tags] are [defaults] (`linkedin_post.default_hashtags` in app.yml)
+ * and the toggle is on when there are any.
  */
-class HashtagSettingsStore(context: Context) {
+class HashtagSettingsStore(
+    context: Context,
+    private val defaults: List<String> = AppConfig.postRules(context).defaultHashtags,
+) {
     private val prefs = context.applicationContext.getSharedPreferences("hashtag_settings", Context.MODE_PRIVATE)
 
     val tags: List<String>
-        get() = prefs.getString(KEY_TAGS, "").orEmpty().split(" ").filter { it.isNotEmpty() }
+        get() = prefs.getString(KEY_TAGS, null)?.split(" ")?.filter { it.isNotEmpty() } ?: defaults
 
-    /** Off on first install (HT-8). */
+    /** On at first install when app.yml has default hashtags, otherwise off (HT-8). */
     val enabled: Boolean
-        get() = prefs.getBoolean(KEY_ENABLED, false)
+        get() = prefs.getBoolean(KEY_ENABLED, defaults.isNotEmpty())
 
     /**
-     * Saves [tags] (already normalised). The first save of a non-empty list turns the toggle on;
-     * after that only [setEnabled] changes it (HT-8). An empty list keeps the toggle as it is (HT-9).
-     * Returns the toggle state after saving.
+     * Saves [tags] (already normalised). The first save of a non-empty list turns the toggle on,
+     * unless the user already set it; after that only [setEnabled] changes it (HT-8).
+     * An empty list keeps the toggle as it is (HT-9). Returns the toggle state after saving.
      */
     fun save(tags: List<String>): Boolean {
-        val autoEnable = tags.isNotEmpty() && !prefs.getBoolean(KEY_AUTO_ENABLED, false)
+        val autoEnable = tags.isNotEmpty() && !prefs.getBoolean(KEY_AUTO_ENABLED, false) && !prefs.contains(KEY_ENABLED)
         prefs.edit().apply {
             putString(KEY_TAGS, Hashtags.format(tags))
             if (autoEnable) {

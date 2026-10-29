@@ -50,10 +50,12 @@ apis:
 # max_characters: LinkedIn's limit, including the default hashtags, spaces, emoji and line breaks.
 # shorten_attempts: how many times the AI agent is asked to shorten a post that comes back too long.
 # ai_hashtags: the most hashtags the AI agent adds when "AI-suggested hashtags" is on (1 to 10).
+# default_hashtags: the Default Hash Tags list on a new install, with the toggle on, until the user saves their own.
 linkedin_post:
   max_characters: 3000
   shorten_attempts: 3
   ai_hashtags: 3
+  default_hashtags: "#JavaDeveloper #FullStackDeveloper #AIAssistedDeveloper #AIEngineer #OpenToWork"
 
 # Checks before a generated image is finished (docs/design/image-video-pipeline.md).
 # The app always checks the definition the text agent writes and that every picture is a real,
