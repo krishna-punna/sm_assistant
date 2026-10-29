@@ -79,7 +79,7 @@ class SchedulerViewModelsTest {
     fun `a post waiting for review opens for review, then records the post`() {
         val image = java.io.File(context.cacheDir, "review.png").apply { writeBytes(byteArrayOf(1)) }
         store.save(AutoPostScheduler(id = "a", topics = listOf("Kafka"), reviewFirst = true, pending = PendingPost("Kafka", "Text #java", listOf(image.path))))
-        val vm = SchedulersViewModel(store, { SchedulerEngine(context) }, now = { 42L })
+        val vm = SchedulersViewModel(store, now = { 42L }) { SchedulerEngine(context) }
 
         assertEquals("Text #java" to listOf(image), vm.review("a"))
         vm.reviewPosted("https://www.linkedin.com/feed/update/urn:li:share:9")

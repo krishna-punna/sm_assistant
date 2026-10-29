@@ -26,8 +26,8 @@ data class SchedulersUiState(val schedulers: List<AutoPostScheduler> = emptyList
  */
 class SchedulersViewModel(
     private val store: SchedulerStore,
-    engine: () -> SchedulerEngine,
     private val now: () -> Long = System::currentTimeMillis,
+    engine: () -> SchedulerEngine,
 ) : ViewModel() {
     /** The scheduler whose waiting post is open in the review dialog. */
     private var reviewing: String? = null
