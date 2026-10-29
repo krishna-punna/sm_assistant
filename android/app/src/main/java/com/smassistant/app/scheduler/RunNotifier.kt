@@ -1,6 +1,7 @@
 package com.smassistant.app.scheduler
 
 import android.Manifest
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -59,10 +60,26 @@ class RunNotifier(private val context: Context) {
         notify(SIGN_IN_ID, notification)
     }
 
+    /**
+     * The ongoing notification while a run works in the foreground. Android shows a foreground
+     * service's notification even without the notification permission (in the task manager).
+     */
+    fun progress(scheduler: AutoPostScheduler): Notification {
+        createChannel()
+        return NotificationCompat.Builder(context, PROGRESS_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_launcher_monochrome)
+            .setContentTitle("Preparing scheduled post: ${scheduler.displayName}")
+            .setContentText("Writing the post and making its ${scheduler.postType.label.lowercase()}…")
+            .setProgress(0, 0, true)
+            .setOngoing(true)
+            .setSilent(true)
+            .build()
+    }
+
     private fun allowed() = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
         ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
 
-    private fun notify(id: Int, notification: android.app.Notification) {
+    private fun notify(id: Int, notification: Notification) {
         try {
             NotificationManagerCompat.from(context).notify(id, notification)
         } catch (e: SecurityException) {
@@ -73,11 +90,14 @@ class RunNotifier(private val context: Context) {
     private fun createChannel() {
         val channel = NotificationChannel(CHANNEL_ID, "Scheduled posts", NotificationManager.IMPORTANCE_DEFAULT)
             .apply { description = "How each scheduled LinkedIn post went" }
-        context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        val progress = NotificationChannel(PROGRESS_CHANNEL_ID, "Scheduled post in progress", NotificationManager.IMPORTANCE_LOW)
+            .apply { description = "Shown while a scheduled post is being made" }
+        context.getSystemService(NotificationManager::class.java).createNotificationChannels(listOf(channel, progress))
     }
 
     private companion object {
         const val CHANNEL_ID = "scheduled_posts"
         const val SIGN_IN_ID = 0x51_6E
+        const val PROGRESS_CHANNEL_ID = "scheduled_post_progress"
     }
 }
