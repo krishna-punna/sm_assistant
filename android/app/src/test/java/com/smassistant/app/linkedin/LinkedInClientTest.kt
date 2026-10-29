@@ -25,7 +25,7 @@ class LinkedInClientTest {
 
     @Before fun start() {
         server.start()
-        linkedIn = LinkedInClient({ ApiConfig(server.url("/rest/posts").toString(), key) }, Http.build(timeoutSeconds = 2), imageChecks = listOf(0L, 0L, 0L))
+        linkedIn = LinkedInClient({ ApiConfig(server.url("/rest/posts").toString(), key) }, Http.build(timeoutSeconds = 2), imageChecks = listOf(0L, 0L, 0L), videoChecks = listOf(0L, 0L, 0L))
     }
 
     @After fun stop() = server.shutdown()
@@ -115,7 +115,7 @@ class LinkedInClientTest {
         MockResponse().setBody("""{"value":{"uploadUrl":"${server.url("/upload/$image")}","image":"urn:li:image:$image"}}"""),
     )
 
-    private fun imageStatus(status: String) = server.enqueue(MockResponse().setBody("""{"status":"$status"}"""))
+    private fun mediaStatus(status: String) = server.enqueue(MockResponse().setBody("""{"status":"$status"}"""))
 
     @Test
     fun `uploads images then attaches one as media and several as multiImage`() {
@@ -126,7 +126,7 @@ class LinkedInClientTest {
         userinfo()
         initUpload("A")
         server.enqueue(MockResponse().setResponseCode(201))
-        imageStatus("AVAILABLE")
+        mediaStatus("AVAILABLE")
         created()
         assertEquals(ApiResult.Ok(LinkedInPost("urn:li:share:7400")), runBlocking { linkedIn.createPost("One", listOf(first)) })
 
@@ -149,10 +149,10 @@ class LinkedInClientTest {
 
         initUpload("B")
         server.enqueue(MockResponse().setResponseCode(201))
-        imageStatus("AVAILABLE")
+        mediaStatus("AVAILABLE")
         initUpload("C")
         server.enqueue(MockResponse().setResponseCode(201))
-        imageStatus("AVAILABLE")
+        mediaStatus("AVAILABLE")
         created()
         runBlocking { linkedIn.createPost("", listOf(first, second)) }
         repeat(6) { server.takeRequest() }
@@ -167,9 +167,9 @@ class LinkedInClientTest {
         userinfo()
         initUpload("A")
         server.enqueue(MockResponse().setResponseCode(201))
-        imageStatus("WAITING_UPLOAD")
-        imageStatus("PROCESSING")
-        imageStatus("AVAILABLE")
+        mediaStatus("WAITING_UPLOAD")
+        mediaStatus("PROCESSING")
+        mediaStatus("AVAILABLE")
         created()
         assertEquals(ApiResult.Ok(LinkedInPost("urn:li:share:7400")), runBlocking { linkedIn.createPost("Post", listOf(file)) })
 
@@ -187,7 +187,7 @@ class LinkedInClientTest {
         userinfo()
         initUpload("A")
         server.enqueue(MockResponse().setResponseCode(201))
-        imageStatus("PROCESSING_FAILED")
+        mediaStatus("PROCESSING_FAILED")
         assertEquals(
             ApiResult.Failed(ApiError.BadResponse("LinkedIn couldn't process the image")),
             runBlocking { linkedIn.createPost("x", listOf(file)) },
@@ -196,7 +196,7 @@ class LinkedInClientTest {
 
         initUpload("B")
         server.enqueue(MockResponse().setResponseCode(201))
-        repeat(3) { imageStatus("PROCESSING") }
+        repeat(3) { mediaStatus("PROCESSING") }
         assertEquals(
             ApiResult.Failed(ApiError.BadResponse("LinkedIn is still processing the image; try posting again")),
             runBlocking { linkedIn.createPost("x", listOf(file)) },
@@ -240,6 +240,8 @@ class LinkedInClientTest {
         server.enqueue(MockResponse().setHeader("ETag", "e1"))
         server.enqueue(MockResponse().setHeader("ETag", "e2"))
         server.enqueue(MockResponse())
+        mediaStatus("PROCESSING")
+        mediaStatus("AVAILABLE")
         created()
 
         assertEquals(ApiResult.Ok(LinkedInPost("urn:li:share:7400")), runBlocking { linkedIn.createPost("Watch", listOf(video)) })
@@ -259,6 +261,11 @@ class LinkedInClientTest {
         assertEquals("urn:li:video:V", finalizeBody.path("finalizeUploadRequest", "video")?.textOrNull)
         assertEquals("tok", finalizeBody.path("finalizeUploadRequest", "uploadToken")?.textOrNull)
         assertEquals("e2", finalizeBody.path("finalizeUploadRequest", "uploadedPartIds", 1)?.textOrNull)
+        repeat(2) {
+            val status = server.takeRequest()
+            assertEquals("GET", status.method)
+            assertEquals("/rest/videos/urn%3Ali%3Avideo%3AV", status.path)
+        }
         val post = Json.parseToJsonElement(server.takeRequest().body.readUtf8()) as JsonObject
         assertEquals("urn:li:video:V", post.path("content", "media", "id")?.textOrNull)
     }
@@ -273,5 +280,22 @@ class LinkedInClientTest {
         server.enqueue(MockResponse())
         assertEquals(ApiResult.Failed(ApiError.BadResponse("no ETag for a video part")), runBlocking { linkedIn.createPost("x", listOf(video)) })
         assertEquals(3, server.requestCount)
+    }
+
+    @Test
+    fun `a video LinkedIn can't process is not posted without it`() {
+        val video = Files.createTempFile("v", ".mp4").toFile().apply { writeBytes(byteArrayOf(1)) }
+        userinfo()
+        server.enqueue(
+            MockResponse().setBody("""{"value":{"video":"urn:li:video:V","uploadInstructions":[{"uploadUrl":"${server.url("/up/1")}","firstByte":0,"lastByte":0}]}}"""),
+        )
+        server.enqueue(MockResponse().setHeader("ETag", "e1"))
+        server.enqueue(MockResponse())
+        mediaStatus("PROCESSING_FAILED")
+        assertEquals(
+            ApiResult.Failed(ApiError.BadResponse("LinkedIn couldn't process the video")),
+            runBlocking { linkedIn.createPost("x", listOf(video)) },
+        )
+        assertEquals(5, server.requestCount)
     }
 }

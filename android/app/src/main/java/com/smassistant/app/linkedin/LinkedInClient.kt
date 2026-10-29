@@ -45,6 +45,7 @@ class LinkedInClient(
     private val config: () -> ApiConfig,
     private val client: OkHttpClient = Http.client,
     private val imageChecks: List<Long> = IMAGE_CHECKS_MILLIS,
+    private val videoChecks: List<Long> = VIDEO_CHECKS_MILLIS,
 ) {
     private var cachedMember: Pair<String, String>? = null
 
@@ -131,33 +132,35 @@ class LinkedInClient(
             .build()
         return when (val sent = call(upload) { _, _ -> ApiResult.Ok(image) }) {
             is ApiResult.Failed -> sent
-            is ApiResult.Ok -> awaitImage(postsUrl, token, image)
+            is ApiResult.Ok -> awaitReady(postsUrl, token, "images", image, imageChecks)
         }
     }
 
     /**
-     * Waits until LinkedIn has processed [image]. A post made while its images are still
-     * PROCESSING can go out with the text alone, so the post waits for AVAILABLE, checking after
-     * each of [imageChecks]. A token that may not read images (403) can't check, so it goes ahead.
+     * Waits until LinkedIn has processed an uploaded image or video ([urn], under `/rest/[resource]`).
+     * A post made while its media is still PROCESSING can go out with the text alone, so the post
+     * waits for AVAILABLE, checking after each of [checks]. A token that may not read media (403)
+     * can't check, so it goes ahead.
      */
-    private suspend fun awaitImage(postsUrl: HttpUrl, token: String, image: String): ApiResult<String> {
+    private suspend fun awaitReady(postsUrl: HttpUrl, token: String, resource: String, urn: String, checks: List<Long>): ApiResult<String> {
+        val noun = if (resource == "videos") "video" else "image"
         val statusUrl = postsUrl.newBuilder()
-            .encodedPath("/rest/images/")
-            .addEncodedPathSegment(URLEncoder.encode(image, "UTF-8"))
+            .encodedPath("/rest/$resource/")
+            .addEncodedPathSegment(URLEncoder.encode(urn, "UTF-8"))
             .query(null)
             .build()
-        for (wait in imageChecks) {
+        for (wait in checks) {
             delay(wait)
             val request = Request.Builder().url(statusUrl).restliHeaders(token).get().build()
             val status = call(request) { _, json -> ApiResult.Ok(json?.path("status")?.textOrNull.orEmpty()) }
             when {
-                status is ApiResult.Failed && (status.error == ApiError.NoAccess || status.error == ApiError.InvalidKey) -> return ApiResult.Ok(image)
-                status is ApiResult.Ok && status.value == "AVAILABLE" -> return ApiResult.Ok(image)
+                status is ApiResult.Failed && (status.error == ApiError.NoAccess || status.error == ApiError.InvalidKey) -> return ApiResult.Ok(urn)
+                status is ApiResult.Ok && status.value == "AVAILABLE" -> return ApiResult.Ok(urn)
                 status is ApiResult.Ok && status.value == "PROCESSING_FAILED" ->
-                    return ApiResult.Failed(ApiError.BadResponse("LinkedIn couldn't process the image"))
+                    return ApiResult.Failed(ApiError.BadResponse("LinkedIn couldn't process the $noun"))
             }
         }
-        return ApiResult.Failed(ApiError.BadResponse("LinkedIn is still processing the image; try posting again"))
+        return ApiResult.Failed(ApiError.BadResponse("LinkedIn is still processing the $noun; try posting again"))
     }
 
     /**
@@ -212,7 +215,10 @@ class LinkedInClient(
                 }.toString().toRequestBody(JSON),
             )
             .build()
-        return call(finalize) { _, _ -> ApiResult.Ok(upload.video) }
+        return when (val done = call(finalize) { _, _ -> ApiResult.Ok(upload.video) }) {
+            is ApiResult.Failed -> done
+            is ApiResult.Ok -> awaitReady(postsUrl, token, "videos", upload.video, videoChecks)
+        }
     }
 
     private class VideoPart(val url: HttpUrl, val firstByte: Long, val lastByte: Long)
@@ -285,5 +291,8 @@ class LinkedInClient(
 
         /** Waits before each image status check: about a minute in all. */
         val IMAGE_CHECKS_MILLIS = listOf(1_000L, 1_000L, 2_000L, 2_000L, 3_000L, 3_000L, 5_000L, 5_000L, 5_000L, 10_000L, 10_000L, 15_000L)
+
+        /** Waits before each video status check: about three minutes in all, as videos take longer. */
+        val VIDEO_CHECKS_MILLIS = listOf(2_000L, 3_000L, 5_000L, 5_000L) + List(17) { 10_000L }
     }
 }
