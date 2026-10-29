@@ -28,7 +28,11 @@ class AutoPostWorker(context: Context, params: WorkerParameters) : CoroutineWork
         if (outcome.retry && runAttemptCount < MAX_RETRIES) return Result.retry()
 
         val saved = store.update(id) {
-            it.advanced(outcome.title.takeIf { outcome.record.ok }).copy(lastRun = outcome.record)
+            if (outcome.skipped) {
+                it.copy(lastRun = outcome.record)
+            } else {
+                it.advanced(outcome.title.takeIf { outcome.record.ok }).copy(lastRun = outcome.record, pending = outcome.held ?: it.pending)
+            }
         }
         notifier.show(saved ?: scheduler, outcome.record)
         // An expired sign-in is already the run's failure message; warn ahead of time too.

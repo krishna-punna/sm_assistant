@@ -1,6 +1,7 @@
 package com.smassistant.app.scheduler
 
 import androidx.lifecycle.ViewModel
+import java.io.File
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalTime
@@ -26,7 +27,11 @@ data class SchedulersUiState(val schedulers: List<AutoPostScheduler> = emptyList
 class SchedulersViewModel(
     private val store: SchedulerStore,
     engine: () -> SchedulerEngine,
+    private val now: () -> Long = System::currentTimeMillis,
 ) : ViewModel() {
+    /** The scheduler whose waiting post is open in the review dialog. */
+    private var reviewing: String? = null
+
     private val engine by lazy(engine)
     private val _state = MutableStateFlow(SchedulersUiState(store.all()))
     val state: StateFlow<SchedulersUiState> = _state.asStateFlow()
@@ -50,6 +55,42 @@ class SchedulersViewModel(
     }
 
     fun messageShown() = _state.update { it.copy(message = null) }
+
+    /**
+     * Opens [id]'s waiting post for review: its text and media files, or null (with a message)
+     * when it's gone or its media was cleared from the phone's cache.
+     */
+    fun review(id: String): Pair<String, List<File>>? {
+        val post = store.get(id)?.pending
+        if (post == null) {
+            refresh()
+            return null
+        }
+        val files = post.media.map(::File)
+        if (files.any { !it.exists() }) {
+            _state.update { it.copy(message = "This post's media is no longer on the phone. Discard it and use Run now to make a new one.") }
+            return null
+        }
+        reviewing = id
+        return post.text to files
+    }
+
+    /** The reviewed post went out: it's no longer waiting, and the list links to it. */
+    fun reviewPosted(url: String) {
+        val id = reviewing ?: return
+        reviewing = null
+        store.update(id) { scheduler ->
+            val title = scheduler.pending?.title.orEmpty()
+            scheduler.copy(pending = null, lastRun = RunRecord(now(), ok = true, message = "Posted “$title”", postUrl = url))
+        }
+        refresh()
+    }
+
+    /** Throws away [id]'s waiting post, so its next run makes a new one. */
+    fun discard(id: String) {
+        store.update(id) { it.copy(pending = null) }
+        _state.update { it.copy(schedulers = store.all(), message = "Post discarded") }
+    }
 }
 
 /** The editor's draft, the topic search text and the reason Save was refused, if any. */
@@ -62,7 +103,7 @@ data class SchedulerEditorUiState(
 
 /** Add / edit one scheduler (SC-I6). [id] null makes a new one. */
 class SchedulerEditorViewModel(
-    store: SchedulerStore,
+    private val store: SchedulerStore,
     engine: () -> SchedulerEngine,
     id: String?,
 ) : ViewModel() {
@@ -94,6 +135,7 @@ class SchedulerEditorViewModel(
     fun onDayOfMonth(day: Int) = schedule { it.copy(dayOfMonth = day) }
     fun onWeekdaysOnly(on: Boolean) = schedule { it.copy(weekdaysOnly = on) }
     fun onEnabled(on: Boolean) = draft { it.copy(enabled = on) }
+    fun onReviewFirst(on: Boolean) = draft { it.copy(reviewFirst = on) }
 
     /** Saves and plans the next run; false, with the reason shown, when the settings can't run. */
     fun save(): Boolean {
@@ -102,7 +144,16 @@ class SchedulerEditorViewModel(
             _state.update { it.copy(error = problem) }
             return false
         }
-        engine.save(draft.copy(name = draft.name.trim()))
+        // A run may have finished while the editor was open: keep what it recorded.
+        val latest = store.get(draft.id)
+        engine.save(
+            draft.copy(
+                name = draft.name.trim(),
+                lastRun = latest?.lastRun ?: draft.lastRun,
+                recentTitles = latest?.recentTitles ?: draft.recentTitles,
+                pending = latest?.pending,
+            ),
+        )
         return true
     }
 }

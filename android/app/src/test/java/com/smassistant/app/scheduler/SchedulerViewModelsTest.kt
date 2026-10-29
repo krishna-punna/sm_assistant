@@ -74,4 +74,42 @@ class SchedulerViewModelsTest {
         vm.delete("a")
         assertEquals(listOf("b"), vm.state.value.schedulers.map { it.id })
     }
+
+    @Test
+    fun `a post waiting for review opens for review, then records the post`() {
+        val image = java.io.File(context.cacheDir, "review.png").apply { writeBytes(byteArrayOf(1)) }
+        store.save(AutoPostScheduler(id = "a", topics = listOf("Kafka"), reviewFirst = true, pending = PendingPost("Kafka", "Text #java", listOf(image.path))))
+        val vm = SchedulersViewModel(store, { SchedulerEngine(context) }, now = { 42L })
+
+        assertEquals("Text #java" to listOf(image), vm.review("a"))
+        vm.reviewPosted("https://www.linkedin.com/feed/update/urn:li:share:9")
+        val saved = store.get("a")!!
+        assertEquals(null, saved.pending)
+        assertEquals(RunRecord(42L, true, "Posted “Kafka”", "https://www.linkedin.com/feed/update/urn:li:share:9"), saved.lastRun)
+        assertEquals(null, vm.state.value.schedulers.single().pending)
+    }
+
+    @Test
+    fun `a waiting post whose media is gone can't be reviewed, only discarded`() {
+        store.save(AutoPostScheduler(id = "a", topics = listOf("Kafka"), pending = PendingPost("Kafka", "Text", listOf("/nowhere/gone.png"))))
+        val vm = SchedulersViewModel(store) { SchedulerEngine(context) }
+        assertEquals(null, vm.review("a"))
+        assertTrue(vm.state.value.message!!.contains("no longer on the phone"))
+
+        vm.discard("a")
+        assertEquals(null, store.get("a")!!.pending)
+        assertEquals("Post discarded", vm.state.value.message)
+    }
+
+    @Test
+    fun `saving the editor keeps a post that arrived while it was open`() {
+        store.save(AutoPostScheduler(id = "a", topics = listOf("Kafka")))
+        val vm = editor("a")
+        store.update("a") { it.copy(pending = PendingPost("Kafka", "Text")) }
+        vm.onReviewFirst(true)
+        assertTrue(vm.save())
+        val saved = store.get("a")!!
+        assertTrue(saved.reviewFirst)
+        assertEquals(PendingPost("Kafka", "Text"), saved.pending)
+    }
 }

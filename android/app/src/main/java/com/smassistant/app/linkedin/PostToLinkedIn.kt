@@ -106,6 +106,15 @@ class PostViewModel(
         }
     }
 
+    /**
+     * Review a post that's already final (a scheduler's post waiting for approval): the same
+     * confirmation, edits and trimming, without converting it or adding hashtags again.
+     */
+    fun review(text: String, images: List<File> = emptyList()) {
+        if (_state.value == PostState.Posting) return
+        _state.value = if (useCase.isConfigured()) PostState.Confirm(text, emptyList(), images, useCase.limit) else failure(ApiError.NotConfigured)
+    }
+
     /** The text [markdown] would post as, with the default hashtags, for the length note under a result (PL-7). */
     fun measure(markdown: String): PostText = useCase.prepare(markdown)
 

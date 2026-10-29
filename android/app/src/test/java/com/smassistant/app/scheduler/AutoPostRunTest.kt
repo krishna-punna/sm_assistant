@@ -121,6 +121,27 @@ class AutoPostRunTest {
     }
 
     @Test
+    fun `review first holds the finished post instead of publishing it`() = runTest {
+        val outcome = run(scheduler(PostType.TEXT_WITH_IMAGE).copy(reviewFirst = true))
+        assertTrue(published.isEmpty())
+        assertTrue(outcome.record.ok)
+        assertTrue(outcome.record.awaitingReview)
+        assertEquals("Ready for your review: “Kafka Partitions”", outcome.record.message)
+        assertEquals(PendingPost("Kafka Partitions", "Kafka partitions explained\n\n#java", listOf("a.png", "b.png"), 1000L), outcome.held)
+    }
+
+    @Test
+    fun `a run is skipped while an earlier post waits for review`() = runTest {
+        val waiting = PendingPost("Kafka Partitions", "text")
+        val outcome = run(scheduler().copy(reviewFirst = true, pending = waiting))
+        assertTrue(outcome.skipped)
+        assertFalse(outcome.retry)
+        assertEquals("Skipped: “Kafka Partitions” is still waiting for your review.", outcome.record.message)
+        assertTrue(topics.isEmpty())
+        assertTrue(published.isEmpty())
+    }
+
+    @Test
     fun `media that fails means nothing is posted`() = runTest {
         images = Outcome.Failed(ApiError.InvalidKey, "Gemini")
         val outcome = run(scheduler(PostType.TEXT_WITH_IMAGE))

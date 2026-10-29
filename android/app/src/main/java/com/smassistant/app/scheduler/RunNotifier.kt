@@ -15,6 +15,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.smassistant.app.MainActivity
 import com.smassistant.app.R
+import com.smassistant.app.navigation.Routes
 
 /**
  * The notification after each scheduled run (SC-7): "Posted …" opening the post, or what went
@@ -25,7 +26,9 @@ class RunNotifier(private val context: Context) {
         if (!allowed()) return
         createChannel()
         val open = record.postUrl?.let { Intent(Intent.ACTION_VIEW, Uri.parse(it)) }
-            ?: Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            ?: Intent(context, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                .apply { if (record.awaitingReview) putExtra(MainActivity.EXTRA_ROUTE, Routes.SCHEDULERS) }
         val tap = PendingIntent.getActivity(
             context,
             scheduler.id.hashCode(),
@@ -34,7 +37,13 @@ class RunNotifier(private val context: Context) {
         )
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_monochrome)
-            .setContentTitle(if (record.ok) "Posted to LinkedIn: ${scheduler.displayName}" else "Scheduled post failed: ${scheduler.displayName}")
+            .setContentTitle(
+                when {
+                    record.awaitingReview -> "Review scheduled post: ${scheduler.displayName}"
+                    record.ok -> "Posted to LinkedIn: ${scheduler.displayName}"
+                    else -> "Scheduled post failed: ${scheduler.displayName}"
+                },
+            )
             .setContentText(record.message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(record.message))
             .setContentIntent(tap)
