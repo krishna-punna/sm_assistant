@@ -97,6 +97,10 @@ class AppConfigTest {
             parsePostRules("linkedin_post:\n  max_characters: 2500\n  shorten_attempts: 3\n  ai_hashtags: 5".byteInputStream()),
         )
         assertEquals(3, parsePostRules("linkedin_post:\n  ai_hashtags: 0".byteInputStream()).aiHashtags)
+        assertEquals(
+            listOf("#Java", "#AIEngineer"),
+            parsePostRules("linkedin_post:\n  default_hashtags: \"Java, #AIEngineer #C++ #java\"".byteInputStream()).defaultHashtags,
+        )
         assertEquals(PostRules(3_000, 3), parsePostRules("apis: {}".byteInputStream()))
         assertEquals(PostRules(3_000, 3), parsePostRules("linkedin_post:\n  max_characters: lots\n  shorten_attempts: -1".byteInputStream()))
     }
@@ -106,6 +110,10 @@ class AppConfigTest {
         val rules = java.io.File("src/main/assets/app.yml").inputStream().use(::parsePostRules)
         assertEquals(3_000, rules.maxCharacters)
         assertEquals(3, rules.aiHashtags)
+        assertEquals(
+            listOf("#JavaDeveloper", "#FullStackDeveloper", "#AIAssistedDeveloper", "#AIEngineer", "#OpenToWork"),
+            rules.defaultHashtags,
+        )
     }
 
     @Test

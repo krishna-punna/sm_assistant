@@ -41,7 +41,7 @@ Home → **Default Hash Tags** *(new Home button; S14 in the [screen inventory](
 ### Enable / disable
 
 - **HT-7** An **Add default hashtags to LinkedIn posts** toggle turns the feature on or off. The setting persists across restarts.
-- **HT-8** The toggle starts **off** on first install and switches **on** automatically the first time the user saves a non-empty list. After that, only the user changes it.
+- **HT-8** On first install the list is pre-loaded from `linkedin_post.default_hashtags` in `app.yml` (`#JavaDeveloper #FullStackDeveloper #AIAssistedDeveloper #AIEngineer #OpenToWork`) and the toggle starts **on**. The user can edit, clear or turn them off like any saved list. If `app.yml` has no defaults, the toggle starts **off** and switches **on** automatically the first time the user saves a non-empty list. After that, only the user changes it.
 - **HT-9** Turning the toggle off keeps the saved list, so the user can turn it back on without retyping.
 
 ### Applying hashtags when posting

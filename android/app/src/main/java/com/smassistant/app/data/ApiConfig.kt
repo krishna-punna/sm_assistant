@@ -1,5 +1,6 @@
 package com.smassistant.app.data
 
+import com.smassistant.app.hashtags.Hashtags
 import java.io.InputStream
 import org.yaml.snakeyaml.Yaml
 
@@ -97,13 +98,20 @@ fun parseAppConfig(input: InputStream): Map<ApiService, ApiConfig> {
  *   max_characters: 3000
  *   shorten_attempts: 3
  *   ai_hashtags: 3
+ *   default_hashtags: "#JavaDeveloper #AIEngineer"
  * ```
  *
  * [shortenAttempts] is how many times the agent is asked to shorten a post that's over the limit.
  * [aiHashtags] is the most hashtags the agent adds when AI-suggested hashtags are on (1 to 10, HT-21).
+ * [defaultHashtags] is the Default Hash Tags list before the user saves their own; invalid tags are dropped.
  * Missing or invalid values fall back to the defaults.
  */
-data class PostRules(val maxCharacters: Int = 3_000, val shortenAttempts: Int = 3, val aiHashtags: Int = 3)
+data class PostRules(
+    val maxCharacters: Int = 3_000,
+    val shortenAttempts: Int = 3,
+    val aiHashtags: Int = 3,
+    val defaultHashtags: List<String> = emptyList(),
+)
 
 fun parsePostRules(input: InputStream): PostRules {
     val root = Yaml().load<Any?>(input) as? Map<*, *> ?: emptyMap<String, Any?>()
@@ -113,6 +121,7 @@ fun parsePostRules(input: InputStream): PostRules {
         maxCharacters = entry["max_characters"]?.toString()?.toIntOrNull()?.takeIf { it > 0 } ?: defaults.maxCharacters,
         shortenAttempts = entry["shorten_attempts"]?.toString()?.toIntOrNull()?.takeIf { it >= 0 } ?: defaults.shortenAttempts,
         aiHashtags = entry["ai_hashtags"]?.toString()?.toIntOrNull()?.takeIf { it in 1..10 } ?: defaults.aiHashtags,
+        defaultHashtags = entry["default_hashtags"]?.toString()?.let { Hashtags.parse(it).tags } ?: defaults.defaultHashtags,
     )
 }
 
