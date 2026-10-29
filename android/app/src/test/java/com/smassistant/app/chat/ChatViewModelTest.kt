@@ -183,4 +183,24 @@ class ChatViewModelTest {
         val restored = ChatViewModel<String>(handle) { Outcome.NoAgent }
         assertEquals(ChatUiState<String>(input = "draft"), restored.state.value)
     }
+
+    @Test
+    fun `a long conversation is saved without its oldest exchanges`() = runTest(dispatcher) {
+        val handle = SavedStateHandle()
+        val long = "x".repeat(ChatViewModel.MAX_SAVED_CHARS / 3)
+        val first = ChatViewModel(handle, TextSaver) { Outcome.Ok("$it: $long") }
+        listOf("one", "two", "three", "four").forEach {
+            first.onInputChange(it)
+            first.submit()
+            advanceUntilIdle()
+        }
+        assertEquals(8, first.state.value.items.size)
+
+        val restored = ChatViewModel(handle, TextSaver) { Outcome.Ok("again") }.state.value.items
+        val inputs = restored.filterIsInstance<ChatItem.Input>().map { it.text }
+        assertTrue(inputs.size < 4)
+        assertEquals("four", inputs.last())
+        // Every saved result still has its input.
+        assertEquals(inputs.size, restored.filterIsInstance<ChatItem.Result<String>>().size)
+    }
 }

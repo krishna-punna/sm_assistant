@@ -41,6 +41,16 @@ sealed interface ChatItem<out R> {
     data class Result<R>(override val id: Long, val forInput: Long, val value: R) : ChatItem<R>
 }
 
+/** The input an item belongs to: its own id for an input, otherwise the input it answers. */
+private val ChatItem<*>.inputId: Long
+    get() = when (this) {
+        is ChatItem.Input -> id
+        is ChatItem.Loading -> forInput
+        is ChatItem.Failure -> forInput
+        is ChatItem.NoAgent -> forInput
+        is ChatItem.Result -> forInput
+    }
+
 data class ChatUiState<R>(
     val items: List<ChatItem<R>> = emptyList(),
     val input: String = "",
@@ -139,9 +149,25 @@ class ChatViewModel<R>(
         if (after.items !== before.items) saveItems(after)
     }
 
+    /**
+     * Saved state lives in a Bundle that Android limits to about 1 MB for the whole app, so a long
+     * conversation is saved without its oldest exchanges once it passes [MAX_SAVED_CHARS]. The
+     * screen still shows everything; only a restore after process death starts later.
+     */
     private fun saveItems(state: ChatUiState<R>) {
         val saver = saver ?: return
-        handle[ITEMS] = JsonArray(state.items.map { item ->
+        var items = state.items
+        var json = encode(items, saver)
+        while (json.length > MAX_SAVED_CHARS && items.isNotEmpty()) {
+            val oldest = items.first().inputId
+            items = items.filterNot { it.inputId == oldest }
+            json = encode(items, saver)
+        }
+        handle[ITEMS] = json
+    }
+
+    private fun encode(items: List<ChatItem<R>>, saver: ResultSaver<R>): String =
+        JsonArray(items.map { item ->
             buildJsonObject {
                 put("id", item.id)
                 when (item) {
@@ -153,7 +179,6 @@ class ChatViewModel<R>(
                 }
             }
         }).toString()
-    }
 
     private fun restore(): ChatUiState<R> {
         val input = handle.get<String>(INPUT) ?: ""
@@ -177,8 +202,11 @@ class ChatViewModel<R>(
         }
     }
 
-    private companion object {
-        const val INPUT = "input"
-        const val ITEMS = "items"
+    companion object {
+        private const val INPUT = "input"
+        private const val ITEMS = "items"
+
+        /** About 200 KB as saved; leaves room in the 1 MB limit for the other screens on the back stack. */
+        const val MAX_SAVED_CHARS = 100_000
     }
 }
