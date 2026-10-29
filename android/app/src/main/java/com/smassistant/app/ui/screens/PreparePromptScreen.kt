@@ -14,7 +14,7 @@ import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.smassistant.app.agents.AgentPreferences
 import com.smassistant.app.agents.appAgentSelector
-import com.smassistant.app.chat.ChatViewModel
+import com.smassistant.app.chat.sessionChatViewModel
 import com.smassistant.app.chat.PromptSetSaver
 import com.smassistant.app.navigation.Feature
 import com.smassistant.app.prompt.CONTENT_PROMPT_LABEL
@@ -44,7 +44,7 @@ fun PreparePromptScreen(onSetUpAgent: () -> Unit, onBackToHome: () -> Unit) {
             selector::textAgent,
             AgentPreferences(appContext)::promptType,
         )
-        ChatViewModel(createSavedStateHandle(), PromptSetSaver) { topic -> useCase(topic) }
+        sessionChatViewModel(appContext, Feature.PREPARE_PROMPT.name, createSavedStateHandle(), PromptSetSaver) { topic -> useCase(topic) }
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
 

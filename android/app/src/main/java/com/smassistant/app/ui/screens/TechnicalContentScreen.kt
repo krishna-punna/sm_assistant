@@ -9,7 +9,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.smassistant.app.chat.ChatViewModel
+import com.smassistant.app.chat.sessionChatViewModel
 import com.smassistant.app.chat.TextSaver
 import com.smassistant.app.generate.appGenerateTechnicalContent
 import com.smassistant.app.generate.appSmartTrim
@@ -30,7 +30,7 @@ fun TechnicalContentScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit
     val appContext = LocalContext.current.applicationContext
     val viewModel = viewModel {
         val useCase = appGenerateTechnicalContent(appContext)
-        ChatViewModel(createSavedStateHandle(), TextSaver) { prompt -> useCase(prompt) }
+        sessionChatViewModel(appContext, Feature.TECHNICAL_CONTENT.name, createSavedStateHandle(), TextSaver) { prompt -> useCase(prompt) }
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val postViewModel = viewModel { PostViewModel(appPostToLinkedIn(appContext), appSmartTrim(appContext)) }

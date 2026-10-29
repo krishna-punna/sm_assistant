@@ -12,7 +12,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.smassistant.app.chat.ChatViewModel
+import com.smassistant.app.chat.sessionChatViewModel
 import com.smassistant.app.chat.ImagesSaver
 import com.smassistant.app.generate.GenerateContentAndMediaUseCase
 import com.smassistant.app.generate.appGenerateImages
@@ -37,7 +37,7 @@ fun ImageScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToH
     val appContext = LocalContext.current.applicationContext
     val viewModel = viewModel {
         val useCase = appGenerateImages(appContext)
-        ChatViewModel(createSavedStateHandle(), ImagesSaver) { prompt -> useCase(prompt) }
+        sessionChatViewModel(appContext, Feature.IMAGE.name, createSavedStateHandle(), ImagesSaver) { prompt -> useCase(prompt) }
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val postViewModel = viewModel { PostViewModel(appPostToLinkedIn(appContext), appSmartTrim(appContext)) }
