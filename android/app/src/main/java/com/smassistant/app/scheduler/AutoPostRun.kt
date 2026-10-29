@@ -12,6 +12,8 @@ import com.smassistant.app.generate.appGenerateImages
 import com.smassistant.app.generate.appGenerateTechnicalContent
 import com.smassistant.app.generate.appGenerateVideo
 import com.smassistant.app.linkedin.PostToLinkedInUseCase
+import com.smassistant.app.linkedin.SignInExpiry
+import com.smassistant.app.linkedin.appSignInExpiry
 import com.smassistant.app.linkedin.appPostToLinkedIn
 import com.smassistant.app.linkedin.linkedInErrorMessage
 import com.smassistant.app.net.ApiError
@@ -45,10 +47,14 @@ class AutoPostRun(
     private val generateVideo: suspend (String) -> Outcome<GeneratedVideo>,
     private val linkedIn: PostToLinkedInUseCase,
     private val now: () -> Long = System::currentTimeMillis,
+    /** The LinkedIn sign-in's expiry; an expired one fails the run before anything is generated. */
+    private val signInExpiry: () -> SignInExpiry? = { null },
 ) {
     suspend operator fun invoke(scheduler: AutoPostScheduler): RunOutcome {
         val topic = scheduler.currentTopic() ?: return failed("Choose at least one technical content type.")
         if (!linkedIn.isConfigured()) return failed(linkedInErrorMessage(ApiError.NotConfigured))
+        val expiry = signInExpiry()
+        if (expiry is SignInExpiry.Expired) return failed(expiry.message().orEmpty())
 
         val type = scheduler.postType.promptType
         val prompts = when (val outcome = preparePrompt(topicRequest(topic, scheduler.recentTitles), type)) {
@@ -154,5 +160,6 @@ fun appAutoPostRun(context: Context): AutoPostRun {
         generateImages = appGenerateImages(context)::invoke,
         generateVideo = appGenerateVideo(context)::invoke,
         linkedIn = appPostToLinkedIn(context),
+        signInExpiry = appSignInExpiry(context),
     )
 }

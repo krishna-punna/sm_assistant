@@ -109,6 +109,7 @@ fun SmNavHost(
             SchedulersScreen(
                 onAdd = { navController.navigate(Routes.schedulerEdit(null)) },
                 onEdit = { navController.navigate(Routes.schedulerEdit(it)) },
+                onSignIn = { navController.navigate(Routes.LINKEDIN_SETTINGS) },
                 onBackToHome = backToHome,
             )
         }

@@ -3,6 +3,8 @@ package com.smassistant.app.scheduler
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.smassistant.app.linkedin.SignInExpiry
+import com.smassistant.app.linkedin.appSignInExpiry
 
 /**
  * Runs one scheduler in the background (SC-I4): the whole [AutoPostRun], then records the result,
@@ -23,7 +25,11 @@ class AutoPostWorker(context: Context, params: WorkerParameters) : CoroutineWork
         val saved = store.update(id) {
             it.advanced(outcome.title.takeIf { outcome.record.ok }).copy(lastRun = outcome.record)
         }
-        RunNotifier(applicationContext).show(saved ?: scheduler, outcome.record)
+        val notifier = RunNotifier(applicationContext)
+        notifier.show(saved ?: scheduler, outcome.record)
+        // An expired sign-in is already the run's failure message; warn ahead of time too.
+        val expiry = appSignInExpiry(applicationContext)()
+        if (expiry is SignInExpiry.Soon) expiry.message()?.let(notifier::showSignInWarning)
         if (!manual) SchedulerEngine(applicationContext, store).planNext(id)
         return Result.success()
     }

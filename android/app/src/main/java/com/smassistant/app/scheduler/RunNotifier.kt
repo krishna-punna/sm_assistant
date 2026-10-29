@@ -21,11 +21,7 @@ import com.smassistant.app.R
  */
 class RunNotifier(private val context: Context) {
     fun show(scheduler: AutoPostScheduler, record: RunRecord) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-        ) {
-            return
-        }
+        if (!allowed()) return
         createChannel()
         val open = record.postUrl?.let { Intent(Intent.ACTION_VIEW, Uri.parse(it)) }
             ?: Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
@@ -43,8 +39,32 @@ class RunNotifier(private val context: Context) {
             .setContentIntent(tap)
             .setAutoCancel(true)
             .build()
+        notify(scheduler.id.hashCode(), notification)
+    }
+
+    /** One notification (replaced, not stacked) saying the LinkedIn sign-in runs out soon. */
+    fun showSignInWarning(message: String) {
+        if (!allowed()) return
+        createChannel()
+        val open = Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        val tap = PendingIntent.getActivity(context, SIGN_IN_ID, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_launcher_monochrome)
+            .setContentTitle("LinkedIn sign-in expiring")
+            .setContentText(message)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(message))
+            .setContentIntent(tap)
+            .setAutoCancel(true)
+            .build()
+        notify(SIGN_IN_ID, notification)
+    }
+
+    private fun allowed() = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+
+    private fun notify(id: Int, notification: android.app.Notification) {
         try {
-            NotificationManagerCompat.from(context).notify(scheduler.id.hashCode(), notification)
+            NotificationManagerCompat.from(context).notify(id, notification)
         } catch (e: SecurityException) {
             // Permission taken away between the check and the call.
         }
@@ -58,5 +78,6 @@ class RunNotifier(private val context: Context) {
 
     private companion object {
         const val CHANNEL_ID = "scheduled_posts"
+        const val SIGN_IN_ID = 0x51_6E
     }
 }

@@ -57,13 +57,15 @@ import com.smassistant.app.scheduler.TechTopics
 import com.smassistant.app.scheduler.formatRunTime
 import com.smassistant.app.ui.components.PrimaryButton
 import com.smassistant.app.ui.components.SelectDropdown
+import com.smassistant.app.ui.components.SignInWarningCard
 import com.smassistant.app.ui.components.SmScreen
+import com.smassistant.app.ui.components.rememberSignInWarning
 import java.time.DayOfWeek
 import java.time.LocalTime
 
 /** Scheduled Posts (docs/requirements/13-scheduled-posts.md, SC-I5): the user's schedulers. */
 @Composable
-fun SchedulersScreen(onAdd: () -> Unit, onEdit: (String) -> Unit, onBackToHome: () -> Unit) {
+fun SchedulersScreen(onAdd: () -> Unit, onEdit: (String) -> Unit, onSignIn: () -> Unit, onBackToHome: () -> Unit) {
     val appContext = LocalContext.current.applicationContext
     val viewModel = viewModel { SchedulersViewModel(SchedulerStore(appContext)) { SchedulerEngine(appContext) } }
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -90,6 +92,8 @@ fun SchedulersScreen(onAdd: () -> Unit, onEdit: (String) -> Unit, onBackToHome: 
 
     SchedulersContent(
         state = state,
+        signInWarning = rememberSignInWarning(),
+        onSignIn = onSignIn,
         notificationsAllowed = notificationsAllowed,
         onAllowNotifications = {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -106,6 +110,8 @@ fun SchedulersScreen(onAdd: () -> Unit, onEdit: (String) -> Unit, onBackToHome: 
 @Composable
 fun SchedulersContent(
     state: SchedulersUiState,
+    signInWarning: String? = null,
+    onSignIn: () -> Unit = {},
     notificationsAllowed: Boolean,
     onAllowNotifications: () -> Unit,
     onAdd: () -> Unit,
@@ -122,6 +128,7 @@ fun SchedulersContent(
                 "with your default hashtags.",
             style = MaterialTheme.typography.bodyMedium,
         )
+        signInWarning?.let { SignInWarningCard(it, onSignIn) }
         if (state.schedulers.isNotEmpty() && !notificationsAllowed) {
             OutlinedCard(Modifier.fillMaxWidth()) {
                 Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
