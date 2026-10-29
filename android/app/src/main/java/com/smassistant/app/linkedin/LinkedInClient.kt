@@ -10,6 +10,8 @@ import com.smassistant.app.net.path
 import com.smassistant.app.net.textOrNull
 import java.io.File
 import java.io.IOException
+import java.net.URLEncoder
+import kotlinx.coroutines.delay
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -42,6 +44,7 @@ data class LinkedInPost(val urn: String) {
 class LinkedInClient(
     private val config: () -> ApiConfig,
     private val client: OkHttpClient = Http.client,
+    private val imageChecks: List<Long> = IMAGE_CHECKS_MILLIS,
 ) {
     private var cachedMember: Pair<String, String>? = null
 
@@ -126,7 +129,35 @@ class LinkedInClient(
             .header("Authorization", "Bearer $token")
             .put(file.asRequestBody(OCTET_STREAM))
             .build()
-        return call(upload) { _, _ -> ApiResult.Ok(image) }
+        return when (val sent = call(upload) { _, _ -> ApiResult.Ok(image) }) {
+            is ApiResult.Failed -> sent
+            is ApiResult.Ok -> awaitImage(postsUrl, token, image)
+        }
+    }
+
+    /**
+     * Waits until LinkedIn has processed [image]. A post made while its images are still
+     * PROCESSING can go out with the text alone, so the post waits for AVAILABLE, checking after
+     * each of [imageChecks]. A token that may not read images (403) can't check, so it goes ahead.
+     */
+    private suspend fun awaitImage(postsUrl: HttpUrl, token: String, image: String): ApiResult<String> {
+        val statusUrl = postsUrl.newBuilder()
+            .encodedPath("/rest/images/")
+            .addEncodedPathSegment(URLEncoder.encode(image, "UTF-8"))
+            .query(null)
+            .build()
+        for (wait in imageChecks) {
+            delay(wait)
+            val request = Request.Builder().url(statusUrl).restliHeaders(token).get().build()
+            val status = call(request) { _, json -> ApiResult.Ok(json?.path("status")?.textOrNull.orEmpty()) }
+            when {
+                status is ApiResult.Failed && (status.error == ApiError.NoAccess || status.error == ApiError.InvalidKey) -> return ApiResult.Ok(image)
+                status is ApiResult.Ok && status.value == "AVAILABLE" -> return ApiResult.Ok(image)
+                status is ApiResult.Ok && status.value == "PROCESSING_FAILED" ->
+                    return ApiResult.Failed(ApiError.BadResponse("LinkedIn couldn't process the image"))
+            }
+        }
+        return ApiResult.Failed(ApiError.BadResponse("LinkedIn is still processing the image; try posting again"))
     }
 
     /**
@@ -251,5 +282,8 @@ class LinkedInClient(
         const val API_VERSION = "202606"
         private val JSON = "application/json".toMediaType()
         private val OCTET_STREAM = "application/octet-stream".toMediaType()
+
+        /** Waits before each image status check: about a minute in all. */
+        val IMAGE_CHECKS_MILLIS = listOf(1_000L, 1_000L, 2_000L, 2_000L, 3_000L, 3_000L, 5_000L, 5_000L, 5_000L, 10_000L, 10_000L, 15_000L)
     }
 }
