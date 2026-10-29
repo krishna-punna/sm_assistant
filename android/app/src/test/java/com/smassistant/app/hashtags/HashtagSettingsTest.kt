@@ -20,14 +20,60 @@ class HashtagSettingsTest {
         context.getSharedPreferences("hashtag_settings", Context.MODE_PRIVATE).edit().clear().commit()
     }
 
-    private fun store() = HashtagSettingsStore(context)
-    private fun viewModel() = DefaultHashtagsViewModel(store())
+    private fun store(defaults: List<String> = emptyList()) = HashtagSettingsStore(context, defaults)
+    private fun viewModel(defaults: List<String> = emptyList()) = DefaultHashtagsViewModel(store(defaults))
+
+    private val appDefaults =
+        listOf("#JavaDeveloper", "#FullStackDeveloper", "#AIAssistedDeveloper", "#AIEngineer", "#OpenToWork")
 
     @Test
     fun `fresh install has no tags and the toggle off`() {
         assertEquals(emptyList<String>(), store().tags)
         assertFalse(store().enabled)
         assertEquals(DefaultHashtagsUiState(), viewModel().state.value)
+    }
+
+    @Test
+    fun `fresh install loads the app yml hashtags with the toggle on`() {
+        assertEquals(appDefaults, HashtagSettingsStore(context).tags)
+        assertTrue(HashtagSettingsStore(context).enabled)
+
+        val state = viewModel(appDefaults).state.value
+        assertEquals("#JavaDeveloper #FullStackDeveloper #AIAssistedDeveloper #AIEngineer #OpenToWork", state.text)
+        assertTrue(state.enabled)
+        assertFalse(state.aiEnabled)
+    }
+
+    @Test
+    fun `the user's saved list replaces the defaults, even when empty`() {
+        val vm = viewModel(appDefaults)
+        vm.onTextChange("#JavaDeveloper #Kotlin")
+        vm.onSave()
+        assertEquals(listOf("#JavaDeveloper", "#Kotlin"), store(appDefaults).tags)
+
+        vm.onClear()
+        vm.onSave()
+        assertEquals(emptyList<String>(), store(appDefaults).tags)
+    }
+
+    @Test
+    fun `turning the default toggle off is kept when the user saves a list`() {
+        val vm = viewModel(appDefaults)
+        vm.onEnabledChange(false)
+        vm.onTextChange("#Kotlin")
+        vm.onSave()
+
+        assertFalse(store(appDefaults).enabled)
+        assertEquals(listOf("#Kotlin"), store(appDefaults).tags)
+    }
+
+    @Test
+    fun `AI-suggested hashtags work alongside the defaults`() {
+        viewModel(appDefaults).onAiEnabledChange(true)
+
+        assertTrue(store(appDefaults).aiEnabled)
+        assertTrue(store(appDefaults).enabled)
+        assertEquals(appDefaults, store(appDefaults).tags)
     }
 
     @Test
