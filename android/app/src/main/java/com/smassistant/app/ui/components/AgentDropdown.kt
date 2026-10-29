@@ -35,7 +35,7 @@ import com.smassistant.app.generate.videoLengthLabel
 import com.smassistant.app.prompt.PromptType
 
 /**
- * "Agent: Claude ▾" above a text feature's conversation: picks which set-up agent writes the
+ * "Agent: Gemini ▾" above a text feature's conversation: picks which set-up agent writes the
  * next result. The choice is the same default as on the AI Agent screen, so it sticks.
  *
  * The image and video screens show it as "Text agent" with a "Text model" picker ([showModel]),
@@ -81,7 +81,7 @@ private fun TextModelDropdown(store: ApiSettingsStore, agent: ApiService) {
 /**
  * "Image agent: Gemini ▾" and "Image model: … ▾" on the image features, or "Video agent" and
  * "Video model" on the video features ([purpose]): images and video slides each keep their own
- * agent and model. Gemini paints them, Claude draws them as SVG. The agent picker lists only
+ * agent and model. The agent picker lists only
  * set-up agents and is hidden unless there's a choice; the model picker shows the models last
  * listed on the agent's settings screen and is hidden until there are some.
  */
@@ -150,9 +150,9 @@ fun PromptTypeDropdown() {
 
 @Composable
 private fun MediaModelDropdown(store: ApiSettingsStore, agent: ApiService, purpose: MediaPurpose, name: String) {
-    var model by remember(agent) { mutableStateOf(store.load(agent).forMedia(purpose).let { if (agent == ApiService.CLAUDE) it.model else it.imageModel }) }
+    var model by remember(agent) { mutableStateOf(store.load(agent).forMedia(purpose).imageModel) }
     val listed = remember(agent) {
-        store.cachedModels(agent)?.lists?.let { if (agent == ApiService.CLAUDE) it.text else it.image }.orEmpty()
+        store.cachedModels(agent)?.lists?.image.orEmpty()
     }
     if (listed.isEmpty()) return
     val options = if (listed.any { it.id == model }) listed else listOf(AiModel(model)) + listed

@@ -7,7 +7,6 @@ import org.yaml.snakeyaml.Yaml
 /** External services the app calls. [configKey] is the service's entry under `apis:` in app.yml. */
 enum class ApiService(val displayName: String, val configKey: String) {
     LINKEDIN("LinkedIn", "linkedin"),
-    CLAUDE("Claude", "claude"),
     GEMINI("Gemini", "gemini"),
     GROQ("Groq", "groq"),
     CLOUDFLARE("Cloudflare", "cloudflare"),
@@ -50,7 +49,7 @@ fun ApiConfig.mediaModel(purpose: MediaPurpose): String =
 
 /**
  * This config with [imageModel] and [model] set to the model for [purpose], so an image agent
- * can read whichever it uses. Claude draws with its text [model] when no media model is chosen.
+ * can read whichever it uses.
  */
 fun ApiConfig.forMedia(purpose: MediaPurpose): ApiConfig {
     val chosen = mediaModel(purpose)
@@ -62,9 +61,9 @@ fun ApiConfig.forMedia(purpose: MediaPurpose): ApiConfig {
  *
  * ```yaml
  * apis:
- *   claude:
- *     api: https://api.anthropic.com/v1/messages
- *     model: claude-sonnet-5-5
+ *   groq:
+ *     api: https://api.groq.com/openai/v1/chat/completions
+ *     model: llama-3.3-70b-versatile
  *     key: ""
  *   gemini:
  *     model: gemini-2.5-flash

@@ -143,9 +143,9 @@ class AutoPostRunTest {
 
     @Test
     fun `network errors and rate limits are retried, key errors are not`() = runTest {
-        text = Outcome.Failed(ApiError.Unreachable("Timed out"), "Claude")
+        text = Outcome.Failed(ApiError.Unreachable("Timed out"), "Gemini")
         assertTrue(run(scheduler()).retry)
-        text = Outcome.Failed(ApiError.InvalidKey, "Claude")
+        text = Outcome.Failed(ApiError.InvalidKey, "Gemini")
         assertFalse(run(scheduler()).retry)
         text = Outcome.Ok("Fine")
         reply = ApiResult.Failed(ApiError.RateLimited)

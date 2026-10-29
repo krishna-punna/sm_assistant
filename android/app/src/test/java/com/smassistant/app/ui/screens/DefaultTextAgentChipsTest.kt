@@ -25,7 +25,7 @@ class DefaultTextAgentChipsTest {
         compose.setContent { Column { DefaultTextAgentChips(ApiService.GEMINI) { picked += it } } }
 
         compose.onNodeWithText("Gemini").assertIsSelected()
-        compose.onNodeWithText("Claude").assertIsNotSelected()
+        compose.onNodeWithText("Cloudflare").assertIsNotSelected()
         compose.onNodeWithText("Groq").performClick()
         assertEquals(listOf(ApiService.GROQ), picked)
     }

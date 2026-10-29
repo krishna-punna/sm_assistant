@@ -36,25 +36,6 @@ class TextAgentTest {
     private fun generate(agent: TextAgent) = runBlocking { agent.generate("You are helpful", "Design a URL shortener") }
 
     @Test
-    fun `claude sends messages request and joins text blocks`() {
-        reply("""{"content":[{"type":"text","text":"Hello "},{"type":"tool_use"},{"type":"text","text":"world"}]}""")
-
-        val result = generate(agent(ApiService.CLAUDE, "/v1/messages"))
-
-        assertEquals(ApiResult.Ok("Hello world"), result)
-        val request = server.takeRequest()
-        assertEquals("POST", request.method)
-        assertEquals("/v1/messages", request.path)
-        assertEquals("secret", request.getHeader("x-api-key"))
-        assertEquals("2023-06-01", request.getHeader("anthropic-version"))
-        val body = request.json()
-        assertEquals("test-model", body.path("model")?.textOrNull)
-        assertEquals("You are helpful", body.path("system")?.textOrNull)
-        assertEquals("user", body.path("messages", 0, "role")?.textOrNull)
-        assertEquals("Design a URL shortener", body.path("messages", 0, "content")?.textOrNull)
-    }
-
-    @Test
     fun `gemini calls generateContent for the model`() {
         reply("""{"candidates":[{"content":{"parts":[{"text":"Part 1. "},{"text":"Part 2."}]}}]}""")
 
@@ -87,21 +68,21 @@ class TextAgentTest {
 
     @Test
     fun `missing key or model sends nothing`() {
-        assertEquals(ApiResult.Failed(ApiError.NotConfigured), generate(agent(ApiService.CLAUDE, "/v1/messages", key = "")))
+        assertEquals(ApiResult.Failed(ApiError.NotConfigured), generate(agent(ApiService.GEMINI, "/v1beta", key = "")))
         assertEquals(ApiResult.Failed(ApiError.NotConfigured), generate(agent(ApiService.GROQ, "/x", model = "")))
         assertEquals(0, server.requestCount)
     }
 
     @Test
     fun `http errors carry the provider message`() {
-        reply("""{"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"}}""", 401)
-        assertEquals(ApiResult.Failed(ApiError.InvalidKey), generate(agent(ApiService.CLAUDE, "/v1/messages")))
+        reply("""{"error":{"message":"Invalid API Key"}}""", 401)
+        assertEquals(ApiResult.Failed(ApiError.InvalidKey), generate(agent(ApiService.GROQ, "/x")))
 
         reply("""{"error":{"message":"Rate limit reached"}}""", 429)
         assertEquals(ApiResult.Failed(ApiError.RateLimited), generate(agent(ApiService.GROQ, "/x")))
 
         reply("""{"error":{"message":"Overloaded"}}""", 529)
-        assertEquals(ApiResult.Failed(ApiError.Server(529, "Overloaded")), generate(agent(ApiService.CLAUDE, "/v1/messages")))
+        assertEquals(ApiResult.Failed(ApiError.Server(529, "Overloaded")), generate(agent(ApiService.GROQ, "/x")))
     }
 
     @Test
@@ -124,8 +105,8 @@ class TextAgentTest {
         reply("""{"choices":[]}""")
         assertTrue((generate(agent(ApiService.GROQ, "/x")) as ApiResult.Failed).error is ApiError.BadResponse)
 
-        reply("""{"content":[{"type":"text","text":"   "}]}""")
-        assertTrue((generate(agent(ApiService.CLAUDE, "/v1/messages")) as ApiResult.Failed).error is ApiError.BadResponse)
+        reply("""{"choices":[{"message":{"content":"   "}}]}""")
+        assertTrue((generate(agent(ApiService.GROQ, "/x")) as ApiResult.Failed).error is ApiError.BadResponse)
     }
 
     @Test
@@ -181,14 +162,6 @@ class TextAgentTest {
 
     @Test
     fun `see sends the image as base64 JPEG in each API's own shape`() {
-        reply("""{"content":[{"type":"text","text":"{\"score\": 8}"}]}""")
-        assertEquals(ApiResult.Ok("{\"score\": 8}"), see(agent(ApiService.CLAUDE, "/v1/messages")))
-        val claude = server.takeRequest().json()
-        assertEquals("image", claude.path("messages", 0, "content", 0, "type")?.textOrNull)
-        assertEquals("image/jpeg", claude.path("messages", 0, "content", 0, "source", "media_type")?.textOrNull)
-        assertEquals("AQID", claude.path("messages", 0, "content", 0, "source", "data")?.textOrNull)
-        assertEquals("Topic: Caching", claude.path("messages", 0, "content", 1, "text")?.textOrNull)
-
         reply("""{"candidates":[{"content":{"parts":[{"text":"ok"}]}}]}""")
         assertEquals(ApiResult.Ok("ok"), see(agent(ApiService.GEMINI, "/v1beta")))
         val gemini = server.takeRequest().json()

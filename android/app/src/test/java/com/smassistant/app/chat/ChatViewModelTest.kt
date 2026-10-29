@@ -78,14 +78,14 @@ class ChatViewModelTest {
         var calls = 0
         val vm = ChatViewModel<String> { input ->
             calls++
-            if (calls == 1) Outcome.Failed(ApiError.InvalidKey, "Claude") else Outcome.Ok("ok:$input")
+            if (calls == 1) Outcome.Failed(ApiError.InvalidKey, "Gemini") else Outcome.Ok("ok:$input")
         }
         vm.onInputChange("topic")
         vm.submit()
         advanceUntilIdle()
 
         val failure = vm.state.value.items[1] as ChatItem.Failure
-        assertEquals("Claude rejected the API key. Check it in settings.", failure.message)
+        assertEquals("Gemini rejected the API key. Check it in settings.", failure.message)
 
         vm.retry(failure)
         advanceUntilIdle()

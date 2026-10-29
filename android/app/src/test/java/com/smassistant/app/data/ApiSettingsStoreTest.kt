@@ -23,11 +23,11 @@ class ApiSettingsStoreTest {
 
     @Test
     fun `falls back to app yml defaults when nothing is saved`() {
-        val config = store.load(ApiService.CLAUDE)
+        val config = store.load(ApiService.GEMINI)
 
-        assertEquals("https://api.anthropic.com/v1/messages", config.api)
+        assertEquals("https://generativelanguage.googleapis.com/v1beta", config.api)
         assertEquals("", config.key)
-        assertEquals("claude-sonnet-5-5", config.model)
+        assertEquals("gemini-2.5-flash", config.model)
     }
 
     @Test
@@ -44,7 +44,7 @@ class ApiSettingsStoreTest {
     fun `services are stored independently`() {
         store.save(ApiService.GEMINI, "https://g", "gemini-key")
 
-        assertEquals("", store.load(ApiService.CLAUDE).key)
+        assertEquals("", store.load(ApiService.GROQ).key)
         assertEquals("", store.load(ApiService.LINKEDIN).key)
         assertEquals("gemini-key", store.load(ApiService.GEMINI).key)
     }
@@ -53,11 +53,11 @@ class ApiSettingsStoreTest {
 
     @Test
     fun `keys are stored encrypted, never in plain text`() {
-        store.save(ApiService.CLAUDE, "https://api.anthropic.com/v1/messages", "sk-ant-secret")
+        store.save(ApiService.GROQ, "https://api.groq.com/openai/v1/chat/completions", "gsk-secret")
 
         val stored = prefs.all.values.map { it.toString() }
-        assertFalse(stored.any { it.contains("sk-ant-secret") })
-        assertEquals(FakeCipher().encrypt("sk-ant-secret"), prefs.getString("CLAUDE.key_enc", null))
+        assertFalse(stored.any { it.contains("gsk-secret") })
+        assertEquals(FakeCipher().encrypt("gsk-secret"), prefs.getString("GROQ.key_enc", null))
     }
 
     @Test
@@ -112,10 +112,10 @@ class ApiSettingsStoreTest {
 
     @Test
     fun `fetched model lists are cached with their time`() {
-        assertNull(store.cachedModels(ApiService.CLAUDE))
-        val lists = ModelLists(text = listOf(AiModel("claude-sonnet-5-5", "Claude Sonnet 5.5")), image = listOf(AiModel("x")))
-        store.saveCachedModels(ApiService.CLAUDE, lists, fetchedAt = 1234L)
-        assertEquals(CachedModels(lists, 1234L), ApiSettingsStore(context, FakeCipher()).cachedModels(ApiService.CLAUDE))
+        assertNull(store.cachedModels(ApiService.GEMINI))
+        val lists = ModelLists(text = listOf(AiModel("gemini-2.5-flash", "Gemini 2.5 Flash")), image = listOf(AiModel("x")))
+        store.saveCachedModels(ApiService.GEMINI, lists, fetchedAt = 1234L)
+        assertEquals(CachedModels(lists, 1234L), ApiSettingsStore(context, FakeCipher()).cachedModels(ApiService.GEMINI))
         assertNull(store.cachedModels(ApiService.GROQ))
     }
 }

@@ -6,9 +6,13 @@ import android.graphics.Color
 import android.graphics.RectF
 import com.caverock.androidsvg.SVG
 import com.caverock.androidsvg.SVGParseException
-import com.smassistant.app.agents.SvgRenderer
 import java.io.ByteArrayOutputStream
 import kotlin.math.roundToInt
+
+/** Draws SVG markup to PNG bytes, or null when the markup can't be drawn. */
+fun interface SvgRenderer {
+    fun render(svg: String): ByteArray?
+}
 
 /** Width of PNGs drawn from SVG: LinkedIn's recommended image width. */
 const val SVG_PNG_WIDTH = 1080

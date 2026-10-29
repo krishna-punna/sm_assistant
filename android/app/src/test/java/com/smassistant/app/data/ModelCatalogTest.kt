@@ -24,21 +24,6 @@ class ModelCatalogTest {
     }
 
     @Test
-    fun `claude lists its models by id with display names`() {
-        val result = fetch(
-            ApiService.CLAUDE,
-            """{"data":[{"id":"claude-sonnet-5-5","display_name":"Claude Sonnet 5.5"},{"id":"claude-haiku-5-5","display_name":"Claude Haiku 5.5"}]}""",
-        )
-        assertEquals(
-            ApiResult.Ok(ModelLists(text = listOf(AiModel("claude-haiku-5-5", "Claude Haiku 5.5"), AiModel("claude-sonnet-5-5", "Claude Sonnet 5.5")))),
-            result,
-        )
-        val request = server.takeRequest()
-        assertEquals("/v1/models", request.path)
-        assertEquals("secret", request.getHeader("x-api-key"))
-    }
-
-    @Test
     fun `gemini splits text and image models and skips ones that can't generate`() {
         val result = fetch(
             ApiService.GEMINI,
@@ -74,8 +59,8 @@ class ModelCatalogTest {
     @Test
     fun `errors and empty lists fail and a missing key sends nothing`() {
         assertEquals(ApiResult.Failed(ApiError.InvalidKey), fetch(ApiService.GROQ, """{"error":{"message":"bad key"}}""", code = 401))
-        assertEquals(ApiResult.Failed(ApiError.BadResponse("no models in the reply")), fetch(ApiService.CLAUDE, """{"data":[]}"""))
-        val noKey = runBlocking { catalog.fetch(ApiService.CLAUDE, ApiConfig(server.url("/").toString(), "")) }
+        assertEquals(ApiResult.Failed(ApiError.BadResponse("no models in the reply")), fetch(ApiService.GROQ, """{"data":[]}"""))
+        val noKey = runBlocking { catalog.fetch(ApiService.GROQ, ApiConfig(server.url("/").toString(), "")) }
         assertEquals(ApiResult.Failed(ApiError.NotConfigured), noKey)
         assertEquals(2, server.requestCount)
     }

@@ -23,7 +23,7 @@ class ApiStatusScreenTest {
             ApiStatusContent(
                 statuses = mapOf(
                     ApiService.LINKEDIN to ConnectionStatus.NoPermission,
-                    ApiService.CLAUDE to ConnectionStatus.Connected,
+                    ApiService.CLOUDFLARE to ConnectionStatus.Connected,
                     ApiService.GEMINI to ConnectionStatus.NotConfigured,
                     ApiService.GROQ to ConnectionStatus.Error(503),
                 ),
