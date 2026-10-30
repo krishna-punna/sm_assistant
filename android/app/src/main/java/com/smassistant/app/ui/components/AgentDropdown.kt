@@ -31,6 +31,7 @@ import com.smassistant.app.data.ApiSettingsStore
 import com.smassistant.app.data.ImageFormat
 import com.smassistant.app.data.MediaPurpose
 import com.smassistant.app.data.forMedia
+import com.smassistant.app.generate.ImageTemplate
 import com.smassistant.app.generate.VIDEO_LENGTHS
 import com.smassistant.app.generate.parseImageTemplates
 import com.smassistant.app.generate.videoLengthLabel
@@ -163,27 +164,49 @@ fun ImageTemplatePickers() {
     val templates = remember { parseImageTemplates(loadPromptAsset(appContext, "image_templates")) }
     var template by remember { mutableStateOf(preferences.imageTemplate?.takeIf { id -> templates.any { it.id == id } }) }
     var format by remember { mutableStateOf(preferences.imageFormat) }
-    SelectDropdown(
-        label = "Template",
-        selected = template,
-        options = listOf<String?>(null) + templates.map { it.id },
-        optionLabel = { id -> if (id == null) "Auto (AI picks)" else templates.firstOrNull { it.id == id }?.name ?: id },
-        onSelect = {
+    TemplateFormatPickers(
+        templates = templates,
+        template = template,
+        format = format,
+        onTemplate = {
             preferences.imageTemplate = it
             template = it
         },
-        testTag = "imageTemplateDropdown",
+        onFormat = {
+            preferences.imageFormat = it
+            format = it
+        },
+    )
+}
+
+/**
+ * The Template (Auto + [templates]) and Format (Auto + 2:3, 1:1, 3:2) pickers, showing [template]
+ * and [format] (null is Auto); the image screens and the scheduler editor keep the choice.
+ */
+@Composable
+fun TemplateFormatPickers(
+    templates: List<ImageTemplate>,
+    template: String?,
+    format: ImageFormat?,
+    onTemplate: (String?) -> Unit,
+    onFormat: (ImageFormat?) -> Unit,
+    testTagPrefix: String = "image",
+) {
+    SelectDropdown(
+        label = "Template",
+        selected = template?.takeIf { id -> templates.any { it.id == id } },
+        options = listOf<String?>(null) + templates.map { it.id },
+        optionLabel = { id -> if (id == null) "Auto (AI picks)" else templates.firstOrNull { it.id == id }?.name ?: id },
+        onSelect = onTemplate,
+        testTag = "${testTagPrefix}TemplateDropdown",
     )
     SelectDropdown(
         label = "Format",
         selected = format,
         options = listOf<ImageFormat?>(null) + ImageFormat.entries,
         optionLabel = { it?.words?.replaceFirstChar { c -> c.uppercase() } ?: "Auto" },
-        onSelect = {
-            preferences.imageFormat = it
-            format = it
-        },
-        testTag = "imageFormatDropdown",
+        onSelect = onFormat,
+        testTag = "${testTagPrefix}FormatDropdown",
     )
 }
 

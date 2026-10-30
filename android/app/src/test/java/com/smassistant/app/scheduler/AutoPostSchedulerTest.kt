@@ -1,5 +1,6 @@
 package com.smassistant.app.scheduler
 
+import com.smassistant.app.data.ImageFormat
 import java.time.DayOfWeek
 import java.time.LocalTime
 import org.junit.Assert.assertEquals
@@ -54,10 +55,12 @@ class AutoPostSchedulerTest {
             schedule = Schedule(Frequency.WEEKLY, LocalTime.of(7, 45), 6, LocalTime.of(8, 0), LocalTime.of(20, 0), setOf(DayOfWeek.MONDAY, DayOfWeek.FRIDAY), 15, true),
             nextTopic = 1,
             recentTitles = listOf("Kafka Partitions Explained"),
-            lastRun = RunRecord(1_700_000_000_000, true, "Posted", "https://www.linkedin.com/feed/update/urn:li:share:1", awaitingReview = true),
+            lastRun = RunRecord(1_700_000_000_000, true, "Posted", "https://www.linkedin.com/feed/update/urn:li:share:1", awaitingReview = true, template = "workflow"),
             reviewFirst = true,
-            pending = PendingPost("Kafka Partitions", "Kafka partitions explained\n\n#java", listOf("/cache/generated/a.png"), 1_700_000_000_000),
+            pending = PendingPost("Kafka Partitions", "Kafka partitions explained\n\n#java", listOf("/cache/generated/a.png"), 1_700_000_000_000, "workflow"),
             nextRunAt = 1_700_000_360_000,
+            imageTemplate = "comparison",
+            imageFormat = ImageFormat.LANDSCAPE,
         )
         assertEquals(listOf(s, AutoPostScheduler(id = "b")), SchedulerJson.decode(SchedulerJson.encode(listOf(s, AutoPostScheduler(id = "b")))))
     }
@@ -71,5 +74,8 @@ class AutoPostSchedulerTest {
         assertEquals(PostType.TEXT, loaded.postType)
         assertEquals(Schedule().time, loaded.schedule.time)
         assertTrue(loaded.enabled)
+        // Older saves have no template or format: both Auto.
+        assertNull(loaded.imageTemplate)
+        assertNull(loaded.imageFormat)
     }
 }

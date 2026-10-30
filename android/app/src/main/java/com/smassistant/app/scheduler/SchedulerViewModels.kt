@@ -1,6 +1,7 @@
 package com.smassistant.app.scheduler
 
 import androidx.lifecycle.ViewModel
+import com.smassistant.app.data.ImageFormat
 import java.io.File
 import java.time.DayOfWeek
 import java.time.Instant
@@ -81,7 +82,8 @@ class SchedulersViewModel(
         reviewing = null
         store.update(id) { scheduler ->
             val title = scheduler.pending?.title.orEmpty()
-            scheduler.copy(pending = null, lastRun = RunRecord(now(), ok = true, message = "Posted “$title”", postUrl = url))
+            val template = scheduler.pending?.template
+            scheduler.copy(pending = null, lastRun = RunRecord(now(), ok = true, message = "Posted “$title”", postUrl = url, template = template))
         }
         refresh()
     }
@@ -126,6 +128,8 @@ class SchedulerEditorViewModel(
     }
 
     fun onPostType(type: PostType) = draft { it.copy(postType = type) }
+    fun onImageTemplate(id: String?) = draft { it.copy(imageTemplate = id) }
+    fun onImageFormat(format: ImageFormat?) = draft { it.copy(imageFormat = format) }
     fun onFrequency(frequency: Frequency) = schedule { it.copy(frequency = frequency) }
     fun onTime(time: LocalTime) = schedule { it.copy(time = time) }
     fun onEveryHours(hours: Int) = schedule { it.copy(everyHours = hours) }
