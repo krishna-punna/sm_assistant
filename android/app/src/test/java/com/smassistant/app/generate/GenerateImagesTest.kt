@@ -9,6 +9,8 @@ import com.smassistant.app.infographic.InfographicPipeline
 import com.smassistant.app.infographic.InfographicRenderer
 import com.smassistant.app.chat.Outcome
 import com.smassistant.app.data.ApiService
+import com.smassistant.app.data.ImageFormat
+import com.smassistant.app.data.ImageStyle
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
 import java.io.File
@@ -213,5 +215,90 @@ class GenerateImagesTest {
             Outcome.Failed(ApiError.BadResponse("the images came back blank or too small"), "Gemini"),
             GenerateImagesUseCase("{{prompt}}", { painter }, 1, inspector = inspector)("x"),
         )
+    }
+
+    private fun template(id: String) = ImageTemplate(id, id.replaceFirstChar { it.uppercase() }, "$id use", "Rules for {{content}} in {{format}} for {{audience}}.")
+
+    private val templateList = listOf("universal", "concept", "architecture", "workflow").map(::template)
+
+    private fun templated(writer: TextAgent, style: ImageStyle = ImageStyle(audience = "devs")) = Infographics(
+        { writer }, InfographicWriter("Plan.{{examples}}"), pipeline, MediaContentWriter("Write it all."),
+        templates = Templates(templateList, TemplateChooser("Choose.{{templates}}", templateList), { style }),
+    )
+
+    @Test
+    fun `the chooser picks templates for the content and each infographic follows its plan`() = runTest {
+        val writer = ScriptedTextAgent(
+            ApiResult.Ok("1. Request flow"),
+            ApiResult.Ok("""{"primary": "workflow", "alternates": ["architecture"]}"""),
+            ApiResult.Ok(caching()),
+        )
+
+        val outcome = GenerateImagesUseCase("{{prompt}}", { null }, 4, infographics = templated(writer)).generate(ImageRequest("Caching"))
+
+        assertEquals(4, (outcome as Outcome.Ok).value.size)
+        assertEquals("Technical content:\n1. Request flow", writer.calls[1].second)
+        val plans = writer.calls.drop(2).map { it.second }
+        listOf(
+            "Image template: Workflow, portrait 2:3.",
+            "Image template: Workflow, landscape 3:2.",
+            "Image template: Architecture, landscape 3:2.",
+            "Image template: Universal, portrait 2:3.",
+        ).forEach { expected -> assertEquals(expected, 1, plans.count { it.contains(expected) }) }
+        plans.forEach {
+            assertTrue(it.contains("Rules for (the technical content above) in "))
+            assertTrue(it.contains(" for devs."))
+            assertEquals(1, Regex("1\\. Request flow").findAll(it).count())
+        }
+    }
+
+    @Test
+    fun `a picked template and format skip the chooser and apply to every image`() = runTest {
+        val writer = ScriptedTextAgent(ApiResult.Ok("1. Request flow"), ApiResult.Ok(caching()))
+
+        GenerateImagesUseCase("{{prompt}}", { null }, 2, infographics = templated(writer))
+            .generate(ImageRequest("Caching", template = "concept", format = ImageFormat.LANDSCAPE))
+
+        assertEquals(3, writer.calls.size)
+        writer.calls.drop(1).forEach { assertTrue(it.second.contains("Image template: Concept, landscape 3:2.")) }
+    }
+
+    @Test
+    fun `a failed choice falls back to the universal template`() = runTest {
+        val writer = ScriptedTextAgent(ApiResult.Ok("1. Request flow"), ApiResult.Ok("no idea"), ApiResult.Ok(caching()))
+
+        GenerateImagesUseCase("{{prompt}}", { null }, 1, infographics = templated(writer)).generate(ImageRequest("Caching"))
+
+        assertTrue(writer.calls.last().second.contains("Image template: Universal, portrait 2:3."))
+    }
+
+    @Test
+    fun `plans the primary in both formats, then an alternate and the universal template`() {
+        val universal = template("universal")
+        val choice = TemplateChoice(template("workflow"), listOf(template("architecture"), template("concept")))
+        assertEquals(
+            listOf(
+                ImagePlan(template("workflow"), ImageFormat.PORTRAIT),
+                ImagePlan(template("workflow"), ImageFormat.LANDSCAPE),
+                ImagePlan(template("architecture"), ImageFormat.LANDSCAPE),
+                ImagePlan(universal, ImageFormat.PORTRAIT),
+            ),
+            planImages(choice, 4, picked = false, universal = universal),
+        )
+        // A universal primary takes the second alternate last; a picked format replaces every format.
+        assertEquals(
+            listOf("universal", "universal", "workflow", "concept"),
+            planImages(TemplateChoice(universal, listOf(template("workflow"), template("concept"))), 4, false, universal).map { it.template.id },
+        )
+        assertEquals(
+            List(3) { ImageFormat.SQUARE },
+            planImages(TemplateChoice(template("concept")), 3, picked = true, universal = universal, format = ImageFormat.SQUARE).map { it.format },
+        )
+    }
+
+    @Test
+    fun `every template has a layout`() {
+        val ids = parseImageTemplates(File("src/main/assets/prompts/image_templates.md").readText()).map { it.id }
+        assertEquals(ids.toSet(), TEMPLATE_LAYOUTS.keys)
     }
 }

@@ -8,6 +8,7 @@ import com.smassistant.app.agents.appAgentSelector
 import com.smassistant.app.agents.appImageAgentSelector
 import com.smassistant.app.chat.Outcome
 import com.smassistant.app.data.AppConfig
+import com.smassistant.app.data.ImageStyle
 import com.smassistant.app.infographic.ImageInspector
 import com.smassistant.app.infographic.InfographicPipeline
 import com.smassistant.app.infographic.InfographicRenderer
@@ -41,6 +42,17 @@ class Infographics(
     val content: MediaContentWriter? = null,
     val reviewer: ImageReviewer? = null,
     val retries: Int = 1,
+    val templates: Templates? = null,
+)
+
+/**
+ * The image templates (docs/design/image-templates.md): all of them, the [chooser] that picks
+ * one for the content, and the user's [style] inputs. Without them each image gets a fixed layout idea.
+ */
+class Templates(
+    val all: List<ImageTemplate>,
+    val chooser: TemplateChooser,
+    val style: () -> ImageStyle = { ImageStyle() },
 )
 
 /** Smallest side an image the image agent paints whole (without a text agent) may have. */
@@ -69,10 +81,13 @@ class GenerateImagesUseCase(
 ) {
     suspend operator fun invoke(prompt: String): Outcome<List<File>> = generate(ImageRequest(prompt))
 
-    /** Generate Image for a [request]; its template and format aren't used yet (docs/tasks IT-I4). */
+    /**
+     * Generate Image for a [request]. With templates set up, the template the user picked (or the
+     * one the chooser picks for the content) and the format the user picked shape every infographic.
+     */
     suspend fun generate(request: ImageRequest): Outcome<List<File>> {
         val topic = request.prompt.trim()
-        infographics?.let { parts -> parts.textAgent()?.let { writer -> return infographics(parts, writer, topic) } }
+        infographics?.let { parts -> parts.textAgent()?.let { writer -> return infographics(parts, writer, topic, request) } }
         val selected = agent() ?: return Outcome.NoAgent
         return when (val result = selected.generate(imagePrompt(topic), count)) {
             is ApiResult.Ok -> painted(selected, topic, result.value)
@@ -97,7 +112,7 @@ class GenerateImagesUseCase(
             ?: Outcome.Failed(ApiError.BadResponse("the images came back blank or too small"), selected.service.displayName)
     }
 
-    private suspend fun infographics(parts: Infographics, writer: TextAgent, topic: String): Outcome<List<File>> {
+    private suspend fun infographics(parts: Infographics, writer: TextAgent, topic: String, request: ImageRequest): Outcome<List<File>> {
         val content = parts.content?.let { step ->
             when (val result = step.write(writer, topic)) {
                 is ApiResult.Failed -> return Outcome.Failed(result.error, writer.service.displayName)
@@ -105,9 +120,13 @@ class GenerateImagesUseCase(
             }
         }.orEmpty()
         val illustrator = agent()
+        val briefs = parts.templates?.let { templates -> briefs(templates, writer, topic, content, request) }
         val outcomes = coroutineScope {
             List(count) { i ->
-                async { infographic(parts, writer, topic, INFOGRAPHIC_LAYOUT_IDEAS[i % INFOGRAPHIC_LAYOUT_IDEAS.size], content, illustrator) }
+                val brief = briefs?.get(i)
+                val idea = brief?.let { "${it.format.words}: ${layoutOf(it.template).sections}" }
+                    ?: INFOGRAPHIC_LAYOUT_IDEAS[i % INFOGRAPHIC_LAYOUT_IDEAS.size]
+                async { infographic(parts, writer, topic, idea, content, illustrator, brief) }
             }.awaitAll()
         }
         val files = outcomes.filterIsInstance<Outcome.Ok<File>>().map { it.value }
@@ -125,12 +144,13 @@ class GenerateImagesUseCase(
         idea: String,
         content: String,
         illustrator: ImageAgent?,
+        brief: ImageBrief? = null,
     ): Outcome<File> {
         val reviewer = parts.reviewer
         var feedback = emptyList<String>()
         var best: Pair<File, Int>? = null
         repeat(parts.retries + 1) {
-            val spec = when (val result = parts.writer.write(writer, topic, idea, content, feedback)) {
+            val spec = when (val result = parts.writer.write(writer, topic, idea, content, feedback, brief)) {
                 is ApiResult.Failed -> return best?.let { Outcome.Ok(it.first) } ?: Outcome.Failed(result.error, writer.service.displayName)
                 is ApiResult.Ok -> result.value
             }
@@ -146,6 +166,19 @@ class GenerateImagesUseCase(
         }
         return best?.let { Outcome.Ok(it.first) }
             ?: Outcome.Failed(ApiError.BadResponse("the infographic couldn't be drawn"), INFOGRAPHIC_RENDERER)
+    }
+
+    /**
+     * One brief per image: the template the user picked, or the chooser's choice for the content
+     * (the topic when there is none), planned over the [count] images by [planImages].
+     */
+    private suspend fun briefs(templates: Templates, writer: TextAgent, topic: String, content: String, request: ImageRequest): List<ImageBrief> {
+        val picked = request.template?.let { id -> templates.all.firstOrNull { it.id == id } }
+        val choice = picked?.let { TemplateChoice(it) } ?: templates.chooser.choose(writer, content.ifBlank { topic })
+        val style = templates.style()
+        val universal = templates.all.byId(UNIVERSAL_TEMPLATE)
+        return planImages(choice, count, picked != null, universal, request.format ?: style.format)
+            .map { ImageBrief(it.template, content, it.format, style) }
     }
 
     private fun imagePrompt(prompt: String) = styleTemplate
@@ -188,7 +221,14 @@ internal fun appInfographics(context: Context, cache: MediaCache, examples: List
         content = appMediaContentWriter(context),
         reviewer = if (checks.visionReview) ImageReviewer(loadPromptAsset(context, "image_review"), ::reviewJpeg, checks.minScore) else null,
         retries = if (checks.visionReview) checks.retries else 0,
+        templates = appTemplates(context),
     )
+}
+
+/** The image templates from `prompts/image_templates.md`, their chooser and the app.yml `image_style`. */
+internal fun appTemplates(context: Context): Templates {
+    val all = parseImageTemplates(loadPromptAsset(context, "image_templates"))
+    return Templates(all, TemplateChooser(loadPromptAsset(context, "choose_template"), all), { AppConfig.imageStyle(context) })
 }
 
 /** Writes the no-limit technical content an image or video represents (docs/requirements/14). */
