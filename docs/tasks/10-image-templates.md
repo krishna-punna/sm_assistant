@@ -8,7 +8,7 @@ Status: planned 2026-10-30, waiting for Krishna's approval. One PR per implement
 | ID | Task | Depends on | Status |
 |----|------|-----------|--------|
 | IT-I1 | `assets/prompts/image_templates.md`: the 10 templates with ids, "Use when" lines and fixed `{{content}}`, `{{audience}}`, `{{style}}`, `{{brand}}`, `{{format}}` slots; sizes adapted to 2:3 / 1:1 / 3:2 (no 4:5, 16:9 or 9:16). `ImageTemplates.kt` parser and `fill(brief)`. No change in the app yet. | — | done |
-| IT-I2 | `prompts/choose_template.md` (the "Choosing the right template" table) and `TemplateChooser`: the text agent classifies the technical content and returns a primary template and up to 2 alternates; anything unusable gives Universal Master. | IT-I1 | todo |
+| IT-I2 | `prompts/choose_template.md` (the "Choosing the right template" table) and `TemplateChooser`: the text agent classifies the technical content and returns a primary template and up to 2 alternates; anything unusable gives Universal Master. | IT-I1 | done |
 | IT-I3 | `ImageBrief` (template, content, audience, style guide, brand name, format), `image_style` in app.yml read by `AppConfig`, `ImageRequest(prompt, template, format)` into `GenerateImagesUseCase`, results as `GeneratedImage(file, template, format)`; `ResultSaver` still restores old results. Behaviour unchanged (Auto everywhere, chooser not called yet). | IT-I1 | todo |
 | IT-I4 | Generate Image (and Content & Image, scheduler) runs the chooser after the content step; `InfographicWriter` gets the filled template's rules as its brief; the 4 images follow the primary / primary other format / alternate / Universal plan; the format comes from the brief; each image shows its template name. | IT-I2, IT-I3 | todo |
 | IT-I5 | Template picker (Auto + 10 names) and Format picker (Auto, Portrait 2:3, Square 1:1, Landscape 3:2) on Image and Content & Image, saved in `AgentPreferences`; Image Style settings screen (audience, brand name, style guide, series on/off, mode). | IT-I4 | todo |
@@ -27,7 +27,7 @@ Status: planned 2026-10-30, waiting for Krishna's approval. One PR per implement
 | ID | Kind | Test | Status |
 |----|------|------|--------|
 | IT-T1 | unit | Asset parses into 10 unique templates, each with `{{content}}`; filling leaves no `{{…}}` or `[PASTE…]`; no asset has `4:5`, `16:9` or `9:16` (`ImageTemplatesTest`). | done |
-| IT-T2 | unit | Chooser reads ids, ignores unknown ones, falls back to Universal on a bad reply or failed call (`TemplateChooserTest`). | todo |
+| IT-T2 | unit | Chooser reads ids, ignores unknown ones, falls back to Universal on a bad reply or failed call (`TemplateChooserTest`). | done |
 | IT-T3 | unit | Generate Image calls content → chooser → 4 writers with the planned templates and formats; a user-picked template skips the chooser (`GenerateImagesTest`). | todo |
 | IT-T4 | unit | Portrait renders at exactly 2:3 for long content; chart and diagram sections render and stay inside their cards (`InfographicRendererTest`). | todo |
 | IT-T5 | unit | Each agent sends the right size field per format (`ImageAgentTest`). | todo |
