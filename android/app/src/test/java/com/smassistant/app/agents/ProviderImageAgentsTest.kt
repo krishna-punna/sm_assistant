@@ -1,6 +1,7 @@
 package com.smassistant.app.agents
 
 import com.smassistant.app.data.ApiConfig
+import com.smassistant.app.data.ImageFormat
 import com.smassistant.app.media.MediaCache
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
@@ -82,6 +83,18 @@ class ProviderImageAgentsTest {
         val body = request.json()
         assertEquals("flux", body.path("model")?.textOrNull)
         assertEquals("b64_json", body.path("response_format")?.textOrNull)
+        assertEquals("1024x1024", body.path("size")?.textOrNull)
+    }
+
+    @Test
+    fun `pollinations asks for the size of the format`() {
+        assertEquals("1024x1536", pollinationsSize(ImageFormat.PORTRAIT))
+        assertEquals("1024x1024", pollinationsSize(ImageFormat.SQUARE))
+        assertEquals("1536x1024", pollinationsSize(ImageFormat.LANDSCAPE))
+        json("""{"data":[{"b64_json":"${base64(png)}"}]}""")
+        val config = ApiConfig(server.url("/v1/chat/completions").toString(), "sk_test", "m", "flux")
+        runBlocking { PollinationsImageAgent({ config }, cache, client).generate("Draw a cache", 1, ImageFormat.PORTRAIT) }
+        assertEquals("1024x1536", server.takeRequest().json().path("size")?.textOrNull)
     }
 
     @Test

@@ -1,6 +1,7 @@
 package com.smassistant.app.agents
 
 import com.smassistant.app.data.ApiConfig
+import com.smassistant.app.data.ImageFormat
 import com.smassistant.app.media.MediaCache
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
@@ -65,6 +66,17 @@ class ImageAgentTest {
         val body = Json.parseToJsonElement(request.body.readUtf8()) as JsonObject
         assertEquals("Draw a URL shortener", body.path("contents", 0, "parts", 0, "text")?.textOrNull)
         assertEquals(2, (body.path("generationConfig", "responseModalities") as JsonArray).size)
+        assertEquals(null, body.path("generationConfig", "imageConfig"))
+    }
+
+    @Test
+    fun `a format is sent as the aspect ratio`() {
+        for ((format, ratio) in listOf(ImageFormat.PORTRAIT to "2:3", ImageFormat.SQUARE to "1:1", ImageFormat.LANDSCAPE to "3:2")) {
+            image(byteArrayOf(1))
+            runBlocking { agent.generate("Draw a URL shortener", 1, format) }
+            val body = Json.parseToJsonElement(server.takeRequest().body.readUtf8()) as JsonObject
+            assertEquals(ratio, body.path("generationConfig", "imageConfig", "aspectRatio")?.textOrNull)
+        }
     }
 
     @Test

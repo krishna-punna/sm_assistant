@@ -2,6 +2,7 @@ package com.smassistant.app.agents
 
 import com.smassistant.app.data.ApiConfig
 import com.smassistant.app.data.ApiService
+import com.smassistant.app.data.ImageFormat
 import com.smassistant.app.media.MediaCache
 import com.smassistant.app.media.extensionFor
 import com.smassistant.app.net.ApiError
@@ -52,32 +53,35 @@ abstract class ProviderImageAgent(
     private val cache: MediaCache,
     protected val client: OkHttpClient,
 ) : ImageAgent {
-    override suspend fun generate(prompt: String, count: Int): ApiResult<List<File>> {
+    override suspend fun generate(prompt: String, count: Int): ApiResult<List<File>> = generate(prompt, count, null)
+
+    override suspend fun generate(prompt: String, count: Int, format: ImageFormat?): ApiResult<List<File>> {
         val current = config()
         if (!current.isUsableImageAgent(service)) return ApiResult.Failed(ApiError.NotConfigured)
         val short = compactPrompt(prompt)
-        val results = coroutineScope { List(count) { async { generateOne(current, short) } }.awaitAll() }
+        val results = coroutineScope { List(count) { async { generateOne(current, short, format) } }.awaitAll() }
         val images = results.filterIsInstance<ApiResult.Ok<ByteArray>>().map { it.value }
         if (images.isEmpty()) return results.first() as ApiResult.Failed
         return ApiResult.Ok(images.map { cache.save(it, imageExtension(it) ?: "png") })
     }
 
-    /** One image's bytes. */
-    protected abstract suspend fun generateOne(config: ApiConfig, prompt: String): ApiResult<ByteArray>
+    /** One image's bytes, in [format] if the provider can do it (null: its default). */
+    protected abstract suspend fun generateOne(config: ApiConfig, prompt: String, format: ImageFormat?): ApiResult<ByteArray>
 
     protected fun bearer(config: ApiConfig) = mapOf("Authorization" to "Bearer ${config.key}")
 }
 
 /**
  * Cloudflare Workers AI: POST {api}/run/{imageModel} with `{"prompt": prompt}`. FLUX answers
- * JSON with a base64 `result.image`; Stable Diffusion answers with the PNG bytes.
+ * JSON with a base64 `result.image`; Stable Diffusion answers with the PNG bytes. FLUX schnell
+ * takes no size, so every image is square whatever format is asked for.
  */
 class CloudflareImageAgent(
     config: () -> ApiConfig,
     cache: MediaCache,
     client: OkHttpClient = Http.generationClient,
 ) : ProviderImageAgent(ApiService.CLOUDFLARE, config, cache, client) {
-    override suspend fun generateOne(config: ApiConfig, prompt: String): ApiResult<ByteArray> {
+    override suspend fun generateOne(config: ApiConfig, prompt: String, format: ImageFormat?): ApiResult<ByteArray> {
         val reply = client.postForBytes(
             url = "${config.apiUrl.trimEnd('/')}/run/${config.imageModel.trim()}",
             headers = bearer(config),
@@ -96,14 +100,14 @@ class CloudflareImageAgent(
 
 /**
  * Pollinations.AI, OpenAI-compatible: POST https://gen.pollinations.ai/v1/images/generations,
- * asking for `b64_json`.
+ * asking for `b64_json` at the [pollinationsSize] of the format.
  */
 class PollinationsImageAgent(
     config: () -> ApiConfig,
     cache: MediaCache,
     client: OkHttpClient = Http.generationClient,
 ) : ProviderImageAgent(ApiService.POLLINATIONS, config, cache, client) {
-    override suspend fun generateOne(config: ApiConfig, prompt: String): ApiResult<ByteArray> {
+    override suspend fun generateOne(config: ApiConfig, prompt: String, format: ImageFormat?): ApiResult<ByteArray> {
         val origin = config.apiUrl.toHttpUrlOrNull()?.newBuilder()?.encodedPath("/")?.query(null)?.build()
             ?: return ApiResult.Failed(ApiError.Unreachable("Invalid API URL"))
         val reply = client.postForBytes(
@@ -113,7 +117,7 @@ class PollinationsImageAgent(
                 put("model", config.imageModel.trim())
                 put("prompt", prompt)
                 put("n", 1)
-                put("size", "1024x1024")
+                put("size", pollinationsSize(format))
                 put("response_format", "b64_json")
             },
         )
@@ -122,6 +126,13 @@ class PollinationsImageAgent(
             is ApiResult.Ok -> base64Image(reply.value.json()?.path("data", 0, "b64_json")?.textOrNull)
         }
     }
+}
+
+/** Pollinations' `size` for [format]: 1024x1536, 1024x1024 (also the default) or 1536x1024. */
+internal fun pollinationsSize(format: ImageFormat?): String = when (format) {
+    ImageFormat.PORTRAIT -> "1024x1536"
+    ImageFormat.LANDSCAPE -> "1536x1024"
+    ImageFormat.SQUARE, null -> "1024x1024"
 }
 
 private fun BinaryReply.isJson() = contentType?.contains("json", ignoreCase = true) == true

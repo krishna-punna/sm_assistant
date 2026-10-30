@@ -2,6 +2,8 @@ package com.smassistant.app.media
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import com.smassistant.app.generate.ImageUpscaler
+import com.smassistant.app.generate.upscaleFactor
 import com.smassistant.app.infographic.ImageFacts
 import com.smassistant.app.infographic.ImageInspector
 import com.smassistant.app.infographic.imageFacts
@@ -64,5 +66,34 @@ suspend fun reviewJpeg(file: File): ByteArray? = withContext(Dispatchers.Default
         }
     } finally {
         bitmap.recycle()
+    }
+}
+
+/**
+ * Upscales a painted image [upscaleFactor] times with filtering and writes it back as PNG. An
+ * image that is big enough, or can't be read or held in memory, is left as it is.
+ */
+object AndroidImageUpscaler : ImageUpscaler {
+    override suspend fun upscale(file: File): File = withContext(Dispatchers.Default) {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(file.absolutePath, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return@withContext file
+        val factor = upscaleFactor(bounds.outWidth, bounds.outHeight)
+        if (factor == 1) return@withContext file
+        try {
+            val decoded = BitmapFactory.decodeFile(file.absolutePath) ?: return@withContext file
+            val scaled = Bitmap.createScaledBitmap(decoded, decoded.width * factor, decoded.height * factor, true)
+            if (scaled !== decoded) decoded.recycle()
+            val target = File(file.parentFile, file.nameWithoutExtension + ".png")
+            try {
+                target.outputStream().use { scaled.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            } finally {
+                scaled.recycle()
+            }
+            if (target != file) file.delete()
+            target
+        } catch (e: OutOfMemoryError) {
+            file
+        }
     }
 }
