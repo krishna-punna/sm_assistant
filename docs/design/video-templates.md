@@ -69,9 +69,9 @@ changes:
 * **Rendering.** "Render the video" and "add the code in post-production" become "the app draws each
   scene from your storyboard, with exact labels, code and charts". "Do not claim that a finished
   video has been rendered" stays.
-* **Format.** The templates default to vertical 9:16 and offer 16:9. The shapes are Krishna's call
-  (the open question below). Until then the plan assumes the image shapes, 2:3, 1:1 and 3:2, picked
-  per template.
+* **Format.** Videos use the standard video sizes only, separate from the image sizes (Krishna,
+  2026-10-30): vertical 9:16 (1080×1920, the default), square 1:1 (1080×1080) and landscape 16:9
+  (1920×1080), picked per template. Images keep 2:3, 1:1 and 3:2.
 
 ### 2. Choosing the template (automatic)
 
@@ -129,18 +129,16 @@ screen, don't invent facts.
 
 ### 7. What the user sees
 
-* The Video screen shows the template under the video ("Workflow · 2:3"). The video file name carries
+* The Video screen shows the template under the video ("Workflow · 9:16"). The video file name carries
   the template and shape, as images do, so saved results keep it.
 * A scheduled video's run history shows it ("Video · Workflow"), with IT-I13.
 
-## Open question for Krishna
+## Decided: video shape
 
-**Video shape.** The templates default to vertical 9:16 and offer 16:9. For images, Krishna's rule is
-2:3, 1:1 or 3:2, never 9:16. Videos are square 1:1 today. The options:
-
-* square 1:1 for every video, as now;
-* 2:3, 1:1 or 3:2 like images, picked per template (recommended);
-* the templates' shapes, vertical 9:16 by default with 1:1 and 16:9.
+Krishna (2026-10-30): image and video sizes must differ, and videos use standard video sizes only.
+A new `VideoFormat` (vertical 9:16, square 1:1, landscape 16:9, at 1080 px on the short side) is
+used for videos; `ImageFormat` stays for images. Each template has a default size: landscape for
+architecture, comparison and data; vertical for the rest.
 
 ## Not in this plan
 
