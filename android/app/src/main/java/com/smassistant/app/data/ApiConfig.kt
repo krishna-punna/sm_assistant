@@ -150,3 +150,66 @@ fun parseImageCheckRules(input: InputStream): ImageCheckRules {
         retries = entry["retries"]?.toString()?.toIntOrNull()?.takeIf { it in 0..3 } ?: defaults.retries,
     )
 }
+
+/** An image shape the app allows (docs/design/image-templates.md): never 4:5, 9:16 or 16:9. */
+enum class ImageFormat(val key: String, val words: String) {
+    PORTRAIT("portrait", "portrait 2:3"),
+    SQUARE("square", "square 1:1"),
+    LANDSCAPE("landscape", "landscape 3:2"),
+    ;
+
+    companion object {
+        /** The format with [key], or null for "auto" and anything unknown. */
+        fun of(key: String?): ImageFormat? = entries.firstOrNull { it.key.equals(key?.trim(), ignoreCase = true) }
+    }
+}
+
+/** How an image is made from its filled template: drawn by the app, painted by the image agent, or both side by side. */
+enum class ImageMode(val key: String) {
+    DRAWN("drawn"),
+    PAINTED("painted"),
+    BOTH("both"),
+    ;
+
+    companion object {
+        fun of(key: String?): ImageMode? = entries.firstOrNull { it.key.equals(key?.trim(), ignoreCase = true) }
+    }
+}
+
+/**
+ * The inputs the image templates take besides the content (docs/design/image-templates.md), from app.yml:
+ *
+ * ```yaml
+ * image_style:
+ *   audience: "developers, senior engineers and architects"
+ *   brand_name: ""
+ *   style_guide: ""
+ *   series: false
+ *   format: auto
+ *   mode: both
+ * ```
+ *
+ * A null [format] is Auto: the app picks one per image. Missing or invalid values fall back to the defaults.
+ */
+data class ImageStyle(
+    val audience: String = "developers, senior engineers and architects",
+    val brandName: String = "",
+    val styleGuide: String = "",
+    val series: Boolean = false,
+    val format: ImageFormat? = null,
+    val mode: ImageMode = ImageMode.BOTH,
+)
+
+fun parseImageStyle(input: InputStream): ImageStyle {
+    val root = Yaml().load<Any?>(input) as? Map<*, *> ?: emptyMap<String, Any?>()
+    val entry = root["image_style"] as? Map<*, *> ?: emptyMap<String, Any?>()
+    val defaults = ImageStyle()
+    return ImageStyle(
+        audience = entry["audience"]?.toString()?.trim() ?: defaults.audience,
+        brandName = entry["brand_name"]?.toString()?.trim() ?: defaults.brandName,
+        styleGuide = entry["style_guide"]?.toString()?.trim() ?: defaults.styleGuide,
+        series = entry["series"]?.toString()?.toBooleanStrictOrNull() ?: defaults.series,
+        format = ImageFormat.of(entry["format"]?.toString()),
+        mode = ImageMode.of(entry["mode"]?.toString()) ?: defaults.mode,
+    )
+}

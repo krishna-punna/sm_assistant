@@ -59,3 +59,17 @@ image_checks:
   vision_review: true
   min_score: 7
   retries: 1
+
+# Inputs for the image prompt templates (docs/design/image-templates.md).
+# audience: who the images are for. brand_name: drawn small on each image when set.
+# style_guide: colours, fonts and layout to keep, e.g. "navy and teal, rounded cards"; empty: a restrained professional style.
+# series: true wraps every image in the Series template, so posts look like one series.
+# format: auto (the app picks per image), portrait (2:3), square (1:1) or landscape (3:2).
+# mode: drawn (the app draws the text), painted (the image agent paints the whole image) or both (two of each).
+image_style:
+  audience: "developers, senior engineers and architects"
+  brand_name: ""
+  style_guide: ""
+  series: false
+  format: auto
+  mode: both
