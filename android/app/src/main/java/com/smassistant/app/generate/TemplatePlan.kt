@@ -2,6 +2,7 @@ package com.smassistant.app.generate
 
 import com.smassistant.app.data.ImageFormat
 import com.smassistant.app.infographic.InfographicFormat
+import java.io.File
 
 /**
  * How a template is drawn by the app (docs/design/image-templates.md, section 6): the formats that
@@ -88,3 +89,25 @@ val ImageFormat.infographic: InfographicFormat
         ImageFormat.SQUARE -> InfographicFormat.SQUARE
         ImageFormat.LANDSCAPE -> InfographicFormat.LANDSCAPE
     }
+
+/** The template and format an image was made with, kept in its file name so saved results keep it too. */
+data class ImageLabel(val templateId: String, val format: ImageFormat)
+
+private val LABELLED = Regex("""^tpl-([a-z]+)-([a-z]+)-""")
+
+/** [file] renamed to carry its template and format; the file itself when it can't be renamed. */
+fun labelImage(file: File, templateId: String, format: ImageFormat): File {
+    val labelled = File(file.parentFile, "tpl-$templateId-${format.key}-${file.name}")
+    return if (file.renameTo(labelled)) labelled else file
+}
+
+/** The template and format in a file name written by [labelImage]; null for other files. */
+fun imageLabel(file: File): ImageLabel? {
+    val match = LABELLED.find(file.name) ?: return null
+    val format = ImageFormat.of(match.groupValues[2]) ?: return null
+    return ImageLabel(match.groupValues[1], format)
+}
+
+/** "Workflow · 2:3": the template's name from [templates] and the format's ratio. */
+fun ImageLabel.text(templates: List<ImageTemplate>): String =
+    "${templates.firstOrNull { it.id == templateId }?.name ?: templateId.replaceFirstChar { it.uppercase() }} · ${format.words.substringAfter(' ')}"
