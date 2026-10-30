@@ -199,7 +199,7 @@ How each template guides the app-drawn plan:
 | Concept Explainer | square or portrait | bullets, one illustration, takeaway | none |
 | Architecture | landscape | **diagram** (components, groups, labelled arrows), bullets | **diagram section** |
 | Comparison | landscape or portrait | compare, table, pros_cons, "when to choose" takeaway | none |
-| Workflow | portrait or landscape | steps, flow (with branches) | branches in **flow** |
+| Workflow | portrait or landscape | steps, flow, a **diagram** when it branches | none (diagram section) |
 | Code | portrait | code (exact, short), bullets explaining it | none (code panel exists) |
 | Checklist | portrait | pros_cons (do/don't), bullets with check/cross | none |
 | Data | landscape or square | **chart** (bars), stats, table | **chart section** |
@@ -268,7 +268,7 @@ One PR per task, in this order (details in [docs/tasks/10](../tasks/10-image-tem
 | 5 | IT-I5 | Template and Format pickers on Image and Content & Image; template label under each image |
 | 6 | IT-I6 | Renderer: portrait capped at 2:3, brand label |
 | 7 | IT-I7 | Renderer: `chart` section (Data template) |
-| 8 | IT-I8 | Renderer: `diagram` section and flow branches (Architecture, Workflow) |
+| 8 | IT-I8 | Renderer: `diagram` section (Architecture; branching Workflows) |
 | 9 | IT-I9 | Template-aware spec checks and vision review |
 | 10 | IT-I10 | Image agents take a size; painted upscale to the minimum |
 | 11 | IT-I11 | AI-painted and Both modes from the filled template |

@@ -135,7 +135,7 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
     }
 
     private fun isAlwaysWide(body: SectionBody) =
-        body is SectionBody.Table && body.columns.size > 2 || body is SectionBody.Compare ||
+        body is SectionBody.Table && body.columns.size > 2 || body is SectionBody.Compare || body is SectionBody.Diagram ||
             body is SectionBody.Flow && body.nodes.size > 3
 
     private fun isWide(body: SectionBody, columnWidth: Float): Boolean = isAlwaysWide(body) ||
@@ -244,6 +244,7 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
         is SectionBody.Stats -> stats(body, width, color, palette)
         is SectionBody.Illustration -> illustration(body, section.icon, width, color, palette)
         is SectionBody.Chart -> chart(body, width, color, palette)
+        is SectionBody.Diagram -> diagram(body, width, palette)
     }
 
     private fun list(
@@ -419,6 +420,100 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
         }
     }
 
+    /**
+     * Nodes in layers by the longest chain of arrows that leads to them, left to right when the
+     * layers fit side by side and top to bottom otherwise. An arrow to the next layer runs straight
+     * between the boxes; one that skips layers runs along a lane above (or beside) the boxes, and one
+     * that points back along a lane below (or on the other side), so no arrow passes under a box.
+     * Arrow labels sit beside their line. Nodes take their group's colour, named in a legend underneath.
+     */
+    private fun diagram(body: SectionBody.Diagram, width: Float, palette: Palette): Block {
+        val layerOf = diagramLayers(body)
+        val layers = body.nodes.groupBy { layerOf.getValue(it.id) }.toSortedMap().values.toList()
+        val groups = body.nodes.mapNotNull { it.group }.distinct()
+        fun colorOf(node: SectionBody.Diagram.Node) = palette.accent(node.group?.let { groups.indexOf(it) } ?: 0)
+        val gap = if (body.edges.any { it.label != null }) 96f else 64f
+        val sideways = (width - (layers.size - 1) * gap) / layers.size >= MIN_DIAGRAM_NODE
+        val longEdges = body.edges.filter { layerOf.getValue(it.to) - layerOf.getValue(it.from) != 1 }
+        val forwardLane = if (longEdges.any { layerOf.getValue(it.to) > layerOf.getValue(it.from) }) DIAGRAM_LANE else 0f
+        val backLane = if (longEdges.any { layerOf.getValue(it.to) < layerOf.getValue(it.from) }) DIAGRAM_LANE else 0f
+        // Box size: one layer per column (sideways), or the widest layer's nodes side by side in a row.
+        val across = if (sideways) layers.size else layers.maxOf { it.size }
+        val usable = if (sideways) width else width - forwardLane - backLane
+        val boxWidth = (usable - (across - 1) * gap) / across
+        val labels = body.nodes.associate { it.id to wrapText(it.label, boxWidth - 20, 20f, measurer, bold = true, maxLines = 3) }
+        val boxHeight = labels.values.maxOf { it.size } * 26f + 26
+        val alongGap = 40f
+        val lineSize = if (sideways) layers.maxOf { it.size } else layers.size
+        val graphHeight = if (sideways) lineSize * boxHeight + (lineSize - 1) * alongGap else layers.size * boxHeight + (layers.size - 1) * gap
+        val top = if (sideways) forwardLane else 0f
+        val legend = if (groups.isEmpty()) 0f else 14 + 28f
+        // Each box's top-left corner, relative to the block.
+        val boxes = mutableMapOf<String, Pair<Float, Float>>()
+        layers.forEachIndexed { li, layer ->
+            if (sideways) {
+                val span = layer.size * boxHeight + (layer.size - 1) * alongGap
+                layer.forEachIndexed { ni, node -> boxes[node.id] = li * (boxWidth + gap) to top + (graphHeight - span) / 2 + ni * (boxHeight + alongGap) }
+            } else {
+                val span = layer.size * boxWidth + (layer.size - 1) * gap
+                layer.forEachIndexed { ni, node -> boxes[node.id] = backLane + (usable - span) / 2 + ni * (boxWidth + gap) to li * (boxHeight + gap) }
+            }
+        }
+        val height = top + graphHeight + (if (sideways) backLane else 0f) + legend
+        return Block(height) { svg, x, y ->
+            val drawnLabels = mutableListOf<Triple<String, Float, Float>>()
+            body.edges.forEach { edge ->
+                val (fx, fy) = boxes.getValue(edge.from).let { (bx, by) -> x + bx to y + by }
+                val (tx, ty) = boxes.getValue(edge.to).let { (bx, by) -> x + bx to y + by }
+                val step = layerOf.getValue(edge.to) - layerOf.getValue(edge.from)
+                val points = when {
+                    step == 1 && sideways -> listOf(fx + boxWidth + 2 to fy + boxHeight / 2, tx - 6 to ty + boxHeight / 2)
+                    step == 1 -> listOf(fx + boxWidth / 2 to fy + boxHeight + 2, tx + boxWidth / 2 to ty - 6)
+                    sideways && step > 1 -> listOf(fx + boxWidth / 2 to fy - 2, fx + boxWidth / 2 to y + 18, tx + boxWidth / 2 to y + 18, tx + boxWidth / 2 to ty - 6)
+                    sideways -> (y + top + graphHeight + backLane - 18).let { lane ->
+                        listOf(fx + boxWidth / 2 to fy + boxHeight + 2, fx + boxWidth / 2 to lane, tx + boxWidth / 2 to lane, tx + boxWidth / 2 to ty + boxHeight + 6)
+                    }
+                    step > 1 -> (x + width - 18).let { lane ->
+                        listOf(fx + boxWidth + 2 to fy + boxHeight / 2, lane to fy + boxHeight / 2, lane to ty + boxHeight / 2, tx + boxWidth + 6 to ty + boxHeight / 2)
+                    }
+                    else -> (x + 18).let { lane ->
+                        listOf(fx - 2 to fy + boxHeight / 2, lane to fy + boxHeight / 2, lane to ty + boxHeight / 2, tx - 6 to ty + boxHeight / 2)
+                    }
+                }
+                svg.arrow(points, palette.mutedText)
+                edge.label?.let { label ->
+                    // Beside the middle segment (a side lane's first one): above a horizontal one, to the right of a vertical one.
+                    val segment = if (points.size == 4 && !sideways) 0 else (points.size - 1) / 2
+                    val (a, b) = points[segment] to points[segment + 1]
+                    val horizontal = kotlin.math.abs(b.first - a.first) >= kotlin.math.abs(b.second - a.second)
+                    val mx = (a.first + b.first) / 2
+                    val my = (a.second + b.second) / 2
+                    drawnLabels += if (horizontal) Triple(label, mx, my - 16) else Triple(label, mx + 8 + measurer.width(label, 17f, false, FontFamily.SANS) / 2 + 6, my)
+                }
+            }
+            drawnLabels.forEach { (label, cx, cy) ->
+                val labelWidth = measurer.width(label, 17f, false, FontFamily.SANS) + 12
+                svg.rect(cx - labelWidth / 2, cy - 12, labelWidth, 24f, fill = palette.card, stroke = palette.cardBorder, rx = 8f)
+                svg.text(label, cx, baseline(cy - 12, 24f, 17f), 17f, palette.mutedText, anchor = "middle")
+            }
+            body.nodes.forEach { node ->
+                val (bx, by) = boxes.getValue(node.id)
+                val color = colorOf(node)
+                val lines = labels.getValue(node.id)
+                svg.rect(x + bx, y + by, boxWidth, boxHeight, fill = mix(color, palette.card, 0.86f), stroke = color, strokeWidth = 2.5f, rx = 12f)
+                svg.lines(lines, x + bx + boxWidth / 2, y + by + (boxHeight - lines.size * 26f) / 2, 20f, 26f, palette.text, bold = true, anchor = "middle")
+            }
+            var lx = x
+            val ly = y + height - 28f
+            groups.forEachIndexed { i, group ->
+                if (lx + 24 + measurer.width(group, 18f, false, FontFamily.SANS) > x + width) return@forEachIndexed
+                svg.rect(lx, ly + 6, 16f, 16f, fill = palette.accent(i), rx = 4f)
+                svg.text(group, lx + 24, baseline(ly, 28f, 18f), 18f, palette.mutedText)
+                lx += 24 + measurer.width(group, 18f, false, FontFamily.SANS) + 28
+            }
+        }
+    }
+
     private fun illustration(body: SectionBody.Illustration, icon: String?, width: Float, color: String, palette: Palette): Block {
         val artHeight = min(width * if (width < 500) 0.75f else 0.56f, MAX_ART_HEIGHT)
         val caption = body.caption?.let { wrapText(it, width, 22f, measurer, maxLines = 3) }.orEmpty()
@@ -432,6 +527,12 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
 
     private companion object {
         const val MARGIN = 48f
+
+        /** Narrowest diagram box when the layers are laid out side by side. */
+        const val MIN_DIAGRAM_NODE = 150f
+
+        /** Room for the arrows that skip layers or point back, beside the diagram's boxes. */
+        const val DIAGRAM_LANE = 36f
 
         /** How much wider than its format a page may be laid out to keep long content at the format's ratio. */
         const val MAX_WIDEN = 2f
@@ -454,6 +555,34 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
 
 /** Baseline that centres a line of [size] text in a line box starting at [top] and [lineHeight] tall. */
 private fun baseline(top: Float, lineHeight: Float, size: Float) = top + lineHeight / 2 + size * 0.35f
+
+/**
+ * Each node's layer: the longest chain of arrows that leads to it (0 for a node nothing points to).
+ * Arrows that close a cycle are ignored, so every node gets a layer.
+ */
+internal fun diagramLayers(body: SectionBody.Diagram): Map<String, Int> {
+    // Drop the arrows that point back into the current path of a depth-first walk, in node order.
+    val outgoing = body.edges.groupBy({ it.from }, { it.to })
+    val kept = mutableListOf<Pair<String, String>>()
+    val done = mutableSetOf<String>()
+    val path = mutableSetOf<String>()
+    fun walk(id: String) {
+        path += id
+        outgoing[id].orEmpty().forEach { to ->
+            if (to in path) return@forEach
+            kept += id to to
+            if (to !in done) walk(to)
+        }
+        path -= id
+        done += id
+    }
+    body.nodes.forEach { if (it.id !in done) walk(it.id) }
+    val incoming = kept.groupBy({ it.second }, { it.first })
+    val layers = mutableMapOf<String, Int>()
+    fun layer(id: String): Int = layers.getOrPut(id) { incoming[id].orEmpty().maxOfOrNull { layer(it) + 1 } ?: 0 }
+    body.nodes.forEach { layer(it.id) }
+    return layers
+}
 
 /** Mixes [color] into [base]: [baseShare] 0 is all [color], 1 all [base]. Both are #RRGGBB. */
 internal fun mix(color: String, base: String, baseShare: Float): String {
