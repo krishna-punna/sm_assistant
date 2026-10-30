@@ -95,4 +95,19 @@ class InfographicSpecTest {
         assertTrue(deck.slides.all { it.format == InfographicFormat.SQUARE && it.palette == Palette.FOREST })
         assertTrue(parseSlideDeck("""{"slides": []}""").isFailure)
     }
+
+    @Test
+    fun `a deck keeps its takeaway and each kept slide's purpose and seconds`() {
+        val deck = parseSlideDeck(
+            """{"takeaway": " Back off ", "slides": [
+                {"title": "One", "purpose": "hook", "seconds": 4.2},
+                {"purpose": "dropped, no title", "seconds": 9},
+                {"title": "Two", "seconds": "x"},
+                {"title": "Three", "seconds": -2}]}""",
+        ).getOrThrow()
+
+        assertEquals("Back off", deck.takeaway)
+        assertEquals(listOf(Scene("hook", 5), Scene(), Scene()), deck.scenes)
+        assertEquals(null, parseSlideDeck("""{"slides": [{"title": "A"}]}""").getOrThrow().takeaway)
+    }
 }

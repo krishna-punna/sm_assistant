@@ -1,5 +1,6 @@
 package com.smassistant.app.infographic
 
+import kotlin.math.ceil
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -77,8 +78,19 @@ sealed interface SectionBody {
     }
 }
 
-/** A video: slides that share one palette, each a square infographic. */
-data class SlideDeck(val slides: List<InfographicSpec>)
+/**
+ * A video's storyboard: slides that share one palette, each a square infographic, the video's
+ * central [takeaway], and for each slide its [Scene] (what it is for and how long it should stay
+ * up), in the same order as [slides].
+ */
+data class SlideDeck(
+    val slides: List<InfographicSpec>,
+    val takeaway: String? = null,
+    val scenes: List<Scene> = slides.map { Scene() },
+)
+
+/** One slide's place in the storyboard: its [purpose] and the [seconds] the model asked for. */
+data class Scene(val purpose: String? = null, val seconds: Int? = null)
 
 /** Upper limits that keep a definition drawable, whatever the model wrote. */
 internal object Limits {
@@ -104,17 +116,23 @@ fun parseInfographic(reply: String): Result<InfographicSpec> =
     jsonObjectIn(reply).mapCatching { spec(it, null, null) }
 
 /**
- * Reads a [SlideDeck] (`{"palette": …, "slides": [ … ]}`): every slide is square and uses the
- * deck's palette. Slides without a title are left out; fails when none is left.
+ * Reads a [SlideDeck] (`{"palette": …, "takeaway": …, "slides": [ … ]}`): every slide is square
+ * and uses the deck's palette, and keeps its `purpose` and `seconds`. Slides without a title are
+ * left out; fails when none is left.
  */
 fun parseSlideDeck(reply: String): Result<SlideDeck> = jsonObjectIn(reply).mapCatching { root ->
     val palette = Palette.of(root.string("palette"))
     val slides = root.array("slides").filterIsInstance<JsonObject>()
-        .mapNotNull { runCatching { spec(it, InfographicFormat.SQUARE, palette) }.getOrNull() }
+        .mapNotNull { slide -> runCatching { spec(slide, InfographicFormat.SQUARE, palette) to scene(slide) }.getOrNull() }
         .take(Limits.SLIDES)
     require(slides.isNotEmpty()) { "no slides in the reply" }
-    SlideDeck(slides)
+    SlideDeck(slides.map { it.first }, root.string("takeaway")?.ifEmpty { null }, slides.map { it.second })
 }
+
+private fun scene(slide: JsonObject) = Scene(
+    purpose = slide.string("purpose")?.ifEmpty { null },
+    seconds = slide.string("seconds")?.toDoubleOrNull()?.takeIf { it > 0 }?.let { ceil(it).toInt() },
+)
 
 private fun jsonObjectIn(reply: String): Result<JsonObject> {
     val start = reply.indexOf('{')
