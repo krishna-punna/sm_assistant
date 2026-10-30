@@ -135,4 +135,18 @@ class AppConfigTest {
         assertEquals(ImageCheckRules(), parseImageCheckRules("image_checks:\n  vision_review: maybe\n  min_score: 11\n  retries: 9".byteInputStream()))
         assertEquals(ImageCheckRules(), File("src/main/assets/app.yml").inputStream().use(::parseImageCheckRules))
     }
+
+    @Test
+    fun `image style comes from app yml with defaults for missing or invalid values`() {
+        assertEquals(
+            ImageStyle("students", "Acme", "navy cards", true, ImageFormat.LANDSCAPE, ImageMode.DRAWN),
+            parseImageStyle(
+                "image_style:\n  audience: students\n  brand_name: Acme\n  style_guide: navy cards\n  series: true\n  format: Landscape\n  mode: drawn"
+                    .byteInputStream(),
+            ),
+        )
+        assertEquals(ImageStyle(), parseImageStyle("apis: {}".byteInputStream()))
+        assertEquals(ImageStyle(), parseImageStyle("image_style:\n  series: maybe\n  format: 4:5\n  mode: video".byteInputStream()))
+        assertEquals(ImageStyle(), File("src/main/assets/app.yml").inputStream().use(::parseImageStyle))
+    }
 }

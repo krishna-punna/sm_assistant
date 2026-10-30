@@ -26,6 +26,11 @@ object AppConfig {
 
     fun imageChecks(context: Context): ImageCheckRules =
         cachedImageChecks ?: context.assets.open("app.yml").use(::parseImageCheckRules).also { cachedImageChecks = it }
+
+    @Volatile private var cachedImageStyle: ImageStyle? = null
+
+    fun imageStyle(context: Context): ImageStyle =
+        cachedImageStyle ?: context.assets.open("app.yml").use(::parseImageStyle).also { cachedImageStyle = it }
 }
 
 /**

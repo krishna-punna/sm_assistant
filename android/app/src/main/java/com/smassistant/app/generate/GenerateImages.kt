@@ -67,8 +67,11 @@ class GenerateImagesUseCase(
     private val infographics: Infographics? = null,
     private val inspector: ImageInspector? = null,
 ) {
-    suspend operator fun invoke(prompt: String): Outcome<List<File>> {
-        val topic = prompt.trim()
+    suspend operator fun invoke(prompt: String): Outcome<List<File>> = generate(ImageRequest(prompt))
+
+    /** Generate Image for a [request]; its template and format aren't used yet (docs/tasks IT-I4). */
+    suspend fun generate(request: ImageRequest): Outcome<List<File>> {
+        val topic = request.prompt.trim()
         infographics?.let { parts -> parts.textAgent()?.let { writer -> return infographics(parts, writer, topic) } }
         val selected = agent() ?: return Outcome.NoAgent
         return when (val result = selected.generate(imagePrompt(topic), count)) {
