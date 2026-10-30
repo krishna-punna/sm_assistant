@@ -223,7 +223,7 @@ explicitly prefer over image-model output.
 The 21 examples in `image_examples.md` get a `template:` tag each, and `pickImageExamples` prefers
 examples of the chosen template before keyword matches. They keep working as layout ideas.
 
-### 9. Video slides
+### 9. Video slides (replaced by [video-templates.md](video-templates.md))
 
 * Slides stay square 1:1 and app-drawn: a video needs the same style on every slide and readable text
   at video size, and painting 4 to 9 slides is slow and inconsistent.
@@ -272,7 +272,7 @@ One PR per task, in this order (details in [docs/tasks/10](../tasks/10-image-tem
 | 9 | IT-I9 | Template-aware spec checks and vision review |
 | 10 | IT-I10 | Image agents take a size; painted upscale to the minimum |
 | 11 | IT-I11 | AI-painted and Both modes from the filled template |
-| 12 | IT-I12 | Video: template per deck and slide, series rules |
+| 12 | IT-I12 | Replaced by [video-templates.md](video-templates.md) (Krishna's own video templates) |
 | 13 | IT-I13 | Scheduler: template in run history, optional per-schedule template and format |
 | 14 | IT-I14 | Few-shot examples tagged by template |
 | 15 | IT-I15 | Image Style settings screen (split out of PR 5) |
