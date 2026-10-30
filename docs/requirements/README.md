@@ -25,6 +25,7 @@ This knowledge base is derived from the wireframe deck [`requirements/SM Assista
 | 13 | [Scheduled LinkedIn posts](13-scheduled-posts.md) | Schedulers that pick a technical topic, prepare a prompt, generate a text, image or video post, check its length and publish it on a schedule | — (request 2026-10-26) |
 | 14 | [Prompt types and the image/video content workflow](14-prompt-types-and-media-workflow.md) | Prompt Type on Prepare Prompt; images and videos drawn from no-limit technical content | — (request 2026-10-27) |
 | 15 | [Image prompt templates](15-image-prompt-templates.md) | Krishna's LinkedIn technical image templates; the AI picks one per content and fills it (plan: [design](../design/image-templates.md)) | — (request 2026-10-30) |
+| 16 | [Video prompt templates](16-video-prompt-templates.md) | Krishna's LinkedIn technical video templates; the agent picks one from the prompt and its technical content and plans the storyboard by it (plan: [design](../design/video-templates.md)) | — (request 2026-10-30) |
 
 ## Slide index
 
