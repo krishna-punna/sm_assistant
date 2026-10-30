@@ -2,6 +2,9 @@ package com.smassistant.app.generate
 
 import com.smassistant.app.agents.TextAgent
 import com.smassistant.app.data.ApiService
+import com.smassistant.app.data.ImageFormat
+import com.smassistant.app.data.ImageStyle
+import com.smassistant.app.infographic.InfographicFormat
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
 import java.io.File
@@ -104,5 +107,17 @@ class InfographicWriterTest {
         val text = File("src/main/assets/prompts/infographic.md").readText()
         assertTrue(text.contains("{{examples}}"))
         com.smassistant.app.infographic.ICONS.keys.forEach { assertTrue(it, text.contains(it)) }
+    }
+
+    @Test
+    fun `a brief sets the format and the user's brand, whatever the model wrote`() = runTest {
+        val agent = ScriptedTextAgent(ApiResult.Ok("""{"title": "Kafka Retries", "format": "portrait", "sections": [{"heading": "Why", "items": ["at least once"]},
+              {"heading": "Backoff", "items": ["double the wait"]}, {"heading": "Dead letters", "items": ["park poison messages"]}]}"""))
+        val brief = ImageBrief(ImageTemplate("t", "T", "", "{{content}} {{format}}"), "", ImageFormat.SQUARE, ImageStyle(brandName = "Acme"))
+
+        val spec = (writer.write(agent, "Kafka retries", "an idea", brief = brief) as ApiResult.Ok).value
+
+        assertEquals(InfographicFormat.SQUARE, spec.format)
+        assertEquals("Acme", spec.brand)
     }
 }

@@ -98,7 +98,7 @@ AndroidSVG can draw:
 - **Footer**: the takeaway on a dark band with a light-bulb icon.
 - Text is wrapped by measuring it (`TextMeasurer`; on the device it measures with the real font
   through `Paint`), since SVG text doesn't wrap. Short content is padded to the format; long
-  content makes a portrait image taller.
+  content is laid out on a wider page at the same ratio (see image-templates.md).
 
 Renderer output for a sample definition, before illustrations are painted in (the tinted panels
 with icons are the illustration slots):
