@@ -10,6 +10,7 @@ import com.smassistant.app.net.ApiResult
 import java.io.File
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -107,6 +108,21 @@ class InfographicWriterTest {
         val text = File("src/main/assets/prompts/infographic.md").readText()
         assertTrue(text.contains("{{examples}}"))
         com.smassistant.app.infographic.ICONS.keys.forEach { assertTrue(it, text.contains(it)) }
+    }
+
+    @Test
+    fun `a style guide asks for the closest palette`() = runTest {
+        val reply = ApiResult.Ok("""{"title": "Kafka Retries", "sections": [{"heading": "Why", "items": ["at least once"]},
+              {"heading": "Backoff", "items": ["double the wait"]}, {"heading": "Dead letters", "items": ["park poison messages"]}]}""")
+        val template = ImageTemplate("t", "T", "", "{{content}} {{style}}")
+        val styled = ScriptedTextAgent(reply)
+        val plain = ScriptedTextAgent(reply)
+
+        writer.write(styled, "Kafka retries", "an idea", brief = ImageBrief(template, "", ImageFormat.SQUARE, ImageStyle(styleGuide = "navy and teal")))
+        writer.write(plain, "Kafka retries", "an idea", brief = ImageBrief(template, "", ImageFormat.SQUARE, ImageStyle()))
+
+        assertTrue(styled.calls.single().second.contains("Pick the palette closest to the style guide \"navy and teal\"."))
+        assertFalse(plain.calls.single().second.contains("Pick the palette"))
     }
 
     @Test

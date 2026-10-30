@@ -81,6 +81,8 @@ class CloudflareImageAgent(
     cache: MediaCache,
     client: OkHttpClient = Http.generationClient,
 ) : ProviderImageAgent(ApiService.CLOUDFLARE, config, cache, client) {
+    override val onlyFormat = ImageFormat.SQUARE
+
     override suspend fun generateOne(config: ApiConfig, prompt: String, format: ImageFormat?): ApiResult<ByteArray> {
         val reply = client.postForBytes(
             url = "${config.apiUrl.trimEnd('/')}/run/${config.imageModel.trim()}",

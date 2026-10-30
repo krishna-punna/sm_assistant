@@ -40,6 +40,9 @@ fun interface ImageAgent {
      * when null. An agent that can't take a size (Cloudflare FLUX, always square) ignores it.
      */
     suspend fun generate(prompt: String, count: Int, format: ImageFormat?): ApiResult<List<File>> = generate(prompt, count)
+
+    /** The one format an agent that can't take a size paints in (Cloudflare FLUX: square), null for the others. */
+    val onlyFormat: ImageFormat? get() = null
 }
 
 /** The ratio Gemini's `imageConfig.aspectRatio` takes for [format]. */

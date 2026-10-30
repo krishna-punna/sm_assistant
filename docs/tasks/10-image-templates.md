@@ -1,7 +1,7 @@
 # 10. Image prompt templates
 
 Requirements: [15](../requirements/15-image-prompt-templates.md). Design: [image-templates.md](../design/image-templates.md).
-Status: planned 2026-10-30, waiting for Krishna's approval. One PR per implementation task, in order.
+Status: done 2026-10-30 (PRs #85 to #104), one PR per task. IT-I12 was replaced by the video templates. Only the device checks below are left.
 
 ## Implementation
 
@@ -41,4 +41,4 @@ Status: planned 2026-10-30, waiting for Krishna's approval. One PR per implement
 |----|-------|--------|
 | IT-V1 | On a device, prompts of each kind (a concept, a system design, X vs Y, a lifecycle, a code snippet, best practices, benchmark numbers, an interview topic) pick the matching template and the images follow it. | todo |
 | IT-V2 | Every image is 2:3, 1:1 or 3:2 and at least 1024 x 1536 / 1536 x 1536 / 1536 x 1024. | todo |
-| IT-V3 | A scheduled image post and a video use the templates without any setting changed. | todo |
+| IT-V3 | A scheduled image post uses the templates without any setting changed (videos: VT-V2). | todo |

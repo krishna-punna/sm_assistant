@@ -98,6 +98,13 @@ class ProviderImageAgentsTest {
     }
 
     @Test
+    fun `only cloudflare is limited to one format, square`() {
+        val config = ApiConfig(server.url("/").toString(), "k", "m", "flux")
+        assertEquals(ImageFormat.SQUARE, CloudflareImageAgent({ config }, cache, client).onlyFormat)
+        assertEquals(null, PollinationsImageAgent({ config }, cache, client).onlyFormat)
+    }
+
+    @Test
     fun `keeps the images that worked and fails when none did`() {
         json("""{"data":[{"b64_json":"${base64(png)}"}]}""")
         json("""{"error":{"message":"busy"}}""", 503)

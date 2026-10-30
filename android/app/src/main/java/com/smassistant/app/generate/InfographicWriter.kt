@@ -64,9 +64,12 @@ private fun templateBlock(brief: ImageBrief?, content: String): String {
     brief ?: return ""
     val source = if (content.isBlank()) "(the topic above)" else "(the technical content above)"
     val rules = brief.copy(content = source).filled()
+    // The style guide's colours become the palette (design §5); the rest of it stays in the template's rules.
+    val palette = brief.style.styleGuide.trim().takeIf { it.isNotEmpty() }
+        ?.let { " Pick the palette closest to the style guide \"$it\"." }.orEmpty()
     return "\n\nImage template: ${brief.template.name}, ${brief.format.words}. Plan the infographic by this template. " +
         "The app draws the image from your JSON, so the template decides what to show and how to arrange it; " +
-        "keep its content rules and turn its design rules into your choice of sections.\n\n$rules"
+        "keep its content rules and turn its design rules into your choice of sections.$palette\n\n$rules"
 }
 
 /**
