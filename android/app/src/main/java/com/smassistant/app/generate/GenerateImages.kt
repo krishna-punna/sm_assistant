@@ -248,15 +248,17 @@ class GenerateImagesUseCase(
     /**
      * One brief per image: the template the user picked, or the chooser's choice for the content
      * (the topic when there is none), planned over the [count] images by [planImages]. The
-     * style's mode decides which are AI-painted ([paints]).
+     * style's mode decides which are AI-painted ([paints]); its series switch wraps every
+     * template in the Series template.
      */
     private suspend fun briefs(templates: Templates, writer: TextAgent, topic: String, content: String, request: ImageRequest): List<ImageBrief> {
         val picked = request.template?.let { id -> templates.all.firstOrNull { it.id == id } }
         val choice = picked?.let { TemplateChoice(it) } ?: templates.chooser.choose(writer, content.ifBlank { topic })
         val style = templates.style()
         val universal = templates.all.byId(UNIVERSAL_TEMPLATE)
+        val series = templates.all.firstOrNull { it.id == SERIES_TEMPLATE }?.takeIf { style.series && choice.primary.id != SERIES_TEMPLATE }
         return planImages(choice, count, picked != null, universal, request.format ?: style.format)
-            .mapIndexed { i, plan -> ImageBrief(plan.template, content, plan.format, style, paints(style.mode, i)) }
+            .mapIndexed { i, plan -> ImageBrief(plan.template, content, plan.format, style, paints(style.mode, i), series) }
     }
 
     private fun imagePrompt(prompt: String) = styleTemplate
@@ -310,13 +312,13 @@ internal fun appInfographics(context: Context, cache: MediaCache, examples: List
     )
 }
 
-/** The image templates from `prompts/image_templates.md`, their chooser, the app.yml `image_style` and the painter. */
+/** The image templates from `prompts/image_templates.md`, their chooser, the Image Style settings and the painter. */
 internal fun appTemplates(context: Context): Templates {
     val all = parseImageTemplates(loadPromptAsset(context, "image_templates"))
     return Templates(
         all,
         TemplateChooser(loadPromptAsset(context, "choose_template"), all),
-        { AppConfig.imageStyle(context) },
+        ImageStyleStore(context)::load,
         ImagePainter(loadPromptAsset(context, "condense_image_prompt")),
     )
 }

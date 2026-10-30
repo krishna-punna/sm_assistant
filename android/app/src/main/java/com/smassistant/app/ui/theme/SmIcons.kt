@@ -4,6 +4,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material.icons.filled.Build as FilledBuild
 import androidx.compose.material.icons.filled.CheckCircle as FilledCheckCircle
+import androidx.compose.material.icons.filled.Create as FilledCreate
 import androidx.compose.material.icons.filled.DateRange as FilledDateRange
 import androidx.compose.material.icons.filled.Edit as FilledEdit
 import androidx.compose.material.icons.filled.Face as FilledFace
@@ -12,6 +13,7 @@ import androidx.compose.material.icons.filled.Share as FilledShare
 import androidx.compose.material.icons.filled.Star as FilledStar
 import androidx.compose.material.icons.outlined.Build as OutlinedBuild
 import androidx.compose.material.icons.outlined.CheckCircle as OutlinedCheckCircle
+import androidx.compose.material.icons.outlined.Create as OutlinedCreate
 import androidx.compose.material.icons.outlined.DateRange as OutlinedDateRange
 import androidx.compose.material.icons.outlined.Edit as OutlinedEdit
 import androidx.compose.material.icons.outlined.Face as OutlinedFace
@@ -20,6 +22,7 @@ import androidx.compose.material.icons.outlined.Share as OutlinedShare
 import androidx.compose.material.icons.outlined.Star as OutlinedStar
 import androidx.compose.material.icons.rounded.Build as RoundedBuild
 import androidx.compose.material.icons.rounded.CheckCircle as RoundedCheckCircle
+import androidx.compose.material.icons.rounded.Create as RoundedCreate
 import androidx.compose.material.icons.rounded.DateRange as RoundedDateRange
 import androidx.compose.material.icons.rounded.Edit as RoundedEdit
 import androidx.compose.material.icons.rounded.Face as RoundedFace
@@ -28,6 +31,7 @@ import androidx.compose.material.icons.rounded.Share as RoundedShare
 import androidx.compose.material.icons.rounded.Star as RoundedStar
 import androidx.compose.material.icons.sharp.Build as SharpBuild
 import androidx.compose.material.icons.sharp.CheckCircle as SharpCheckCircle
+import androidx.compose.material.icons.sharp.Create as SharpCreate
 import androidx.compose.material.icons.sharp.DateRange as SharpDateRange
 import androidx.compose.material.icons.sharp.Edit as SharpEdit
 import androidx.compose.material.icons.sharp.Face as SharpFace
@@ -36,6 +40,7 @@ import androidx.compose.material.icons.sharp.Share as SharpShare
 import androidx.compose.material.icons.sharp.Star as SharpStar
 import androidx.compose.material.icons.twotone.Build as TwoToneBuild
 import androidx.compose.material.icons.twotone.CheckCircle as TwoToneCheckCircle
+import androidx.compose.material.icons.twotone.Create as TwoToneCreate
 import androidx.compose.material.icons.twotone.DateRange as TwoToneDateRange
 import androidx.compose.material.icons.twotone.Edit as TwoToneEdit
 import androidx.compose.material.icons.twotone.Face as TwoToneFace
@@ -73,6 +78,7 @@ enum class SmIcon(
         Icons.Filled.FilledDateRange, Icons.Outlined.OutlinedDateRange, Icons.Rounded.RoundedDateRange,
         Icons.Sharp.SharpDateRange, Icons.TwoTone.TwoToneDateRange,
     ),
+    IMAGE_STYLE(Icons.Filled.FilledCreate, Icons.Outlined.OutlinedCreate, Icons.Rounded.RoundedCreate, Icons.Sharp.SharpCreate, Icons.TwoTone.TwoToneCreate),
     THEMES(Icons.Filled.FilledStar, Icons.Outlined.OutlinedStar, Icons.Rounded.RoundedStar, Icons.Sharp.SharpStar, Icons.TwoTone.TwoToneStar),
     HOME(Icons.Filled.FilledHome, Icons.Outlined.OutlinedHome, Icons.Rounded.RoundedHome, Icons.Sharp.SharpHome, Icons.TwoTone.TwoToneHome);
 

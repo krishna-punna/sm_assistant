@@ -391,6 +391,22 @@ class GenerateImagesTest {
     }
 
     @Test
+    fun `with the series style on every template is wrapped in the series rules`() = runTest {
+        val writer = ScriptedTextAgent(ApiResult.Ok("1. Request flow"), ApiResult.Ok(caching()))
+        val series = ImageTemplate("series", "Series Style", "never picked", "Series rules for {{content}}: follow {{style}} in {{format}}.")
+        val parts = Infographics(
+            { writer }, InfographicWriter("Plan.{{examples}}"), pipeline, MediaContentWriter("Write it all."),
+            templates = Templates(templateList + series, TemplateChooser("Choose.{{templates}}", templateList), { ImageStyle(audience = "devs", styleGuide = "navy", series = true) }),
+        )
+
+        GenerateImagesUseCase("{{prompt}}", { null }, 1, infographics = parts).generate(ImageRequest("Caching", template = "concept"))
+
+        val plan = writer.calls.last().second
+        assertTrue(plan.contains("Rules for (the technical content above) in square 1:1 for devs."))
+        assertTrue(plan.contains("Series rules for (the technical content above): follow navy in square 1:1."))
+    }
+
+    @Test
     fun `a failed choice falls back to the universal template`() = runTest {
         val writer = ScriptedTextAgent(ApiResult.Ok("1. Request flow"), ApiResult.Ok("no idea"), ApiResult.Ok(caching()))
 

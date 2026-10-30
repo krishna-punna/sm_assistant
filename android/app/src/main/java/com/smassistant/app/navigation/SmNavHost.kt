@@ -17,6 +17,7 @@ import com.smassistant.app.ui.screens.ContentAndVideoScreen
 import com.smassistant.app.ui.screens.DefaultHashtagsScreen
 import com.smassistant.app.ui.screens.HomeScreen
 import com.smassistant.app.ui.screens.ImageScreen
+import com.smassistant.app.ui.screens.ImageStyleScreen
 import com.smassistant.app.ui.screens.LinkedInSettingsScreen
 import com.smassistant.app.ui.screens.PreparePromptScreen
 import com.smassistant.app.ui.screens.SchedulerEditorScreen
@@ -105,6 +106,9 @@ fun SmNavHost(
         }
         composable(Routes.API_STATUS) {
             ApiStatusScreen(onBackToHome = backToHome)
+        }
+        composable(Routes.IMAGE_STYLE) {
+            ImageStyleScreen(onBackToHome = backToHome)
         }
         composable(Routes.THEMES) {
             ThemesScreen(onApply = onThemeChosen, onBackToHome = backToHome)
