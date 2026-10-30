@@ -61,6 +61,9 @@ class InfographicRendererTest {
         assertEquals(1620, renderer.render(short).height)
         assertEquals(1080, renderer.render(short.copy(format = InfographicFormat.SQUARE)).height)
         renderer.render(short.copy(format = InfographicFormat.LANDSCAPE)).let { assertEquals(1620, it.width); assertEquals(1080, it.height) }
+        // The video sizes (docs/design/video-templates.md): 9:16 and 16:9.
+        renderer.render(short.copy(format = InfographicFormat.VERTICAL)).let { assertEquals(1080, it.width); assertEquals(1920, it.height) }
+        renderer.render(short.copy(format = InfographicFormat.WIDE)).let { assertEquals(1920, it.width); assertEquals(1080, it.height) }
         for ((format, ratio) in listOf(InfographicFormat.PORTRAIT to 1.5f, InfographicFormat.LANDSCAPE to 2 / 3f)) {
             renderer.render(spec.copy(format = format)).let {
                 assertTrue("$format", it.width >= format.width)

@@ -2,6 +2,7 @@ package com.smassistant.app.chat
 
 import com.smassistant.app.generate.ContentAndMedia
 import com.smassistant.app.generate.GeneratedVideo
+import com.smassistant.app.generate.VideoFormat
 import com.smassistant.app.prompt.PreparedPrompt
 import com.smassistant.app.prompt.PromptSet
 import com.smassistant.app.prompt.PromptType
@@ -43,6 +44,10 @@ class ResultSaverTest {
         // Saved before the length option: 4 seconds a slide.
         val old = JsonObject((VideoSaver.save(video) as JsonObject) - "seconds")
         assertEquals(8, VideoSaver.restore(old)?.seconds)
+        // Saved before the video sizes: square.
+        val wide = video.copy(format = VideoFormat.LANDSCAPE)
+        assertEquals(wide, roundTrip(VideoSaver, wide))
+        assertEquals(VideoFormat.SQUARE, VideoSaver.restore(JsonObject((VideoSaver.save(video) as JsonObject) - "format"))?.format)
 
         val saved = ImagesSaver.save(images)
         images[1].delete()

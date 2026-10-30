@@ -91,11 +91,13 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
         val footer = if (spec.takeaway != null || brand != null) footer(spec.takeaway, brand, width, palette) else null
 
         val contentHeight = header.height + GAP + bodyHeight + GAP + (footer?.height ?: 0f)
-        // The format's ratio, the sample images' sizes (2:3, 1:1, 3:2).
+        // The format's ratio: the sample images' sizes (2:3, 1:1, 3:2), or a video's (9:16, 16:9).
         val ratioHeight = when (spec.format) {
             InfographicFormat.PORTRAIT -> width * 1.5f
             InfographicFormat.SQUARE -> width
             InfographicFormat.LANDSCAPE -> width * 2 / 3
+            InfographicFormat.VERTICAL -> width * 16 / 9
+            InfographicFormat.WIDE -> width * 9 / 16
         }
         val fits = contentHeight <= ratioHeight + 0.5f
         val height = max(contentHeight, ratioHeight)
@@ -127,9 +129,9 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
     /** Something drawn at an (x, y) that is decided after its [height] is known. */
     private class Block(val height: Float, val draw: (Svg, Float, Float) -> Unit)
 
-    /** 2 columns (3 for landscape) at the format's width, and one more for each such column a wider page has room for. */
+    /** 2 columns (3 for landscape and wide) at the format's width, and one more for each such column a wider page has room for. */
     private fun columnsFor(spec: InfographicSpec, width: Float): Int {
-        val base = if (spec.format == InfographicFormat.LANDSCAPE) 3 else 2
+        val base = if (spec.format.isWide) 3 else 2
         val room = max(base, floor(width / (spec.format.width / base.toFloat())).toInt())
         return min(room, max(1, spec.sections.count { !isAlwaysWide(it.body) }))
     }
@@ -146,7 +148,7 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
     private fun header(spec: InfographicSpec, width: Float): Block {
         val palette = spec.palette
         val art = when {
-            spec.hero != null -> if (spec.format == InfographicFormat.LANDSCAPE) 260f else 230f
+            spec.hero != null -> if (spec.format.isWide) 260f else 230f
             spec.icon != null -> 132f
             else -> 0f
         }
@@ -699,3 +701,5 @@ private class Svg {
 
     private fun escape(text: String) = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
 }
+
+private val InfographicFormat.isWide get() = this == InfographicFormat.LANDSCAPE || this == InfographicFormat.WIDE

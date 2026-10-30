@@ -3,6 +3,7 @@ package com.smassistant.app.generate
 import com.smassistant.app.agents.ImageAgent
 import com.smassistant.app.chat.Outcome
 import com.smassistant.app.infographic.InfographicComposer
+import com.smassistant.app.infographic.InfographicFormat
 import com.smassistant.app.infographic.InfographicPipeline
 import com.smassistant.app.infographic.InfographicRenderer
 import com.smassistant.app.media.SlideshowMaker
@@ -27,9 +28,11 @@ class GenerateVideoTest {
     private var encoded: List<File>? = null
     private var slideMillis = emptyList<Long>()
     private var encodeResult: (File) -> Result<File> = { Result.success(it) }
-    private val maker = SlideshowMaker { slides, output, millis ->
+    private var size = 0 to 0
+    private val maker = SlideshowMaker { slides, output, millis, width, height ->
         encoded = slides
         slideMillis = millis
+        size = width to height
         encodeResult(output)
     }
     private var seconds = DEFAULT_VIDEO_SECONDS
@@ -216,13 +219,41 @@ class GenerateVideoTest {
         assertEquals("Technical content:\n1. Request arrives\n2. Retry", chooseUser)
         assertEquals(
             "Topic: Write a post on retries\n\nTechnical content to represent:\n1. Request arrives\n2. Retry" +
-                "\n\nVideo template: Workflow or Lifecycle, square 1:1, 30 seconds. Plan the slides by this template. " +
+                "\n\nVideo template: Workflow or Lifecycle, vertical 9:16, 30 seconds. Plan the slides by this template. " +
                 "The app draws every slide from your JSON and plays them in order without sound, so the template decides " +
                 "the story and what each slide shows; keep its content rules and turn its scenes into slides.\n\n" +
-                "Steps of (the technical content above), 30 seconds, square 1:1, for developers, senior engineers and architects.",
+                "Steps of (the technical content above), 30 seconds, vertical 9:16, for developers, senior engineers and architects.",
             writer.calls[2].second,
         )
         assertEquals(3, writer.calls.size)
+    }
+
+    @Test
+    fun `the template sets the video size and every slide is drawn at it`() = runTest {
+        val wide = videoTemplates + ImageTemplate("architecture", "Architecture Walkthrough", "parts", "Parts of {{content}}, {{format}}.")
+        val drawnFormats = mutableListOf<InfographicFormat>()
+        val sizing = InfographicPipeline(InfographicRenderer(), "{{prompt}}", InfographicComposer { rendered, _ ->
+            synchronized(drawnFormats) { drawnFormats += if (rendered.width > rendered.height) InfographicFormat.WIDE else InfographicFormat.VERTICAL }
+            File("${drawnFormats.size}.png")
+        })
+        val writer = ScriptedTextAgent(ApiResult.Ok("""{"primary": "architecture"}"""), ApiResult.Ok(deck))
+        val useCase = GenerateVideoUseCase(
+            "slide {{slide}} of {{slides}}: {{prompt}}", { agent }, maker, { File("out.mp4") }, seconds = { seconds },
+            decks = SlideDecks({ writer }, SlideDeckWriter("Plan {{format}}."), sizing, templates = Templates(wide, TemplateChooser("{{templates}}", wide))),
+        )
+
+        assertTrue(useCase("Order service") is Outcome.Ok)
+        assertEquals(1920 to 1080, size)
+        assertEquals(List(4) { InfographicFormat.WIDE }, drawnFormats)
+        assertEquals("Plan landscape 16:9.", writer.calls[1].first)
+    }
+
+    @Test
+    fun `videos without a template are vertical 9:16`() = runTest {
+        deckUseCase(ScriptedTextAgent(ApiResult.Ok(deck)))("x")
+        assertEquals(1080 to 1920, size)
+        useCase()("x")
+        assertEquals(1080 to 1920, size)
     }
 
     @Test
@@ -245,6 +276,6 @@ class GenerateVideoTest {
     @Test
     fun `video deck asset keeps its placeholders`() {
         val text = File("src/main/assets/prompts/video_deck.md").readText()
-        listOf("{{slides}}", "{{seconds}}", "{{examples}}").forEach { assertTrue(it, text.contains(it)) }
+        listOf("{{slides}}", "{{seconds}}", "{{format}}", "{{examples}}").forEach { assertTrue(it, text.contains(it)) }
     }
 }

@@ -40,6 +40,18 @@ enum class InfographicFormat(val key: String, val width: Int) {
 
     /** 3:2 wide poster for architectures. */
     LANDSCAPE("landscape", 1620),
+
+    /** 9:16, for vertical video slides only (docs/design/video-templates.md); never an image. */
+    VERTICAL("vertical", 1080),
+
+    /** 16:9, for landscape video slides only; never an image. */
+    WIDE("wide", 1920),
+    ;
+
+    companion object {
+        /** The formats an image may have (2:3, 1:1, 3:2); 9:16 and 16:9 are for video slides only. */
+        val IMAGE = listOf(PORTRAIT, SQUARE, LANDSCAPE)
+    }
 }
 
 data class Section(val heading: String, val body: SectionBody, val icon: String? = null)
@@ -79,7 +91,7 @@ sealed interface SectionBody {
 }
 
 /**
- * A video's storyboard: slides that share one palette, each a square infographic, the video's
+ * A video's storyboard: slides that share one palette, each an infographic in the video's format, the video's
  * central [takeaway], and for each slide its [Scene] (what it is for and how long it should stay
  * up), in the same order as [slides].
  */
@@ -153,7 +165,7 @@ private fun spec(json: JsonObject, format: InfographicFormat?, palette: Palette?
         title = title.clip(80),
         highlight = json.string("highlight")?.takeIf { it.isNotBlank() },
         subtitle = json.string("subtitle")?.takeIf { it.isNotBlank() }?.clip(),
-        format = format ?: InfographicFormat.entries.firstOrNull { it.key == json.string("format")?.lowercase() }
+        format = format ?: InfographicFormat.IMAGE.firstOrNull { it.key == json.string("format")?.lowercase() }
             ?: InfographicFormat.PORTRAIT,
         palette = palette ?: Palette.of(json.string("palette")),
         icon = json.string("icon")?.lowercase()?.takeIf { it in ICONS },

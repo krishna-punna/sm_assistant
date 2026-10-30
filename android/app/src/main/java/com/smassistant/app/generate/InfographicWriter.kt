@@ -75,7 +75,7 @@ private fun templateBlock(brief: ImageBrief?, content: String): String {
 /**
  * The video's "LLM generates content" step: one call plans every slide ([systemPrompt] is
  * `prompts/video_deck.md`, `{{slides}}` the slide count, `{{seconds}}` how long each slide
- * shows, `{{examples}}` the closest few-shot examples), so the slides tell one story in one palette. Asked once more if the reply isn't a usable deck
+ * shows, `{{format}}` the video's size, `{{examples}}` the closest few-shot examples), so the slides tell one story in one palette. Asked once more if the reply isn't a usable deck
  * or fails [slideDeckProblems]. A [brief] adds the video template the storyboard follows.
  */
 class SlideDeckWriter(
@@ -93,6 +93,7 @@ class SlideDeckWriter(
         val system = systemPrompt
             .replace("{{slides}}", slides.toString())
             .replace("{{seconds}}", secondsPerSlide.toString())
+            .replace("{{format}}", (brief?.format ?: DEFAULT_VIDEO_FORMAT).words)
             .replace("{{examples}}", formatImageExamples(pickImageExamples(examples, topic, template = brief?.template?.id)))
         val user = "Topic: $topic${contentBlock(content)}${videoTemplateBlock(brief, content)}"
         return askTwice(agent, system, user, ::parseSlideDeck, ::slideDeckProblems)
@@ -106,7 +107,7 @@ class SlideDeckWriter(
 private fun videoTemplateBlock(brief: VideoBrief?, content: String): String {
     brief ?: return ""
     val source = if (content.isBlank()) "(the topic above)" else "(the technical content above)"
-    return "\n\nVideo template: ${brief.template.name}, ${brief.format}, ${brief.seconds} seconds. Plan the slides by this template. " +
+    return "\n\nVideo template: ${brief.template.name}, ${brief.format.words}, ${brief.seconds} seconds. Plan the slides by this template. " +
         "The app draws every slide from your JSON and plays them in order without sound, so the template decides " +
         "the story and what each slide shows; keep its content rules and turn its scenes into slides.\n\n" +
         brief.copy(content = source).filled()
