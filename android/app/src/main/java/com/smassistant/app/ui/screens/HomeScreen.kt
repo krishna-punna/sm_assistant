@@ -23,6 +23,7 @@ fun HomeScreen(onNavigate: (String) -> Unit) {
         MenuButton("Scheduled Posts", SmIcon.SCHEDULE) { onNavigate(Routes.SCHEDULERS) }
         MenuButton("Default Hash Tags", SmIcon.HASHTAGS) { onNavigate(Routes.DEFAULT_HASHTAGS) }
         MenuButton("API Status", SmIcon.STATUS) { onNavigate(Routes.API_STATUS) }
+        MenuButton("Image Style", SmIcon.IMAGE_STYLE) { onNavigate(Routes.IMAGE_STYLE) }
         MenuButton("Themes", SmIcon.THEMES) { onNavigate(Routes.THEMES) }
     }
 }

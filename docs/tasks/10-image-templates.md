@@ -21,7 +21,7 @@ Status: planned 2026-10-30, waiting for Krishna's approval. One PR per implement
 | IT-I12 | Video: replaced by Krishna's own video templates (2026-10-30), see [11-video-templates.md](11-video-templates.md). | IT-I4 | replaced |
 | IT-I13 | Scheduler: run history shows the template used; a schedule can fix a template and format (default Auto) in `SchedulerStore`. | IT-I5 | done |
 | IT-I14 | `image_examples.md`: a `template:` tag on each of the 21 examples; `pickImageExamples` prefers examples of the chosen template. | IT-I4 | done |
-| IT-I15 | Image Style settings screen (audience, brand name, style guide, series on/off, mode), overriding app.yml `image_style`. Split out of IT-I5. | IT-I5 | todo |
+| IT-I15 | Image Style settings screen (audience, brand name, style guide, series on/off, mode), overriding app.yml `image_style`. Split out of IT-I5. | IT-I5 | done |
 
 ## Tests
 

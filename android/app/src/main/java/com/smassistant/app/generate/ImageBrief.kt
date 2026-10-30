@@ -17,6 +17,7 @@ data class ImageRequest(
  * Everything one image is made from (the template file's "If you are automating" fields): the
  * [template], the technical [content] it represents, its [format] and the user's [style] inputs.
  * A [painted] image is painted by the image agent from the filled template instead of drawn by the app.
+ * With the style's "Keep a series style" on, the [series] template wraps the template.
  */
 data class ImageBrief(
     val template: ImageTemplate,
@@ -24,7 +25,13 @@ data class ImageBrief(
     val format: ImageFormat,
     val style: ImageStyle = ImageStyle(),
     val painted: Boolean = false,
+    val series: ImageTemplate? = null,
 ) {
-    /** The template filled with the content and the style inputs. */
-    fun filled(): String = template.fill(content, format.words, style.audience, style.styleGuide, style.brandName)
+    /** The template filled with the content and the style inputs, then the series rules when there are any. */
+    fun filled(): String {
+        val filled = template.fill(content, format.words, style.audience, style.styleGuide, style.brandName)
+        val wrap = series ?: return filled
+        // The content and the audience and brand lines are already in the template above.
+        return filled.trimEnd() + "\n\n" + wrap.fill("(the technical content above)", format.words, style = style.styleGuide)
+    }
 }

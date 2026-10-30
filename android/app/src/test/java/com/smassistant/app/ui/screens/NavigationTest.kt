@@ -54,6 +54,7 @@ class NavigationTest {
             "SM Assistant" to Routes.HUB,
             "Scheduled Posts" to Routes.SCHEDULERS,
             "Default Hash Tags" to Routes.DEFAULT_HASHTAGS,
+            "Image Style" to Routes.IMAGE_STYLE,
             "Themes" to Routes.THEMES,
         ).forEach { (button, expected) ->
             click(button)
