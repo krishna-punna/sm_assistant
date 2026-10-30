@@ -38,17 +38,17 @@ class ImageTemplatePickersTest {
         compose.setContent { ImageTemplatePickers() }
 
         compose.onNodeWithTag("imageTemplateDropdown").assertTextEquals("Auto (AI picks) ▾").performClick()
-        assertShown("✓ Auto (AI picks)")
-        assertShown("Universal Master")
-        assertShown("Concept Explainer")
-        assertShown("Architecture Diagram")
-        assertShown("Comparison")
-        assertShown("Workflow")
-        assertShown("Code Visual")
-        assertShown("Checklist")
-        assertShown("Data and Metrics")
-        assertShown("Learning Visual")
-        assertShown("Series Style")
+        assertTrue("✓ Auto (AI picks)", compose.onAllNodesWithText("✓ Auto (AI picks)", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
+        assertTrue("Universal Master", compose.onAllNodesWithText("Universal Master", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
+        assertTrue("Concept Explainer", compose.onAllNodesWithText("Concept Explainer", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
+        assertTrue("Architecture Diagram", compose.onAllNodesWithText("Architecture Diagram", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
+        assertTrue("Comparison", compose.onAllNodesWithText("Comparison", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
+        assertTrue("Workflow", compose.onAllNodesWithText("Workflow", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
+        assertTrue("Code Visual", compose.onAllNodesWithText("Code Visual", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
+        assertTrue("Checklist", compose.onAllNodesWithText("Checklist", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
+        assertTrue("Data and Metrics", compose.onAllNodesWithText("Data and Metrics", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
+        assertTrue("Learning Visual", compose.onAllNodesWithText("Learning Visual", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
+        assertTrue("Series Style", compose.onAllNodesWithText("Series Style", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
         pick("Workflow")
         compose.onNodeWithTag("imageTemplateDropdown").assertTextEquals("Workflow ▾")
 
@@ -59,10 +59,6 @@ class ImageTemplatePickersTest {
         val preferences = AgentPreferences(context)
         assertEquals("workflow", preferences.imageTemplate)
         assertEquals(ImageFormat.LANDSCAPE, preferences.imageFormat)
-    }
-
-    private fun assertShown(text: String) {
-        assertTrue(text, compose.onAllNodesWithText(text, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
     }
 
     /**
