@@ -1,6 +1,6 @@
 # Image prompt templates
 
-Status: **plan, waiting for Krishna's approval** (2026-10-30). Nothing here is implemented yet.
+Status: **plan, waiting for Krishna's approval** (2026-10-30). Mode decided: Both (app-drawn and AI-painted side by side). Nothing here is implemented yet.
 Source: Krishna's template file, kept as [requirements 15](../requirements/15-image-prompt-templates.md).
 Tasks: [docs/tasks/10-image-templates.md](../tasks/10-image-templates.md).
 
@@ -164,22 +164,22 @@ image_style:
   style_guide: ""        # e.g. "navy and teal, rounded cards, brand name bottom right"
   series: false          # true: wrap every image in the Series template with the style guide
   format: auto           # auto | portrait | square | landscape
-  mode: drawn            # drawn | painted | both (see section 6)
+  mode: both             # drawn | painted | both (see section 6); Krishna chose both
 ```
 
 In app-drawn mode, `style_guide` is turned into renderer choices where it can be (palette, dark
 background); the rest is passed to the writer as text. `brand_name` is drawn by the renderer as a
 small footer label (new), so it is always spelled right.
 
-### 6. App-drawn vs AI-painted (decision for Krishna)
+### 6. App-drawn and AI-painted (Krishna chose Both, 2026-10-30)
 
 The templates are written for an image model that paints the whole picture. The app moved away from
 that in PR #57/#58 because diffusion models misspell and blur the text a technical cheat sheet needs,
 and the template file says the same in its final recommendations ("for exact labels, code, charts and
 architecture diagrams, use AI for the visual draft and a deterministic renderer for final text and
-geometry"). So the plan supports both, with app-drawn as the default:
+geometry"). So the app supports all three modes. Krishna chose **Both** as the default (2026-10-30), so real posts can compare them:
 
-* **App-drawn (recommended default).** The filled template becomes the brief for `InfographicWriter`:
+* **App-drawn.** The filled template becomes the brief for `InfographicWriter`:
   its TASK, CONTENT RULES and DESIGN RULES are added to the user message, and the template decides
   the section types the writer should lean on (table below). The renderer draws all text, so it stays
   exact; AI illustrations stay text-free.
@@ -189,7 +189,7 @@ geometry"). So the plan supports both, with app-drawn as the default:
   Universal template is about 2,700 characters before the content is added), so for them the text
   agent first condenses the filled template into one image prompt of at most 1,500 characters. Every
   painted image goes through the pixel checks and the vision review, which is stricter about text.
-* **Both.** Images 1 and 3 drawn, 2 and 4 painted, so the user can compare on real posts.
+* **Both (default).** Images 1 and 3 drawn, 2 and 4 painted, so the user can compare on real posts. With no image agent that can paint, all 4 are drawn. Video stays drawn (section 9).
 
 How each template guides the app-drawn plan:
 
@@ -276,5 +276,4 @@ One PR per task, in this order (details in [docs/tasks/10](../tasks/10-image-tem
 | 13 | IT-I13 | Scheduler: template in run history, optional per-schedule template and format |
 | 14 | IT-I14 | Few-shot examples tagged by template |
 
-PRs 7, 8, 13 and 14 can be dropped or reordered without breaking the rest. If Krishna chooses
-app-drawn only, PR 11 is dropped and PR 10 shrinks to illustration sizes.
+PRs 7, 8, 13 and 14 can be dropped or reordered without breaking the rest. Until PR 11 lands, all 4 images are app-drawn.
