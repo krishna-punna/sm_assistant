@@ -38,8 +38,17 @@ class ImageTemplatePickersTest {
         compose.setContent { ImageTemplatePickers() }
 
         compose.onNodeWithTag("imageTemplateDropdown").assertTextEquals("Auto (AI picks) ▾").performClick()
-        listOf("Universal Master", "Concept Explainer", "Architecture Diagram", "Comparison", "Code Visual", "Checklist", "Data and Metrics", "Learning Visual", "Series Style")
-            .forEach { assertTrue(it, compose.onAllNodesWithText(it, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()) }
+        assertShown("✓ Auto (AI picks)")
+        assertShown("Universal Master")
+        assertShown("Concept Explainer")
+        assertShown("Architecture Diagram")
+        assertShown("Comparison")
+        assertShown("Workflow")
+        assertShown("Code Visual")
+        assertShown("Checklist")
+        assertShown("Data and Metrics")
+        assertShown("Learning Visual")
+        assertShown("Series Style")
         pick("Workflow")
         compose.onNodeWithTag("imageTemplateDropdown").assertTextEquals("Workflow ▾")
 
@@ -50,6 +59,10 @@ class ImageTemplatePickersTest {
         val preferences = AgentPreferences(context)
         assertEquals("workflow", preferences.imageTemplate)
         assertEquals(ImageFormat.LANDSCAPE, preferences.imageFormat)
+    }
+
+    private fun assertShown(text: String) {
+        assertTrue(text, compose.onAllNodesWithText(text, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
     }
 
     /**
