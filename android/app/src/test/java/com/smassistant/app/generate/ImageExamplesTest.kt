@@ -6,14 +6,14 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ImageExamplesTest {
-    private fun example(title: String, vararg keywords: String) =
-        ImageExample(title, keywords.toList(), "$title topic", "$title image")
+    private fun example(title: String, vararg keywords: String, template: String? = null) =
+        ImageExample(title, keywords.toList(), "$title topic", "$title image", template)
 
     private val examples = listOf(
-        example("ArrayList", "java", "arraylist", "collections"),
-        example("Retry", "retry", "spring boot", "microservices"),
-        example("SQL", "sql", "database"),
-        example("HashMap", "java", "hashmap", "collections", "red-black tree"),
+        example("ArrayList", "java", "arraylist", "collections", template = "learning"),
+        example("Retry", "retry", "spring boot", "microservices", template = "architecture"),
+        example("SQL", "sql", "database", template = "code"),
+        example("HashMap", "java", "hashmap", "collections", "red-black tree", template = "learning"),
     )
 
     @Test
@@ -23,13 +23,14 @@ class ImageExamplesTest {
             ---
             Title: One
             Keywords: Java, HashMap ,
+            Template: Learning
             Topic: Topic one
             Image prompt: A poster: with a colon
             ---
             Title: Missing prompt
             Topic: nothing else
         """.trimIndent()
-        assertEquals(listOf(ImageExample("One", listOf("java", "hashmap"), "Topic one", "A poster: with a colon")), parseImageExamples(text))
+        assertEquals(listOf(ImageExample("One", listOf("java", "hashmap"), "Topic one", "A poster: with a colon", "learning")), parseImageExamples(text))
     }
 
     @Test
@@ -37,6 +38,17 @@ class ImageExamplesTest {
         val picked = pickImageExamples(examples, "How Java HashMap collections use a red-black tree", limit = 2)
         assertEquals(listOf("HashMap", "ArrayList"), picked.map { it.title })
         assertEquals(listOf("Retry"), pickImageExamples(examples, "Retry with Spring Boot.").map { it.title })
+    }
+
+    @Test
+    fun `examples of the chosen template come first, then keyword matches`() {
+        assertEquals(
+            listOf("HashMap", "ArrayList", "SQL"),
+            pickImageExamples(examples, "SQL tuning for a HashMap cache", template = "learning").map { it.title },
+        )
+        assertEquals(listOf("Retry"), pickImageExamples(examples, "Kubernetes pods", template = "architecture").map { it.title })
+        // A template no example has changes nothing.
+        assertEquals(listOf("ArrayList", "Retry", "SQL"), pickImageExamples(examples, "Kubernetes pods", template = "data").map { it.title })
     }
 
     @Test
@@ -62,6 +74,9 @@ class ImageExamplesTest {
         val parsed = parseImageExamples(File("src/main/assets/prompts/image_examples.md").readText())
         assertEquals(21, parsed.size)
         assertTrue(parsed.all { it.keywords.isNotEmpty() })
+        // Every example is tagged with a template the app has (never the Series template, which the chooser never picks).
+        val ids = parseImageTemplates(File("src/main/assets/prompts/image_templates.md").readText()).map { it.id }.toSet() - SERIES_TEMPLATE
+        parsed.forEach { assertTrue("${it.title}: ${it.template}", it.template in ids) }
         assertTrue(File("src/main/assets/prompts/image.md").readText().contains("{{examples}}"))
     }
 }
