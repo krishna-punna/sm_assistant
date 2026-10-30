@@ -39,6 +39,18 @@ class ImageReviewer(
         }
     }
 
+    /**
+     * Like [review], for an image the image agent painted from [template]: there is no plan to
+     * compare with, and garbled or misspelt text, the main risk of a painted image, counts as a problem.
+     */
+    suspend fun reviewPainted(agent: TextAgent, topic: String, image: File, template: ImageTemplate): ImageReview? {
+        val jpeg = preview(image) ?: return null
+        return when (val result = agent.see(systemPrompt, paintedReviewRequest(topic, template), jpeg)) {
+            is ApiResult.Failed -> null
+            is ApiResult.Ok -> parseImageReview(result.value)
+        }
+    }
+
     fun passes(review: ImageReview) = review.score >= minScore
 }
 
@@ -56,6 +68,14 @@ internal fun reviewRequest(topic: String, spec: InfographicSpec, template: Image
         append("\nImage template: ").append(template!!.name).append(". Also check these rules of the template (as problem 7):\n")
         rules.forEach { append("- ").append(it).append('\n') }
     }
+}.trimEnd()
+
+internal fun paintedReviewRequest(topic: String, template: ImageTemplate) = buildString {
+    append("Topic: ").append(topic.trim()).append("\n\n")
+    append("This image was painted by an image model from the image template below, so there is no planned title or sections: skip problem 2. ")
+    append("Be strict about problems 3 and 4: any misspelt, garbled or made-up word in the image is a problem.\n")
+    append("\nImage template: ").append(template.name).append(". Also check these rules of the template (as problem 7):\n")
+    templateRules(template).forEach { append("- ").append(it).append('\n') }
 }.trimEnd()
 
 /** The rules a template lists as "- " lines (its content rules, and design rules where it has them). */

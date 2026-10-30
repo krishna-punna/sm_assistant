@@ -50,12 +50,14 @@ class Infographics(
 
 /**
  * The image templates (docs/design/image-templates.md): all of them, the [chooser] that picks
- * one for the content, and the user's [style] inputs. Without them each image gets a fixed layout idea.
+ * one for the content, the user's [style] inputs and the [painter] that writes the prompt of an
+ * AI-painted image (without it every image is drawn). Without them each image gets a fixed layout idea.
  */
 class Templates(
     val all: List<ImageTemplate>,
     val chooser: TemplateChooser,
     val style: () -> ImageStyle = { ImageStyle() },
+    val painter: ImagePainter? = null,
 )
 
 /** Smallest side an image the image agent paints whole (without a text agent) may have. */
@@ -151,8 +153,19 @@ class GenerateImagesUseCase(
                 val idea = brief?.let { "${it.format.words}: ${layoutOf(it.template).sections}" }
                     ?: INFOGRAPHIC_LAYOUT_IDEAS[i % INFOGRAPHIC_LAYOUT_IDEAS.size]
                 async {
-                    val outcome = infographic(parts, writer, topic, idea, content, illustrator, brief)
-                    if (brief != null && outcome is Outcome.Ok) Outcome.Ok(labelImage(outcome.value, brief.template.id, brief.format)) else outcome
+                    val painter = parts.templates?.painter
+                    val painted = if (brief != null && brief.painted && painter != null && illustrator != null) {
+                        painted(parts, painter, writer, topic, illustrator, brief)
+                    } else {
+                        null
+                    }
+                    if (painted != null) {
+                        Outcome.Ok(labelImage(painted, brief!!.template.id, brief.format, painted = true))
+                    } else {
+                        // A painted image that couldn't be made is drawn instead.
+                        val outcome = infographic(parts, writer, topic, idea, content, illustrator, brief)
+                        if (brief != null && outcome is Outcome.Ok) Outcome.Ok(labelImage(outcome.value, brief.template.id, brief.format)) else outcome
+                    }
                 }
             }.awaitAll()
         }
@@ -196,8 +209,46 @@ class GenerateImagesUseCase(
     }
 
     /**
+     * One AI-painted image (docs/design/image-templates.md §6): painted from the filled template,
+     * checked for blank or tiny pixels, upscaled and reviewed. One the review scores too low is
+     * painted again with the review's problems, up to [Infographics.retries] times, and the
+     * best-scored is kept. Null when no image passed the pixel checks.
+     */
+    private suspend fun painted(
+        parts: Infographics,
+        painter: ImagePainter,
+        writer: TextAgent,
+        topic: String,
+        illustrator: ImageAgent,
+        brief: ImageBrief,
+    ): File? {
+        val reviewer = parts.reviewer
+        var feedback = emptyList<String>()
+        var best: Pair<File, Int>? = null
+        val filled = if (brief.content.isBlank()) brief.copy(content = topic) else brief
+        repeat(parts.retries + 1) {
+            val prompt = painter.prompt(writer, illustrator, filled, feedback)
+            val image = when (val result = illustrator.generate(prompt, 1, brief.format)) {
+                is ApiResult.Failed -> return best?.first
+                is ApiResult.Ok -> result.value.firstOrNull()
+            }?.takeIf { file -> inspector?.let { imageProblem(it.facts(file), MIN_PAINTED_SIDE) == null } ?: true }
+            if (image == null) {
+                feedback = listOf("the image came out blank or too small")
+                return@repeat
+            }
+            val file = upscaler?.upscale(image) ?: image
+            val review = reviewer?.reviewPainted(writer, topic, file, brief.template) ?: return file
+            if (reviewer.passes(review)) return file
+            if (best == null || review.score > best!!.second) best = file to review.score
+            feedback = review.problems.ifEmpty { listOf("it scored ${review.score}/10; make it clearer and closer to the topic") }
+        }
+        return best?.first
+    }
+
+    /**
      * One brief per image: the template the user picked, or the chooser's choice for the content
-     * (the topic when there is none), planned over the [count] images by [planImages].
+     * (the topic when there is none), planned over the [count] images by [planImages]. The
+     * style's mode decides which are AI-painted ([paints]).
      */
     private suspend fun briefs(templates: Templates, writer: TextAgent, topic: String, content: String, request: ImageRequest): List<ImageBrief> {
         val picked = request.template?.let { id -> templates.all.firstOrNull { it.id == id } }
@@ -205,7 +256,7 @@ class GenerateImagesUseCase(
         val style = templates.style()
         val universal = templates.all.byId(UNIVERSAL_TEMPLATE)
         return planImages(choice, count, picked != null, universal, request.format ?: style.format)
-            .map { ImageBrief(it.template, content, it.format, style) }
+            .mapIndexed { i, plan -> ImageBrief(plan.template, content, plan.format, style, paints(style.mode, i)) }
     }
 
     private fun imagePrompt(prompt: String) = styleTemplate
@@ -259,10 +310,15 @@ internal fun appInfographics(context: Context, cache: MediaCache, examples: List
     )
 }
 
-/** The image templates from `prompts/image_templates.md`, their chooser and the app.yml `image_style`. */
+/** The image templates from `prompts/image_templates.md`, their chooser, the app.yml `image_style` and the painter. */
 internal fun appTemplates(context: Context): Templates {
     val all = parseImageTemplates(loadPromptAsset(context, "image_templates"))
-    return Templates(all, TemplateChooser(loadPromptAsset(context, "choose_template"), all), { AppConfig.imageStyle(context) })
+    return Templates(
+        all,
+        TemplateChooser(loadPromptAsset(context, "choose_template"), all),
+        { AppConfig.imageStyle(context) },
+        ImagePainter(loadPromptAsset(context, "condense_image_prompt")),
+    )
 }
 
 /** Writes the no-limit technical content an image or video represents (docs/requirements/14). */

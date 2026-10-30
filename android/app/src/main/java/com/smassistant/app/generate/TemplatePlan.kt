@@ -90,14 +90,17 @@ val ImageFormat.infographic: InfographicFormat
         ImageFormat.LANDSCAPE -> InfographicFormat.LANDSCAPE
     }
 
-/** The template and format an image was made with, kept in its file name so saved results keep it too. */
-data class ImageLabel(val templateId: String, val format: ImageFormat)
+/**
+ * The template and format an image was made with, and whether it was AI-[painted], kept in its file
+ * name so saved results keep it too.
+ */
+data class ImageLabel(val templateId: String, val format: ImageFormat, val painted: Boolean = false)
 
-private val LABELLED = Regex("""^tpl-([a-z]+)-([a-z]+)-""")
+private val LABELLED = Regex("""^tpl-([a-z]+)-([a-z]+)-(painted-)?""")
 
 /** [file] renamed to carry its template and format; the file itself when it can't be renamed. */
-fun labelImage(file: File, templateId: String, format: ImageFormat): File {
-    val labelled = File(file.parentFile, "tpl-$templateId-${format.key}-${file.name}")
+fun labelImage(file: File, templateId: String, format: ImageFormat, painted: Boolean = false): File {
+    val labelled = File(file.parentFile, "tpl-$templateId-${format.key}-${if (painted) "painted-" else ""}${file.name}")
     return if (file.renameTo(labelled)) labelled else file
 }
 
@@ -105,9 +108,10 @@ fun labelImage(file: File, templateId: String, format: ImageFormat): File {
 fun imageLabel(file: File): ImageLabel? {
     val match = LABELLED.find(file.name) ?: return null
     val format = ImageFormat.of(match.groupValues[2]) ?: return null
-    return ImageLabel(match.groupValues[1], format)
+    return ImageLabel(match.groupValues[1], format, match.groupValues[3].isNotEmpty())
 }
 
-/** "Workflow · 2:3": the template's name from [templates] and the format's ratio. */
+/** "Workflow · 2:3" ("Workflow · 2:3 · AI" when painted): the template's name from [templates] and the format's ratio. */
 fun ImageLabel.text(templates: List<ImageTemplate>): String =
-    "${templates.firstOrNull { it.id == templateId }?.name ?: templateId.replaceFirstChar { it.uppercase() }} · ${format.words.substringAfter(' ')}"
+    "${templates.firstOrNull { it.id == templateId }?.name ?: templateId.replaceFirstChar { it.uppercase() }} · ${format.words.substringAfter(' ')}" +
+        if (painted) " · AI" else ""

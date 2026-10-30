@@ -16,12 +16,14 @@ data class ImageRequest(
 /**
  * Everything one image is made from (the template file's "If you are automating" fields): the
  * [template], the technical [content] it represents, its [format] and the user's [style] inputs.
+ * A [painted] image is painted by the image agent from the filled template instead of drawn by the app.
  */
 data class ImageBrief(
     val template: ImageTemplate,
     val content: String,
     val format: ImageFormat,
     val style: ImageStyle = ImageStyle(),
+    val painted: Boolean = false,
 ) {
     /** The template filled with the content and the style inputs. */
     fun filled(): String = template.fill(content, format.words, style.audience, style.styleGuide, style.brandName)

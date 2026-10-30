@@ -36,4 +36,17 @@ class ImageLabelTest {
         assertEquals("Workflow · 2:3", ImageLabel("workflow", ImageFormat.PORTRAIT).text(templates))
         assertEquals("Data · 3:2", ImageLabel("data", ImageFormat.LANDSCAPE).text(templates))
     }
+
+    @Test
+    fun `a painted image's label says it is AI-painted`() {
+        val dir = Files.createTempDirectory("labels").toFile()
+        val file = File(dir, "a.png").apply { writeText("png") }
+
+        val labelled = labelImage(file, "workflow", ImageFormat.PORTRAIT, painted = true)
+
+        assertEquals("tpl-workflow-portrait-painted-a.png", labelled.name)
+        assertEquals(ImageLabel("workflow", ImageFormat.PORTRAIT, painted = true), imageLabel(labelled))
+        assertEquals("Workflow · 2:3 · AI", imageLabel(labelled)!!.text(listOf(ImageTemplate("workflow", "Workflow", "", ""))))
+        dir.deleteRecursively()
+    }
 }
