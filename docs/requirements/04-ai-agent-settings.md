@@ -10,13 +10,12 @@ Lets the user configure the AI providers ("AI agents") the app uses to prepare p
 
 | Agent | Settings screen | Fields |
 |-------|-----------------|--------|
-| **Claude AI Agent** (Anthropic) | S4, slide 3 right | *Claude APIs*, *Claude API Key* |
 | **Gemini AI Agent** (Google) | S5, slide 4 left | *Gemini APIs*, *Gemini API Key* |
 | **Groq AI Agent** (Groq) | S6, slide 4 right | *Groq APIs*, *Groq API Key* |
 | **Cloudflare AI Agent** ([Workers AI](https://developers.cloudflare.com/workers-ai/)) | added 2026-10-26 | *Cloudflare APIs*, *Cloudflare Account ID*, *Cloudflare API Key* (an API token with Workers AI permission), model, image model |
 | **Pollinations.AI AI Agent** ([gen.pollinations.ai](https://enter.pollinations.ai)) | added 2026-10-26 | *Pollinations.AI APIs*, *Pollinations.AI API Key* (a secret `sk_` key), model, image model |
 
-The two newer agents write text and make images. A Hugging Face agent was added on 2026-10-26 and removed on 2026-10-28 at Krishna's request, because its Inference Providers aren't free (they answer 402 once the small monthly credit is used up).
+The two newer agents write text and make images. A Hugging Face agent was added on 2026-10-26 and removed on 2026-10-28 at Krishna's request, because its Inference Providers aren't free (they answer 402 once the small monthly credit is used up). The Claude (Anthropic) agent from the original design (S4) was removed on 2026-10-29 at Krishna's request; the Anthropic API is paid-only.
 
 | Agent | Text | Images | Model lists |
 |-------|------|--------|-------------|
@@ -29,7 +28,7 @@ Diffusion models read only the start of a prompt (and Cloudflare's FLUX takes at
 
 - Entry: Home → **AI Agent**.
 - Section chip "AI Agent".
-- One full-width row/button per agent: *Claude*, *Gemini*, *Groq*, *Cloudflare* and *Pollinations.AI AI Agent*, each opening its settings screen.
+- One full-width row/button per agent: *Gemini*, *Groq*, *Cloudflare* and *Pollinations.AI AI Agent*, each opening its settings screen.
 - **Back to Home** footer.
 
 ## Agent settings screen (S4–S6)
@@ -47,7 +46,7 @@ All three screens share one layout:
 
 ## Functional requirements
 
-- **AG-1** The user can open settings for each of Claude, Gemini, Groq, Cloudflare and Pollinations.AI from the AI Agent list.
+- **AG-1** The user can open settings for each of Gemini, Groq, Cloudflare and Pollinations.AI from the AI Agent list.
 - **AG-2** For each agent, the user can enter and edit the API value and API key, and save them.
 - **AG-3** Saved values persist across restarts and are pre-filled when the screen is reopened.
 - **AG-4** Agents are configured independently; configuring one does not require the others.
@@ -61,4 +60,4 @@ All three screens share one layout:
 
 ## Notes on capabilities *(inferred)*
 
-Not every provider can produce every output type. Text is available on all five; image generation is available from Gemini (Imagen/Gemini image models), Cloudflare and Pollinations.AI (FLUX and Stable Diffusion models), and Claude draws SVG infographics; Groq does not generate images. Video generation needs a video-capable model (e.g. Google Veo). This affects how features map to agents (Q-05, Q-08).
+Not every provider can produce every output type. Text is available on all four; image generation is available from Gemini (Imagen/Gemini image models), Cloudflare and Pollinations.AI (FLUX and Stable Diffusion models); Groq does not generate images. Video generation needs a video-capable model (e.g. Google Veo). This affects how features map to agents (Q-05, Q-08).

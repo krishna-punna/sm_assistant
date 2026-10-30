@@ -12,7 +12,7 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** Longest side of the JPEG a vision model is shown; Claude and Gemini scale larger images down to about this. */
+/** Longest side of the JPEG a vision model is shown; Gemini scales larger images down to about this. */
 private const val REVIEW_SIDE = 1568
 
 /** About how many pixels across the inspector reads, which is enough to tell a blank image. */

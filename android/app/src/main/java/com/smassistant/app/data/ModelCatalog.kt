@@ -65,11 +65,6 @@ open class ModelCatalog(private val client: OkHttpClient = Http.client) {
         config.apiUrl.toHttpUrlOrNull()?.newBuilder()?.encodedPath("/")?.query(null)?.fragment(null)?.build()
 
     internal fun parse(service: ApiService, json: JsonObject): ModelLists = when (service) {
-        ApiService.CLAUDE -> ModelLists(
-            text = entries(json, "data").mapNotNull { m ->
-                m.path("id")?.textOrNull?.let { AiModel(it, m.path("display_name")?.textOrNull ?: it) }
-            }.sortedBy { it.id },
-        )
         ApiService.GEMINI -> {
             val models = entries(json, "models").mapNotNull { m ->
                 val methods = (m.path("supportedGenerationMethods") as? JsonArray)?.mapNotNull { it.textOrNull }.orEmpty()

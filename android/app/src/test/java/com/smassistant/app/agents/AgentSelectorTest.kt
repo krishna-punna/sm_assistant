@@ -25,19 +25,19 @@ class AgentSelectorTest {
 
     @Test
     fun `uses the preferred agent when it is set up`() {
-        val all = setOf(ApiService.CLAUDE, ApiService.GEMINI, ApiService.GROQ)
+        val all = setOf(ApiService.CLOUDFLARE, ApiService.GEMINI, ApiService.GROQ)
         assertEquals(ApiService.GROQ, selector(all, preferred = ApiService.GROQ).textAgent()?.service)
     }
 
     @Test
     fun `falls back to the first set-up agent`() {
-        assertEquals(ApiService.GEMINI, selector(setOf(ApiService.GEMINI, ApiService.GROQ), ApiService.CLAUDE).textAgent()?.service)
-        assertEquals(ApiService.CLAUDE, selector(setOf(ApiService.CLAUDE, ApiService.GROQ)).textAgent()?.service)
+        assertEquals(ApiService.GEMINI, selector(setOf(ApiService.GEMINI, ApiService.GROQ), ApiService.CLOUDFLARE).textAgent()?.service)
+        assertEquals(ApiService.GROQ, selector(setOf(ApiService.CLOUDFLARE, ApiService.GROQ)).textAgent()?.service)
     }
 
     @Test
     fun `none set up gives null`() {
-        assertNull(selector(emptySet(), ApiService.CLAUDE).textAgent())
+        assertNull(selector(emptySet(), ApiService.GEMINI).textAgent())
     }
 
     @Test
@@ -61,12 +61,12 @@ class ImageAgentSelectorTest {
     )
 
     @Test
-    fun `Gemini is the default and Claude is used when chosen or alone`() {
-        val both = setOf(ApiService.GEMINI, ApiService.CLAUDE)
+    fun `Gemini is the default and Cloudflare is used when chosen or alone`() {
+        val both = setOf(ApiService.GEMINI, ApiService.CLOUDFLARE)
         assertEquals(ApiService.GEMINI, selector(both).imageAgent()?.service)
-        assertEquals(ApiService.CLAUDE, selector(both, preferred = ApiService.CLAUDE).imageAgent()?.service)
-        assertEquals(ApiService.CLAUDE, selector(setOf(ApiService.CLAUDE)).imageAgent()?.service)
-        assertEquals(ApiService.GEMINI, selector(setOf(ApiService.GEMINI), preferred = ApiService.CLAUDE).imageAgent()?.service)
+        assertEquals(ApiService.CLOUDFLARE, selector(both, preferred = ApiService.CLOUDFLARE).imageAgent()?.service)
+        assertEquals(ApiService.CLOUDFLARE, selector(setOf(ApiService.CLOUDFLARE)).imageAgent()?.service)
+        assertEquals(ApiService.GEMINI, selector(setOf(ApiService.GEMINI), preferred = ApiService.CLOUDFLARE).imageAgent()?.service)
     }
 
     @Test
@@ -75,11 +75,9 @@ class ImageAgentSelectorTest {
     }
 
     @Test
-    fun `Gemini needs an image model and Claude a text model`() {
+    fun `Gemini needs an image model and text-only agents can't make images`() {
         assertEquals(false, ApiConfig("https://x", "k", "m", "").isUsableImageAgent(ApiService.GEMINI))
         assertEquals(true, ApiConfig("https://x", "k", "", "img").isUsableImageAgent(ApiService.GEMINI))
-        assertEquals(false, ApiConfig("https://x", "k", "", "").isUsableImageAgent(ApiService.CLAUDE))
-        assertEquals(true, ApiConfig("https://x", "k", "m").isUsableImageAgent(ApiService.CLAUDE))
         assertEquals(false, ApiConfig("https://x", "k", "m", "img").isUsableImageAgent(ApiService.GROQ))
     }
     @Test
@@ -117,8 +115,8 @@ class AgentPreferencesTest {
         assertNull(prefs.defaultImageAgent)
 
         prefs.defaultTextAgent = ApiService.GROQ
-        prefs.defaultImageAgent = ApiService.CLAUDE
-        assertEquals(ApiService.CLAUDE, AgentPreferences(context).defaultImageAgent)
+        prefs.defaultImageAgent = ApiService.POLLINATIONS
+        assertEquals(ApiService.POLLINATIONS, AgentPreferences(context).defaultImageAgent)
         assertEquals(ApiService.GROQ, AgentPreferences(context).defaultTextAgent)
 
         context.getSharedPreferences("agent_settings", Context.MODE_PRIVATE).edit()
@@ -132,11 +130,25 @@ class AgentPreferencesTest {
         val prefs = AgentPreferences(context)
         assertNull(prefs.defaultVideoAgent)
 
-        prefs.defaultImageAgent = ApiService.CLAUDE
-        assertEquals(ApiService.CLAUDE, prefs.defaultMediaAgent(MediaPurpose.VIDEO))
+        prefs.defaultImageAgent = ApiService.POLLINATIONS
+        assertEquals(ApiService.POLLINATIONS, prefs.defaultMediaAgent(MediaPurpose.VIDEO))
 
         prefs.setDefaultMediaAgent(MediaPurpose.VIDEO, ApiService.GEMINI)
         assertEquals(ApiService.GEMINI, AgentPreferences(context).defaultVideoAgent)
-        assertEquals(ApiService.CLAUDE, AgentPreferences(context).defaultMediaAgent(MediaPurpose.IMAGE))
+        assertEquals(ApiService.POLLINATIONS, AgentPreferences(context).defaultMediaAgent(MediaPurpose.IMAGE))
+    }
+
+    @Test
+    fun `a saved Claude default is ignored now that Claude is gone`() {
+        val context: Context = ApplicationProvider.getApplicationContext()
+        context.getSharedPreferences("agent_settings", Context.MODE_PRIVATE).edit()
+            .putString("default_text_agent", "CLAUDE")
+            .putString("default_image_agent", "CLAUDE")
+            .putString("default_video_agent", "CLAUDE")
+            .commit()
+        val prefs = AgentPreferences(context)
+        assertNull(prefs.defaultTextAgent)
+        assertNull(prefs.defaultImageAgent)
+        assertNull(prefs.defaultVideoAgent)
     }
 }

@@ -17,7 +17,7 @@ import org.junit.Test
 
 /** A text agent that can see images and answers each look with the next of [replies]. */
 class SeeingTextAgent(vararg replies: ApiResult<String>) : TextAgent {
-    override val service = ApiService.CLAUDE
+    override val service = ApiService.GEMINI
     private val queue = ArrayDeque(replies.toList())
     val looks = mutableListOf<Pair<String, ByteArray>>()
 

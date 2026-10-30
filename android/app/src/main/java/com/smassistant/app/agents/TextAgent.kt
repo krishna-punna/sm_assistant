@@ -26,7 +26,7 @@ interface TextAgent {
 
     /**
      * Like [generate], with a [jpeg] image sent along with the user message, for models that can
-     * see images (Claude, Gemini, and vision models behind the OpenAI-compatible APIs). A model
+     * see images (Gemini, and vision models behind the OpenAI-compatible APIs). A model
      * that can't answers with an error.
      */
     suspend fun see(system: String, user: String, jpeg: ByteArray): ApiResult<String> =
@@ -39,15 +39,11 @@ fun textAgentFor(
     config: () -> ApiConfig,
     client: OkHttpClient = Http.generationClient,
 ): TextAgent = when (service) {
-    ApiService.CLAUDE -> ClaudeAgent(config, client)
     ApiService.GEMINI -> GeminiAgent(config, client)
     ApiService.GROQ, ApiService.POLLINATIONS -> OpenAiChatAgent(service, config, client) { it.apiUrl }
     ApiService.CLOUDFLARE -> OpenAiChatAgent(service, config, client) { "${it.apiUrl.trimEnd('/')}/v1/chat/completions" }
     ApiService.LINKEDIN -> error("LinkedIn is not an AI agent")
 }
-
-/** Claude with a larger reply budget, for long outputs such as SVG infographics. */
-fun claudeAgent(config: () -> ApiConfig, client: OkHttpClient, maxTokens: Int): TextAgent = ClaudeAgent(config, client, maxTokens)
 
 /** True when the agent has everything needed to make a call. */
 fun ApiConfig.isUsableAgent() = isConfigured() && model.isNotBlank()
@@ -75,53 +71,6 @@ private abstract class BaseAgent(private val config: () -> ApiConfig) : TextAgen
     protected abstract fun text(response: JsonObject): String?
 
     protected open fun refine(error: ApiError): ApiError = error
-}
-
-/** Anthropic Messages API: POST {api} (e.g. https://api.anthropic.com/v1/messages). */
-private class ClaudeAgent(
-    config: () -> ApiConfig,
-    private val client: OkHttpClient,
-    private val maxTokens: Int = 4096,
-) : BaseAgent(config) {
-    override val service = ApiService.CLAUDE
-
-    override suspend fun call(config: ApiConfig, system: String, user: String, jpegBase64: String?) = client.postJson(
-        url = config.api,
-        headers = mapOf("x-api-key" to config.key, "anthropic-version" to "2023-06-01"),
-        body = buildJsonObject {
-            put("model", config.model)
-            put("max_tokens", maxTokens)
-            put("system", system)
-            putJsonArray("messages") {
-                addJsonObject {
-                    put("role", "user")
-                    if (jpegBase64 == null) {
-                        put("content", user)
-                    } else {
-                        putJsonArray("content") {
-                            addJsonObject {
-                                put("type", "image")
-                                putJsonObject("source") {
-                                    put("type", "base64")
-                                    put("media_type", "image/jpeg")
-                                    put("data", jpegBase64)
-                                }
-                            }
-                            addJsonObject {
-                                put("type", "text")
-                                put("text", user)
-                            }
-                        }
-                    }
-                }
-            }
-        },
-    )
-
-    override fun text(response: JsonObject) = (response["content"] as? JsonArray)
-        ?.filter { it.path("type")?.textOrNull == "text" }
-        ?.mapNotNull { it.path("text")?.textOrNull }
-        ?.joinToString("")
 }
 
 /** Google Gemini: POST {api}/models/{model}:generateContent (api e.g. https://generativelanguage.googleapis.com/v1beta). */

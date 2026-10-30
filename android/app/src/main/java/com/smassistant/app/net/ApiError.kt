@@ -30,7 +30,7 @@ sealed interface ApiError {
     }
 }
 
-/** A short message for the user, e.g. "Claude rejected the API key". */
+/** A short message for the user, e.g. "Gemini rejected the API key". */
 fun ApiError.userMessage(serviceName: String): String = when (this) {
     ApiError.NotConfigured -> "$serviceName isn't set up. Add the API and key in settings."
     ApiError.InvalidKey -> "$serviceName rejected the API key. Check it in settings."

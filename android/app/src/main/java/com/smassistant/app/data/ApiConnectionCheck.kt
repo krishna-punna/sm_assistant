@@ -51,9 +51,6 @@ class ApiConnectionCheck(private val client: OkHttpClient = Http.client) {
         val origin = origin(config.apiUrl) ?: return null
         val builder = Request.Builder().get()
         when (service) {
-            ApiService.CLAUDE -> builder.url(origin.resolve("/v1/models")!!)
-                .header("x-api-key", config.key)
-                .header("anthropic-version", "2023-06-01")
             ApiService.GEMINI -> builder.url(origin.resolve("/v1beta/models")!!)
                 .header("x-goog-api-key", config.key)
             ApiService.GROQ -> builder.url(origin.resolve("/openai/v1/models")!!)

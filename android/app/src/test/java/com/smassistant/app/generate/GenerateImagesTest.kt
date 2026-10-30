@@ -48,11 +48,11 @@ class GenerateImagesTest {
 
     @Test
     fun `errors name the agent that made the images`() = runTest {
-        val claude = object : ImageAgent {
-            override val service = ApiService.CLAUDE
+        val failing = object : ImageAgent {
+            override val service = ApiService.GEMINI
             override suspend fun generate(prompt: String, count: Int) = ApiResult.Failed(ApiError.InvalidKey)
         }
-        assertEquals(Outcome.Failed(ApiError.InvalidKey, "Claude"), GenerateImagesUseCase("{{prompt}}", { claude }, 4)("x"))
+        assertEquals(Outcome.Failed(ApiError.InvalidKey, "Gemini"), GenerateImagesUseCase("{{prompt}}", { failing }, 4)("x"))
     }
 
     @Test
@@ -171,7 +171,7 @@ class GenerateImagesTest {
         var round = 0
         val titles = listOf("Caching", "Caches")
         val writer = object : TextAgent {
-            override val service = ApiService.CLAUDE
+            override val service = ApiService.GEMINI
             override suspend fun generate(system: String, user: String) =
                 ApiResult.Ok(caching().replace("\"Caching\"", "\"${titles[round++ % 2]}\""))
             override suspend fun see(system: String, user: String, jpeg: ByteArray) =

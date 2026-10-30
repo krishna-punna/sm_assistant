@@ -159,7 +159,7 @@ fun appGenerateImages(context: Context): GenerateImagesUseCase {
     val examples = parseImageExamples(loadPromptAsset(context, "image_examples"))
     return GenerateImagesUseCase(
         styleTemplate = loadPromptAsset(context, "image"),
-        agent = appImageAgentSelector(context, cache, illustrations = true)::imageAgent,
+        agent = appImageAgentSelector(context, cache)::imageAgent,
         count = IMAGES_PER_REQUEST,
         examples = examples,
         infographics = appInfographics(context, cache, examples),

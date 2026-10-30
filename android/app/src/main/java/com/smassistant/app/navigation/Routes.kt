@@ -4,7 +4,6 @@ import com.smassistant.app.data.ApiService
 
 /** AI agents the user can configure (docs/requirements/04-ai-agent-settings.md). */
 enum class AiAgent(val service: ApiService) {
-    CLAUDE(ApiService.CLAUDE),
     GEMINI(ApiService.GEMINI),
     GROQ(ApiService.GROQ),
     CLOUDFLARE(ApiService.CLOUDFLARE),

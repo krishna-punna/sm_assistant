@@ -40,7 +40,7 @@ class ApiStatusViewModelTest {
         advanceUntilIdle()
 
         assertEquals(ConnectionStatus.InvalidKey, vm.statuses.value[ApiService.GROQ])
-        assertEquals(ConnectionStatus.Connected, vm.statuses.value[ApiService.CLAUDE])
+        assertEquals(ConnectionStatus.Connected, vm.statuses.value[ApiService.GEMINI])
         assertEquals(ApiService.entries.toSet(), configs.toSet())
     }
 

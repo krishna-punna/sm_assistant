@@ -40,9 +40,9 @@ class GenerateContentAndMediaTest {
 
     @Test
     fun `both failing is a failure, and nothing set up is NoAgent`() = runTest {
-        text = Outcome.Failed(ApiError.InvalidKey, "Claude")
+        text = Outcome.Failed(ApiError.InvalidKey, "Gemini")
         image = Outcome.NoAgent
-        assertEquals(Outcome.Failed(ApiError.InvalidKey, "Claude"), useCase("p"))
+        assertEquals(Outcome.Failed(ApiError.InvalidKey, "Gemini"), useCase("p"))
 
         text = Outcome.NoAgent
         assertEquals(Outcome.NoAgent, useCase("p"))

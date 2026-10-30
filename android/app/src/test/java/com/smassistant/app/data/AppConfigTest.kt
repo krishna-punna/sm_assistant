@@ -16,10 +16,6 @@ class AppConfigTest {
               linkedin:
                 api: https://api.linkedin.com/rest/posts
                 key: li-token
-              claude:
-                api: https://api.anthropic.com/v1/messages
-                model: claude-sonnet-5-5
-                key: ""
               gemini:
                 api: https://generativelanguage.googleapis.com/v1beta
                 model: gemini-2.5-flash
@@ -34,8 +30,8 @@ class AppConfigTest {
 
         assertEquals(ApiConfig("https://api.linkedin.com/rest/posts", "li-token"), config[ApiService.LINKEDIN])
         assertEquals(
-            ApiConfig("https://api.anthropic.com/v1/messages", "", "claude-sonnet-5-5"),
-            config[ApiService.CLAUDE],
+            ApiConfig("https://api.groq.com/openai/v1/chat/completions", "gsk", "llama-3.3-70b-versatile"),
+            config[ApiService.GROQ],
         )
         assertEquals("", config.getValue(ApiService.GEMINI).key)
         assertEquals("gemini-2.5-flash-image", config.getValue(ApiService.GEMINI).imageModel)
@@ -45,7 +41,7 @@ class AppConfigTest {
 
     @Test
     fun `missing service gets empty values`() {
-        val config = parse("apis:\n  claude:\n    api: https://x\n")
+        val config = parse("apis:\n  gemini:\n    api: https://x\n")
 
         assertEquals(ApiConfig("", ""), config[ApiService.GROQ])
         assertEquals(ApiService.entries.toSet(), config.keys)
@@ -117,16 +113,16 @@ class AppConfigTest {
     }
 
     @Test
-    fun `the video model falls back to the image model, and Claude to its text model`() {
+    fun `the video model falls back to the image model, and a blank media model keeps the text model`() {
         val gemini = ApiConfig("https://x", "k", "text", imageModel = "img")
         assertEquals("img", gemini.forMedia(MediaPurpose.VIDEO).imageModel)
         assertEquals("vid", gemini.copy(videoModel = "vid").forMedia(MediaPurpose.VIDEO).imageModel)
         assertEquals("img", gemini.copy(videoModel = "vid").forMedia(MediaPurpose.IMAGE).imageModel)
 
-        val claude = ApiConfig("https://x", "k", "sonnet")
-        assertEquals("sonnet", claude.forMedia(MediaPurpose.IMAGE).model)
-        assertEquals("opus", claude.copy(imageModel = "opus").forMedia(MediaPurpose.VIDEO).model)
-        assertEquals("haiku", claude.copy(imageModel = "opus", videoModel = "haiku").forMedia(MediaPurpose.VIDEO).model)
+        val textOnly = ApiConfig("https://x", "k", "text")
+        assertEquals("text", textOnly.forMedia(MediaPurpose.IMAGE).model)
+        assertEquals("img", textOnly.copy(imageModel = "img").forMedia(MediaPurpose.VIDEO).model)
+        assertEquals("vid", textOnly.copy(imageModel = "img", videoModel = "vid").forMedia(MediaPurpose.VIDEO).model)
     }
 
     @Test
