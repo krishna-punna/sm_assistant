@@ -30,6 +30,53 @@ fun infographicProblems(spec: InfographicSpec, subject: String, minSections: Int
     addAll(sectionProblems(spec, ""))
 }
 
+/**
+ * The checks of the image template the definition follows (docs/design/image-templates.md, "Checks
+ * and review"), on top of [infographicProblems]: the cards the template needs, and for the Data and
+ * Code templates that the numbers and code shown come from the [content]. Any other template id
+ * has no extra checks.
+ */
+fun templateProblems(spec: InfographicSpec, templateId: String?, content: String): List<String> = buildList {
+    val bodies = spec.sections.map { it.body }
+    when (templateId) {
+        "comparison" -> if (bodies.none { it is SectionBody.Compare || it is SectionBody.Table || it is SectionBody.ProsCons }) {
+            add("the Comparison template needs a compare, table or pros_cons card that sets the options side by side")
+        }
+        "workflow" -> if (bodies.none { it is SectionBody.Steps || it is SectionBody.Flow || it is SectionBody.Diagram }) {
+            add("the Workflow template needs a steps, flow or diagram card with the steps in order")
+        }
+        "architecture" -> if (bodies.none { it is SectionBody.Diagram || it is SectionBody.Flow }) {
+            add("the Architecture template needs a diagram card of the components and how they connect")
+        }
+        "code" -> {
+            val code = bodies.filterIsInstance<SectionBody.Code>()
+            if (code.isEmpty()) add("the Code template needs a code card with code from the content")
+            if (content.isNotBlank()) {
+                val source = squash(content)
+                code.flatMap { it.code.lines() }.map { it.trim() }.filter { it.length > 3 && !it.startsWith("//") && !it.startsWith("#") }
+                    .firstOrNull { squash(it) !in source }
+                    ?.let { add("the code line \"${it.take(50)}\" isn't in the content; show code from the content only") }
+            }
+        }
+        "data" -> if (content.isNotBlank()) {
+            val numbers = NUMBER_IN_TEXT.findAll(content.replace(",", "")).map { it.value.trimEnd('.') }.toSet()
+            bodies.flatMap { body ->
+                when (body) {
+                    is SectionBody.Chart -> body.bars.map { it.value }
+                    is SectionBody.Stats -> body.items.map { it.value }
+                    else -> emptyList()
+                }
+            }.firstOrNull { value -> NUMBER_IN_TEXT.findAll(value.replace(",", "")).any { it.value.trimEnd('.') !in numbers } }
+                ?.let { add("the value \"$it\" isn't in the content; the Data template shows only numbers from the content") }
+        }
+    }
+}
+
+private val NUMBER_IN_TEXT = Regex("""\d+(?:\.\d+)?""")
+
+/** [text] without spaces, lower case, so code compares however it was indented or spaced. */
+private fun squash(text: String) = text.lowercase().filterNot { it.isWhitespace() }
+
 /** The checks on a video's deck: every slide has something on it, no two slides repeat, no placeholders. */
 fun slideDeckProblems(deck: SlideDeck): List<String> = buildList {
     deck.slides.forEachIndexed { i, slide ->

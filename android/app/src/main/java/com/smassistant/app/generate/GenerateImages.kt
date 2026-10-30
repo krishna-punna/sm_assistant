@@ -163,7 +163,7 @@ class GenerateImagesUseCase(
                 feedback = listOf("the image couldn't be drawn or came out blank; use simpler sections")
                 return@repeat
             }
-            val review = reviewer?.review(writer, topic, spec, file) ?: return Outcome.Ok(file)
+            val review = reviewer?.review(writer, topic, spec, file, brief?.template) ?: return Outcome.Ok(file)
             if (reviewer.passes(review)) return Outcome.Ok(file)
             if (best == null || review.score > best!!.second) best = file to review.score
             feedback = review.problems.ifEmpty { listOf("it scored ${review.score}/10; make it clearer and closer to the topic") }
