@@ -64,14 +64,17 @@ class Templates(
 const val MIN_PAINTED_SIDE = 512
 
 /**
- * The short side a finished painted image should have (1024 x 1536, 1024 x 1024, 1536 x 1024).
+ * The short side a finished painted portrait or landscape image should have (1024 x 1536, 1536 x 1024).
  * Gemini's 2:3 is about 832 x 1248, so smaller images are upscaled ([upscaleFactor]).
  */
 const val PAINTED_SHORT_SIDE = 1024
 
-/** 2 when a [width] x [height] image is smaller than [shortSide] on its short side, else 1 (docs/design/image-templates.md §2). */
-fun upscaleFactor(width: Int, height: Int, shortSide: Int = PAINTED_SHORT_SIDE): Int =
-    if (minOf(width, height) < shortSide) 2 else 1
+/** The side a finished painted square should have, like the largest square sample (1536 x 1536), so 1024 squares are upscaled. */
+const val PAINTED_SQUARE_SIDE = 1536
+
+/** 2 when a [width] x [height] image is smaller than its minimum ([PAINTED_SQUARE_SIDE] for a square, [PAINTED_SHORT_SIDE] on the short side otherwise), else 1 (docs/design/image-templates.md §2). */
+fun upscaleFactor(width: Int, height: Int): Int =
+    if (minOf(width, height) < if (width == height) PAINTED_SQUARE_SIDE else PAINTED_SHORT_SIDE) 2 else 1
 
 /** Enlarges a painted image by its [upscaleFactor], in place; returns the file. */
 fun interface ImageUpscaler {
@@ -118,7 +121,7 @@ class GenerateImagesUseCase(
 
     /**
      * Keeps the painted images that pass the checks, asking once more for as many as failed, and
-     * upscales the ones under [PAINTED_SHORT_SIDE].
+     * upscales the ones under the painted minimum ([upscaleFactor]).
      */
     private suspend fun painted(selected: ImageAgent, topic: String, images: List<File>, format: ImageFormat?): Outcome<List<File>> {
         val check = inspector ?: return Outcome.Ok(upscaled(images))
@@ -154,13 +157,15 @@ class GenerateImagesUseCase(
                     ?: INFOGRAPHIC_LAYOUT_IDEAS[i % INFOGRAPHIC_LAYOUT_IDEAS.size]
                 async {
                     val painter = parts.templates?.painter
-                    val painted = if (brief != null && brief.painted && painter != null && illustrator != null) {
-                        painted(parts, painter, writer, topic, illustrator, brief)
+                    // An agent that paints only one shape (Cloudflare: square) is asked for that shape, and the label says so.
+                    val paintBrief = brief?.let { b -> illustrator?.onlyFormat?.let { b.copy(format = it) } ?: b }
+                    val painted = if (paintBrief != null && paintBrief.painted && painter != null && illustrator != null) {
+                        painted(parts, painter, writer, topic, illustrator, paintBrief)
                     } else {
                         null
                     }
                     if (painted != null) {
-                        Outcome.Ok(labelImage(painted, brief!!.template.id, brief.format, painted = true))
+                        Outcome.Ok(labelImage(painted, paintBrief!!.template.id, paintBrief.format, painted = true))
                     } else {
                         // A painted image that couldn't be made is drawn instead.
                         val outcome = infographic(parts, writer, topic, idea, content, illustrator, brief)

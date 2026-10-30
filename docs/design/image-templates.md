@@ -1,6 +1,6 @@
 # Image prompt templates
 
-Status: **plan, waiting for Krishna's approval** (2026-10-30). Mode decided: Both (app-drawn and AI-painted side by side). Nothing here is implemented yet.
+Status: **implemented** (2026-10-30, PRs #85 to #104). Mode: Both (app-drawn and AI-painted side by side). Section 9 (video) is replaced by [video-templates.md](video-templates.md). What's left are the on-device checks IT-V1 to IT-V3.
 Source: Krishna's template file, kept as [requirements 15](../requirements/15-image-prompt-templates.md).
 Tasks: [docs/tasks/10-image-templates.md](../tasks/10-image-templates.md).
 
@@ -106,8 +106,9 @@ Two existing gaps against the same rule, fixed as part of this work:
   schnell takes only a prompt and returns a square. This matters for illustrations (which are
   centre-cropped to their slot) and even more for AI-painted images. **Painted sizes:** Gemini's 2:3
   is about 832 x 1248, below the 1024 x 1536 minimum, and Cloudflare can only give 1:1. The plan
-  upscales painted images 2x on the device so they meet the minimum and only offers 1:1 painted
-  images from Cloudflare (unless a model with width/height is configured).
+  upscales painted images 2x on the device so they meet the minimum (1536 x 1536 for a square, so a
+  1024 square is upscaled too) and only offers 1:1 painted images from Cloudflare (unless a model
+  with width/height is configured).
 
 ### 3. Choosing the template
 

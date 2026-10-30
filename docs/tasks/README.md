@@ -63,7 +63,7 @@ flowchart LR
 
 P1 and P2 can run in parallel once P0 is in.
 
-## Status summary (after the saved-state PR)
+## Status summary (updated 2026-10-30)
 
 | Area | Done | Partial | Todo | Blocked |
 |------|------|---------|------|---------|
@@ -76,8 +76,11 @@ P1 and P2 can run in parallel once P0 is in.
 | Content generation | 20 | 0 | 1 | 0 |
 | Post to LinkedIn (LP) | 7 | 0 | 0 | 0 |
 | Scheduled posts (SC) | 12 | 0 | 0 | 0 |
+| Prompt types and media (PT, MW) | 5 | 0 | 0 | 0 |
+| Image templates (IT) | 14 | 0 | 0 | 0 |
+| Video templates (VT) | 0 | 0 | 8 | 0 |
 
-Counts are per requirement row in each file (per task for Foundation). What's left: the optional rows waiting on Q-06, Q-22 and Q-23; the release tasks (REL-*); and the manual validation (`-V`) checks, which need a device. Unit and Robolectric UI tests run in CI on every PR.
+Counts are per requirement row in each file (per task for Foundation, Prompt types, Image and Video templates; IT-I12 was replaced by the video templates, which are planned in a separate thread). What's left: the optional rows waiting on Q-06, Q-22 and Q-23; the release tasks (REL-*); and the manual validation (`-V`) checks, which need a device. Unit and Robolectric UI tests run in CI on every PR.
 
 ## Defects found in the current code
 

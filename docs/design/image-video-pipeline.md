@@ -186,4 +186,4 @@ image_checks:
 Cost: with the review on, each image costs one more text-agent call, and a rejected one costs
 another definition, its illustrations and another review.
 
-See [image-templates.md](image-templates.md) (planned 2026-10-30) for picking and filling one of Krishna's prompt templates per image.
+See [image-templates.md](image-templates.md) (implemented 2026-10-30) for picking and filling one of Krishna's prompt templates per image.

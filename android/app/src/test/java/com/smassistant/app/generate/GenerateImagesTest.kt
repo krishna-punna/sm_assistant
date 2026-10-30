@@ -241,8 +241,11 @@ class GenerateImagesTest {
     fun `images under the painted minimum are upscaled 2x`() {
         assertEquals(2, upscaleFactor(832, 1248))
         assertEquals(2, upscaleFactor(1248, 832))
-        assertEquals(1, upscaleFactor(1024, 1024))
         assertEquals(1, upscaleFactor(1024, 1536))
+        assertEquals(1, upscaleFactor(1536, 1024))
+        // A square needs 1536 x 1536, so FLUX's 1024 x 1024 is upscaled.
+        assertEquals(2, upscaleFactor(1024, 1024))
+        assertEquals(1, upscaleFactor(1536, 1536))
     }
 
     private fun template(id: String) = ImageTemplate(id, id.replaceFirstChar { it.uppercase() }, "$id use", "Rules for {{content}} in {{format}} for {{audience}}.")
@@ -261,12 +264,18 @@ class GenerateImagesTest {
     )
 
     /** A Gemini image agent that records each prompt and format it is asked to paint. */
-    private class PaintingAgent(private val fails: Boolean = false) : ImageAgent {
+    /** Paints into [dir] when given (so labels can rename the files), else returns files that don't exist. */
+    private class PaintingAgent(
+        private val fails: Boolean = false,
+        override val onlyFormat: ImageFormat? = null,
+        private val dir: File? = null,
+    ) : ImageAgent {
         val painted = mutableListOf<Pair<String, ImageFormat?>>()
         override suspend fun generate(prompt: String, count: Int) = generate(prompt, count, null)
         override suspend fun generate(prompt: String, count: Int, format: ImageFormat?): ApiResult<List<File>> {
             val n = synchronized(painted) { painted += prompt to format; painted.size }
-            return if (fails) ApiResult.Failed(ApiError.InvalidKey) else ApiResult.Ok(listOf(File("painted-$n.png")))
+            val file = File(dir, "painted-$n.png").also { if (dir != null) it.createNewFile() }
+            return if (fails) ApiResult.Failed(ApiError.InvalidKey) else ApiResult.Ok(listOf(file))
         }
     }
 
@@ -297,6 +306,31 @@ class GenerateImagesTest {
             ),
             gemini.painted.toSet(),
         )
+    }
+
+    @Test
+    fun `an agent that paints only squares is asked for squares and its images are labelled square`() = runTest {
+        val writer = ScriptedTextAgent(
+            ApiResult.Ok("1. Request flow"),
+            ApiResult.Ok("""{"primary": "workflow", "alternates": ["architecture"]}"""),
+            ApiResult.Ok(caching().replace("""{"heading": "TTL", "items": ["expire entries"]}""", """{"heading": "Read path", "type": "flow", "nodes": ["App", "Cache", "DB"]}""")),
+        )
+        val dir = kotlin.io.path.createTempDirectory().toFile()
+        val flux = PaintingAgent(onlyFormat = ImageFormat.SQUARE, dir = dir)
+
+        val outcome = GenerateImagesUseCase("{{prompt}}", { flux }, 4, infographics = templated(writer, painter = ImagePainter("Condense.")))
+            .generate(ImageRequest("Caching"))
+
+        // Images 2 and 4 would be landscape and portrait; this agent gets square briefs instead.
+        assertEquals(
+            listOf("Rules for 1. Request flow in square 1:1 for devs." to ImageFormat.SQUARE).let { it + it },
+            flux.painted,
+        )
+        val painted = (outcome as Outcome.Ok).value.mapNotNull(::imageLabel).filter { it.painted }
+        assertEquals(listOf(ImageFormat.SQUARE, ImageFormat.SQUARE), painted.map { it.format })
+        // The drawn images keep their own shapes.
+        assertTrue(writer.calls.drop(2).any { it.second.contains("Image template: Workflow, portrait 2:3.") })
+        dir.deleteRecursively()
     }
 
     @Test
