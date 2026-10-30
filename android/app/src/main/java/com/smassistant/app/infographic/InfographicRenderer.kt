@@ -57,13 +57,13 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
         // column, and the last few that can't fill the columns share a row instead of leaving a gap.
         val wide = spec.sections.map { columns > 1 && isWide(it.body, columnWidth) }
         val bottoms = FloatArray(columns)
-        val placements = mutableListOf<Triple<Block, Float, Float>>()
+        val placements = mutableListOf<Placement>()
         fun row(indices: List<Int>) {
             val cardWidth = (contentWidth - (indices.size - 1) * GAP) / indices.size
             val rowHeight = indices.maxOf { card(spec.sections[it], it, cardWidth, palette).height }
             val top = bottoms.max()
             indices.forEachIndexed { i, index ->
-                placements += Triple(card(spec.sections[index], index, cardWidth, palette, rowHeight), MARGIN + i * (cardWidth + GAP), top)
+                placements += Placement(index, card(spec.sections[index], index, cardWidth, palette, rowHeight), MARGIN + i * (cardWidth + GAP), top)
             }
             bottoms.fill(top + rowHeight + GAP)
         }
@@ -80,7 +80,7 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
             run.dropLast(leftover).forEach { index ->
                 val column = bottoms.indices.minBy { bottoms[it] }
                 val block = card(spec.sections[index], index, columnWidth, palette)
-                placements += Triple(block, MARGIN + column * (columnWidth + GAP), bottoms[column])
+                placements += Placement(index, block, MARGIN + column * (columnWidth + GAP), bottoms[column])
                 bottoms[column] += block.height + GAP
             }
             if (leftover > 0) row(run.takeLast(leftover))
@@ -111,8 +111,10 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
         svg.rect(0f, header.height - 6, pageWidth, 6f, fill = palette.highlight)
         header.draw(svg, dx, 0f)
         val bodyTop = header.height + GAP
-        placements.forEach { (block, x, top) -> block.draw(svg, dx + x, bodyTop + top) }
-        if (footer != null) {
+        // A reveal step draws only its first sections, where the whole layout puts them, and the footer once all are shown.
+        val shown = spec.revealed ?: spec.sections.size
+        placements.filter { it.index < shown }.forEach { it.block.draw(svg, dx + it.x, bodyTop + it.top) }
+        if (footer != null && shown >= spec.sections.size) {
             val top = height - footer.height
             svg.rect(0f, top, pageWidth, footer.height, fill = palette.header)
             footer.draw(svg, dx, top)
@@ -128,6 +130,9 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
 
     /** Something drawn at an (x, y) that is decided after its [height] is known. */
     private class Block(val height: Float, val draw: (Svg, Float, Float) -> Unit)
+
+    /** Section [index]'s card and where it goes in the body. */
+    private class Placement(val index: Int, val block: Block, val x: Float, val top: Float)
 
     /** 2 columns (3 for landscape and wide) at the format's width, and one more for each such column a wider page has room for. */
     private fun columnsFor(spec: InfographicSpec, width: Float): Int {

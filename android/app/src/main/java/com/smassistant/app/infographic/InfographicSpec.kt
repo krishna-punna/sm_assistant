@@ -29,7 +29,16 @@ data class InfographicSpec(
     val takeaway: String? = null,
     /** The user's brand name (app.yml `image_style`), drawn small in the footer; never written by the model. */
     val brand: String? = null,
+    /**
+     * For a video's step-by-step reveal (docs/tasks VT-I5): only this many sections are drawn, each
+     * where the whole layout puts it, and the footer only once all are shown. Null draws everything.
+     */
+    val revealed: Int? = null,
 )
+
+/** The reveal steps of [this]: one spec per section, each showing one more; just itself with fewer than 2 sections. */
+fun InfographicSpec.revealSteps(): List<InfographicSpec> =
+    if (sections.size < 2) listOf(this) else (1..sections.size).map { copy(revealed = it) }
 
 enum class InfographicFormat(val key: String, val width: Int) {
     /** Tall cheat sheet like most sample images; at least 2:3 and taller when the content needs it. */
@@ -101,8 +110,11 @@ data class SlideDeck(
     val scenes: List<Scene> = slides.map { Scene() },
 )
 
-/** One slide's place in the storyboard: its [purpose] and the [seconds] the model asked for. */
-data class Scene(val purpose: String? = null, val seconds: Int? = null)
+/**
+ * One slide's place in the storyboard: its [purpose], the [seconds] the model asked for, and
+ * whether its sections are [reveal]ed one at a time.
+ */
+data class Scene(val purpose: String? = null, val seconds: Int? = null, val reveal: Boolean = false)
 
 /** Upper limits that keep a definition drawable, whatever the model wrote. */
 internal object Limits {
@@ -129,7 +141,7 @@ fun parseInfographic(reply: String): Result<InfographicSpec> =
 
 /**
  * Reads a [SlideDeck] (`{"palette": …, "takeaway": …, "slides": [ … ]}`): every slide is square
- * and uses the deck's palette, and keeps its `purpose` and `seconds`. Slides without a title are
+ * and uses the deck's palette, and keeps its `purpose`, `seconds` and `reveal`. Slides without a title are
  * left out; fails when none is left.
  */
 fun parseSlideDeck(reply: String): Result<SlideDeck> = jsonObjectIn(reply).mapCatching { root ->
@@ -144,6 +156,7 @@ fun parseSlideDeck(reply: String): Result<SlideDeck> = jsonObjectIn(reply).mapCa
 private fun scene(slide: JsonObject) = Scene(
     purpose = slide.string("purpose")?.ifEmpty { null },
     seconds = slide.string("seconds")?.toDoubleOrNull()?.takeIf { it > 0 }?.let { ceil(it).toInt() },
+    reveal = slide.string("reveal")?.lowercase() == "true",
 )
 
 private fun jsonObjectIn(reply: String): Result<JsonObject> {

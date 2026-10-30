@@ -44,6 +44,24 @@ class InfographicRendererTest {
     }
 
     @Test
+    fun `a reveal step draws only its first sections where the whole layout puts them`() {
+        val steps = spec.revealSteps()
+        assertEquals(sections.size, steps.size)
+        val whole = renderer.render(spec)
+        val first = renderer.render(steps[0])
+        assertTrue(first.svg.contains(">What it is<"))
+        assertFalse(first.svg.contains(">add(e)<") || first.svg.contains(">Numbers<"))
+        assertFalse(first.svg.contains("Pre-size the list"))
+        // Same page, and the first card at the same place as in the whole slide.
+        assertEquals(whole.width to whole.height, first.width to first.height)
+        val card = Regex("""<rect x="[\d.]+" y="[\d.]+" width="[\d.]+" height="[\d.]+" rx="18"""")
+        assertEquals(card.find(whole.svg)!!.value, card.find(first.svg)!!.value)
+        // The last step is the whole slide, footer included.
+        assertTrue(renderer.render(steps.last()).svg.contains("Pre-size the list"))
+        assertEquals(listOf(spec), spec.copy(sections = sections.take(1)).revealSteps().map { it.copy(sections = sections) })
+    }
+
+    @Test
     fun `everything stays inside the canvas`() {
         for (format in InfographicFormat.entries) {
             val rendered = renderer.render(spec.copy(format = format))

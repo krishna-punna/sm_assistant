@@ -46,6 +46,25 @@ class InfographicPipelineTest {
     }
 
     @Test
+    fun `reveal steps paint the illustrations once and reuse them in every step`() = runTest {
+        val agent = ImageAgent { prompt, _ ->
+            synchronized(prompts) { prompts += prompt }
+            ApiResult.Ok(listOf(File("${prompts.size}.png")))
+        }
+        val drawn = mutableListOf<List<File?>>()
+        val steps = InfographicPipeline(
+            InfographicRenderer(), "{{prompt}}", { _, illustrations -> drawn += illustrations; File("step${drawn.size}.png") }, maxIllustrations = 2,
+        ).drawSteps(spec, spec.revealSteps(), agent)
+
+        assertEquals(listOf(File("step1.png"), File("step2.png")), steps)
+        assertEquals(2, prompts.size)
+        // Step 1 shows the hero and the first picture; step 2 adds the second, over the limit, as a placeholder.
+        val hero = drawn[0][0]!!
+        assertEquals(listOf(hero, drawn[0][1]), drawn[1].take(2))
+        assertEquals(listOf(2, 3), drawn.map { it.size })
+    }
+
+    @Test
     fun `without an illustrator the definition is drawn alone`() = runTest {
         assertEquals(File("out.png"), pipeline.draw(spec, null))
         assertEquals(listOf(null, null, null), composed!!.second)

@@ -159,6 +159,34 @@ class GenerateVideoTest {
     }
 
     @Test
+    fun `a reveal scene is drawn once per section and the steps share its time`() = runTest {
+        val revealed = """{"palette": "teal", "slides": [
+            {"title": "One", "seconds": 10, "reveal": true, "sections": [
+                {"heading": "Step A", "items": ["a"]}, {"heading": "Step B", "items": ["b"]}, {"heading": "Step C", "items": ["c"]}]},
+            {"title": "Two", "seconds": 10, "takeaway": "b"}, {"title": "Three", "seconds": 5, "takeaway": "c"},
+            {"title": "Four", "seconds": 5, "takeaway": "d"}]}"""
+        var drawn = 0
+        val counting = InfographicPipeline(InfographicRenderer(), "{{prompt}}", InfographicComposer { rendered, _ ->
+            drawn++
+            val title = Regex("<tspan>([^<]*)</tspan>").find(rendered.svg)!!.groupValues[1]
+            File("$title-${Regex(">Step [ABC]<").findAll(rendered.svg).count()}.png")
+        })
+        val useCase = GenerateVideoUseCase(
+            "slide {{slide}} of {{slides}}: {{prompt}}", { agent }, maker, { File("out.mp4") }, seconds = { seconds },
+            decks = SlideDecks({ ScriptedTextAgent(ApiResult.Ok(revealed)) }, SlideDeckWriter("Plan."), counting),
+        )
+
+        val outcome = useCase("x") as Outcome.Ok
+
+        assertEquals(listOf("One-1", "One-2", "One-3", "Two-0", "Three-0", "Four-0").map { File("$it.png") }, encoded)
+        // One's 10 s of the 30 are shared by its three steps.
+        assertEquals(listOf(3_333L, 3_333L, 3_334L, 10_000L, 5_000L, 5_000L), slideMillis)
+        // The result keeps one picture per slide: the whole slide.
+        assertEquals(listOf("One-3", "Two-0", "Three-0", "Four-0").map { File("$it.png") }, outcome.value.slides)
+        assertEquals(6, drawn)
+    }
+
+    @Test
     fun `deck slides that can't be drawn are left out, and too few fail`() = runTest {
         undrawable = setOf("Two")
         deckUseCase(ScriptedTextAgent(ApiResult.Ok(deck)))("x")
