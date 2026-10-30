@@ -10,6 +10,7 @@ import com.smassistant.app.infographic.InfographicRenderer
 import com.smassistant.app.chat.Outcome
 import com.smassistant.app.data.ApiService
 import com.smassistant.app.data.ImageFormat
+import com.smassistant.app.data.ImageMode
 import com.smassistant.app.data.ImageStyle
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
@@ -248,10 +249,108 @@ class GenerateImagesTest {
 
     private val templateList = listOf("universal", "concept", "architecture", "workflow").map(::template)
 
-    private fun templated(writer: TextAgent, style: ImageStyle = ImageStyle(audience = "devs")) = Infographics(
+    private fun templated(
+        writer: TextAgent,
+        style: ImageStyle = ImageStyle(audience = "devs"),
+        painter: ImagePainter? = null,
+        reviewer: ImageReviewer? = null,
+    ) = Infographics(
         { writer }, InfographicWriter("Plan.{{examples}}"), pipeline, MediaContentWriter("Write it all."),
-        templates = Templates(templateList, TemplateChooser("Choose.{{templates}}", templateList), { style }),
+        reviewer = reviewer,
+        templates = Templates(templateList, TemplateChooser("Choose.{{templates}}", templateList), { style }, painter),
     )
+
+    /** A Gemini image agent that records each prompt and format it is asked to paint. */
+    private class PaintingAgent(private val fails: Boolean = false) : ImageAgent {
+        val painted = mutableListOf<Pair<String, ImageFormat?>>()
+        override suspend fun generate(prompt: String, count: Int) = generate(prompt, count, null)
+        override suspend fun generate(prompt: String, count: Int, format: ImageFormat?): ApiResult<List<File>> {
+            val n = synchronized(painted) { painted += prompt to format; painted.size }
+            return if (fails) ApiResult.Failed(ApiError.InvalidKey) else ApiResult.Ok(listOf(File("painted-$n.png")))
+        }
+    }
+
+    @Test
+    fun `in Both mode images 2 and 4 are painted from the filled template`() = runTest {
+        val writer = ScriptedTextAgent(
+            ApiResult.Ok("1. Request flow"),
+            ApiResult.Ok("""{"primary": "workflow", "alternates": ["architecture"]}"""),
+            ApiResult.Ok(caching().replace("""{"heading": "TTL", "items": ["expire entries"]}""", """{"heading": "Read path", "type": "flow", "nodes": ["App", "Cache", "DB"]}""")),
+        )
+        val gemini = PaintingAgent()
+
+        val outcome = GenerateImagesUseCase("{{prompt}}", { gemini }, 4, infographics = templated(writer, painter = ImagePainter("Condense.")))
+            .generate(ImageRequest("Caching"))
+
+        assertEquals(4, (outcome as Outcome.Ok).value.size)
+        assertEquals(2, outcome.value.count { it.name.startsWith("painted-") })
+        // Images 1 and 3 are drawn: Workflow portrait and Architecture landscape.
+        val plans = writer.calls.drop(2).map { it.second }
+        assertEquals(2, plans.size)
+        assertTrue(plans.any { it.contains("Image template: Workflow, portrait 2:3.") })
+        assertTrue(plans.any { it.contains("Image template: Architecture, landscape 3:2.") })
+        // Images 2 and 4 get the filled template in full (Gemini), in their format.
+        assertEquals(
+            setOf(
+                "Rules for 1. Request flow in landscape 3:2 for devs." to ImageFormat.LANDSCAPE,
+                "Rules for 1. Request flow in portrait 2:3 for devs." to ImageFormat.PORTRAIT,
+            ),
+            gemini.painted.toSet(),
+        )
+    }
+
+    @Test
+    fun `drawn mode and a missing image agent draw every image`() = runTest {
+        val writer = ScriptedTextAgent(ApiResult.Ok("1. Request flow"), ApiResult.Ok(caching()))
+        val gemini = PaintingAgent()
+
+        GenerateImagesUseCase("{{prompt}}", { gemini }, 2, infographics = templated(writer, ImageStyle(mode = ImageMode.DRAWN), ImagePainter("C.")))
+            .generate(ImageRequest("Caching", template = "concept"))
+        GenerateImagesUseCase("{{prompt}}", { null }, 2, infographics = templated(writer, ImageStyle(mode = ImageMode.PAINTED), ImagePainter("C.")))
+            .generate(ImageRequest("Caching", template = "concept"))
+
+        assertTrue(gemini.painted.isEmpty())
+        assertEquals(4, drawn.size)
+    }
+
+    @Test
+    fun `a painted image that can't be made is drawn instead`() = runTest {
+        val writer = ScriptedTextAgent(ApiResult.Ok("1. Request flow"), ApiResult.Ok(caching()))
+        val failing = PaintingAgent(fails = true)
+
+        val outcome = GenerateImagesUseCase("{{prompt}}", { failing }, 1, infographics = templated(writer, ImageStyle(mode = ImageMode.PAINTED), ImagePainter("C.")))
+            .generate(ImageRequest("Caching", template = "concept"))
+
+        assertEquals(Outcome.Ok(listOf(File("Caching.png"))), outcome)
+        assertEquals(1, failing.painted.size)
+        assertEquals(listOf("Caching"), drawn)
+    }
+
+    @Test
+    fun `a painted image the review scores too low is painted again with the review's problems`() = runTest {
+        val writer = ScriptedTextAgent(ApiResult.Ok("1. Request flow"))
+        val scores = ArrayDeque(listOf("""{"score": 3, "problems": ["The word Cahce is misspelt"]}""", """{"score": 9}"""))
+        val requests = mutableListOf<String>()
+        val seeing = object : TextAgent by writer {
+            override suspend fun see(system: String, user: String, jpeg: ByteArray): ApiResult<String> {
+                requests += user
+                return ApiResult.Ok(scores.removeFirst())
+            }
+        }
+        val gemini = PaintingAgent()
+        val upscaler = ImageUpscaler { File("big-${it.name}") }
+        val useCase = GenerateImagesUseCase(
+            "{{prompt}}", { gemini }, 1, upscaler = upscaler,
+            infographics = templated(seeing, ImageStyle(mode = ImageMode.PAINTED), ImagePainter("C."), ImageReviewer("R.", { byteArrayOf(1) })),
+        )
+
+        assertEquals(Outcome.Ok(listOf(File("big-painted-2.png"))), useCase.generate(ImageRequest("Caching", template = "concept")))
+        assertEquals(2, gemini.painted.size)
+        assertTrue(gemini.painted[1].first.endsWith("Avoid these problems:\n- The word Cahce is misspelt"))
+        assertTrue(requests[0].contains("skip problem 2"))
+        assertTrue(requests[0].contains("Image template: Concept."))
+        assertTrue(drawn.isEmpty())
+    }
 
     @Test
     fun `the chooser picks templates for the content and each infographic follows its plan`() = runTest {
