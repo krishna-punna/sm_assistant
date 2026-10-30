@@ -339,7 +339,7 @@ class GenerateVideoTest {
     }
 
     @Test
-    fun `videos without a template are vertical 9:16`() = runTest {
+    fun `videos without a template are vertical 9 by 16`() = runTest {
         deckUseCase(ScriptedTextAgent(ApiResult.Ok(deck)))("x")
         assertEquals(1080 to 1920, size)
         useCase()("x")
