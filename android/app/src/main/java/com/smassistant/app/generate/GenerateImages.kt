@@ -9,12 +9,14 @@ import com.smassistant.app.agents.appAgentSelector
 import com.smassistant.app.agents.appImageAgentSelector
 import com.smassistant.app.chat.Outcome
 import com.smassistant.app.data.AppConfig
+import com.smassistant.app.data.ImageFormat
 import com.smassistant.app.data.ImageStyle
 import com.smassistant.app.infographic.ImageInspector
 import com.smassistant.app.infographic.InfographicPipeline
 import com.smassistant.app.infographic.InfographicRenderer
 import com.smassistant.app.infographic.imageProblem
 import com.smassistant.app.media.AndroidImageInspector
+import com.smassistant.app.media.AndroidImageUpscaler
 import com.smassistant.app.media.AndroidInfographicComposer
 import com.smassistant.app.media.MediaCache
 import com.smassistant.app.media.PaintTextMeasurer
@@ -60,6 +62,21 @@ class Templates(
 const val MIN_PAINTED_SIDE = 512
 
 /**
+ * The short side a finished painted image should have (1024 x 1536, 1024 x 1024, 1536 x 1024).
+ * Gemini's 2:3 is about 832 x 1248, so smaller images are upscaled ([upscaleFactor]).
+ */
+const val PAINTED_SHORT_SIDE = 1024
+
+/** 2 when a [width] x [height] image is smaller than [shortSide] on its short side, else 1 (docs/design/image-templates.md §2). */
+fun upscaleFactor(width: Int, height: Int, shortSide: Int = PAINTED_SHORT_SIDE): Int =
+    if (minOf(width, height) < shortSide) 2 else 1
+
+/** Enlarges a painted image by its [upscaleFactor], in place; returns the file. */
+fun interface ImageUpscaler {
+    suspend fun upscale(file: File): File
+}
+
+/**
  * Generate Image (docs/tasks IM-I1, IM-I6). With a text agent set up it runs the infographic
  * pipeline (docs/design/image-video-pipeline.md): the text agent first writes technical content
  * on the prompt with no length limit (docs/requirements/14), then [count] definitions of that
@@ -79,6 +96,7 @@ class GenerateImagesUseCase(
     private val examples: List<ImageExample> = emptyList(),
     private val infographics: Infographics? = null,
     private val inspector: ImageInspector? = null,
+    private val upscaler: ImageUpscaler? = null,
 ) {
     suspend operator fun invoke(prompt: String): Outcome<List<File>> = generate(ImageRequest(prompt))
 
@@ -90,28 +108,33 @@ class GenerateImagesUseCase(
         val topic = request.prompt.trim()
         infographics?.let { parts -> parts.textAgent()?.let { writer -> return infographics(parts, writer, topic, request) } }
         val selected = agent() ?: return Outcome.NoAgent
-        return when (val result = selected.generate(imagePrompt(topic), count)) {
-            is ApiResult.Ok -> painted(selected, topic, result.value)
+        return when (val result = selected.generate(imagePrompt(topic), count, request.format)) {
+            is ApiResult.Ok -> painted(selected, topic, result.value, request.format)
             is ApiResult.Failed -> Outcome.Failed(result.error, selected.service.displayName)
         }
     }
 
-    /** Keeps the painted images that pass the checks, asking once more for as many as failed. */
-    private suspend fun painted(selected: ImageAgent, topic: String, images: List<File>): Outcome<List<File>> {
-        val check = inspector ?: return Outcome.Ok(images)
+    /**
+     * Keeps the painted images that pass the checks, asking once more for as many as failed, and
+     * upscales the ones under [PAINTED_SHORT_SIDE].
+     */
+    private suspend fun painted(selected: ImageAgent, topic: String, images: List<File>, format: ImageFormat?): Outcome<List<File>> {
+        val check = inspector ?: return Outcome.Ok(upscaled(images))
         val good = images.filter { imageProblem(check.facts(it), MIN_PAINTED_SIDE) == null }
         val missing = images.size - good.size
         val more = if (missing == 0) {
             emptyList()
         } else {
-            when (val again = selected.generate(imagePrompt(topic), missing)) {
+            when (val again = selected.generate(imagePrompt(topic), missing, format)) {
                 is ApiResult.Ok -> again.value.filter { imageProblem(check.facts(it), MIN_PAINTED_SIDE) == null }
                 is ApiResult.Failed -> emptyList()
             }
         }
-        return (good + more).takeIf { it.isNotEmpty() }?.let { Outcome.Ok(it) }
+        return (good + more).takeIf { it.isNotEmpty() }?.let { Outcome.Ok(upscaled(it)) }
             ?: Outcome.Failed(ApiError.BadResponse("the images came back blank or too small"), selected.service.displayName)
     }
+
+    private suspend fun upscaled(images: List<File>): List<File> = upscaler?.let { up -> images.map { up.upscale(it) } } ?: images
 
     private suspend fun infographics(parts: Infographics, writer: TextAgent, topic: String, request: ImageRequest): Outcome<List<File>> {
         val content = parts.content?.let { step ->
@@ -210,6 +233,7 @@ fun appGenerateImages(context: Context): GenerateImagesUseCase {
         examples = examples,
         infographics = appInfographics(context, cache, examples),
         inspector = AndroidImageInspector,
+        upscaler = AndroidImageUpscaler,
     )
 }
 
