@@ -77,4 +77,13 @@ class ImageReviewerTest {
         val asset = File("src/main/assets/prompts/image_review.md").readText()
         listOf("\"score\"", "\"problems\"", "garbled", "cut off").forEach { assertTrue("image_review.md is missing $it", asset.contains(it)) }
     }
+
+    @Test
+    fun `the request lists the template's rules when there is one`() {
+        val spec = InfographicSpec("Caching", sections = listOf(Section("TTL", SectionBody.Bullets(listOf("expire")))))
+        val template = ImageTemplate("data", "Data and Metrics", "", "Intro.\n\n- Use only supplied values.\n  - Do not imply causation.\nAspect ratio: {{format}}.")
+        val request = reviewRequest("Caching", spec, template)
+        assertTrue(request.endsWith("Image template: Data and Metrics. Also check these rules of the template (as problem 7):\n- Use only supplied values.\n- Do not imply causation."))
+        assertFalse(reviewRequest("Caching", spec).contains("Image template"))
+    }
 }

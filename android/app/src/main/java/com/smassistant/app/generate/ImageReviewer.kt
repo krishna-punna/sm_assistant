@@ -31,9 +31,9 @@ class ImageReviewer(
      * Null when the image couldn't be reviewed: the model can't see images, the call failed or
      * the reply had no score. The image is then kept, so a review never stops Generate Image.
      */
-    suspend fun review(agent: TextAgent, topic: String, spec: InfographicSpec, image: File): ImageReview? {
+    suspend fun review(agent: TextAgent, topic: String, spec: InfographicSpec, image: File, template: ImageTemplate? = null): ImageReview? {
         val jpeg = preview(image) ?: return null
-        return when (val result = agent.see(systemPrompt, reviewRequest(topic, spec), jpeg)) {
+        return when (val result = agent.see(systemPrompt, reviewRequest(topic, spec, template), jpeg)) {
             is ApiResult.Failed -> null
             is ApiResult.Ok -> parseImageReview(result.value)
         }
@@ -45,13 +45,22 @@ class ImageReviewer(
 /** Score an image needs by default, out of 10. */
 const val DEFAULT_MIN_REVIEW_SCORE = 7
 
-internal fun reviewRequest(topic: String, spec: InfographicSpec) = buildString {
+internal fun reviewRequest(topic: String, spec: InfographicSpec, template: ImageTemplate? = null) = buildString {
     append("Topic: ").append(topic.trim()).append("\n\n")
     append("Planned title: ").append(spec.title).append('\n')
     spec.subtitle?.let { append("Planned subtitle: ").append(it).append('\n') }
     if (spec.sections.isNotEmpty()) append("Planned sections: ").append(spec.sections.joinToString("; ") { it.heading }).append('\n')
     spec.takeaway?.let { append("Planned takeaway: ").append(it).append('\n') }
+    val rules = template?.let(::templateRules).orEmpty()
+    if (rules.isNotEmpty()) {
+        append("\nImage template: ").append(template!!.name).append(". Also check these rules of the template (as problem 7):\n")
+        rules.forEach { append("- ").append(it).append('\n') }
+    }
 }.trimEnd()
+
+/** The rules a template lists as "- " lines (its content rules, and design rules where it has them). */
+internal fun templateRules(template: ImageTemplate): List<String> =
+    template.body.lines().map { it.trim() }.filter { it.startsWith("- ") }.map { it.removePrefix("- ").trim() }.filter { it.isNotEmpty() }
 
 /**
  * Reads `{"score": 8, "problems": ["…"]}` from a reply, ignoring a code fence or words around it.

@@ -8,6 +8,7 @@ Check the image for these problems:
 4. Illustrations: a picture is garbled, distorted, blurry, has gibberish letters or words in it, shows something unrelated to the topic, or is an empty placeholder.
 5. Layout: large empty areas, cards with nothing in them, broken or overlapping cards, or colours with too little contrast.
 6. Facts: a statement or code sample that is plainly wrong.
+7. Template: when an image template is named below, the image breaks one of its rules, for example an invented number, a declared winner the content doesn't support, or code that isn't the supplied code.
 
 Score the image from 0 to 10:
 - 9-10: ready to post.

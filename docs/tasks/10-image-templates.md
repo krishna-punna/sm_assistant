@@ -15,7 +15,7 @@ Status: planned 2026-10-30, waiting for Krishna's approval. One PR per implement
 | IT-I6 | Renderer: every image exactly 2:3, 1:1 or 3:2. Long content is laid out on a wider page with more columns (up to 2x the format's width); content too long even for that is centred on a page widened to the ratio. Brand name drawn in the footer, set from the brief, never by the model. | IT-I3 | done |
 | IT-I7 | Renderer: `chart` section (horizontal bars with exact values and units) for the Data template; parser, limits, `infographic.md` docs. | IT-I4 | done |
 | IT-I8 | Renderer: `diagram` section (components with optional groups, labelled arrows, layered by the longest chain of arrows; left to right when the layers fit, top to bottom otherwise; arrows that skip layers or point back run along lanes beside the boxes) for the Architecture template and for workflows that branch or loop. Branches are diagram edges, so `flow` stays linear. | IT-I4 | done |
-| IT-I9 | Template-aware checks: `infographicProblems` per template (Data numbers must be in the content, Comparison needs two sides, Code must come from the content, Workflow needs steps or a flow); `image_review.md` gets the template's content rules. | IT-I4 | todo |
+| IT-I9 | Template-aware checks: `templateProblems` (Comparison needs a compare/table/pros_cons card, Workflow steps/flow/diagram, Architecture a diagram or flow, Code a code card whose lines are in the content, Data only numbers from the content), added to the writer's checks; the vision review gets the template's "- " rules as problem 7 in `image_review.md`. | IT-I4 | done |
 | IT-I10 | `ImageAgent.generate` takes a format: Gemini `imageConfig.aspectRatio`, Pollinations `size` 1024x1536 / 1024x1024 / 1536x1024, Cloudflare square only; painted images under the minimum are upscaled 2x on the device. | IT-I3 | todo |
 | IT-I11 | AI-painted and Both modes (`image_style.mode`): the filled template is the image prompt (in full for Gemini, condensed to ≤1,500 characters by the text agent for FLUX on Cloudflare and Pollinations), then pixel checks and the vision review. Both is the default mode (Krishna, 2026-10-30): images 1 and 3 drawn, 2 and 4 painted. | IT-I9, IT-I10 | todo |
 | IT-I12 | Video: the deck is classified once, the Series rules and Image Style inputs go into `video_deck.md`, each slide may name its template from the primary and alternates; slides stay square and app-drawn. | IT-I4 | todo |
@@ -32,7 +32,7 @@ Status: planned 2026-10-30, waiting for Krishna's approval. One PR per implement
 | IT-T3 | unit | Generate Image calls content → chooser → 4 writers with the planned templates and formats; a user-picked template skips the chooser (`GenerateImagesTest`). | done |
 | IT-T4 | unit | Portrait and landscape render at exactly their ratio for long content, square too after widening; the brand name is drawn (`InfographicRendererTest`); chart and diagram sections (IT-I7, IT-I8) render inside their cards. | partial |
 | IT-T5 | unit | Each agent sends the right size field per format (`ImageAgentTest`). | todo |
-| IT-T6 | unit | Template checks find invented numbers and missing comparison sides (`InfographicCheckTest`). | todo |
+| IT-T6 | unit | Template checks find invented numbers, made-up code and missing cards; the review request lists the template's rules (`TemplateCheckTest`, `ImageReviewerTest`). | done |
 | IT-T7 | UI | Template and Format pickers list every option and save the choice; the strip shows labels (`ImageTemplatePickersTest`, `ImageLabelTest`). | done |
 
 ## Validation
