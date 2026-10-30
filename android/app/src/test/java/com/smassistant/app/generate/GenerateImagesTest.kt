@@ -217,6 +217,33 @@ class GenerateImagesTest {
         )
     }
 
+    @Test
+    fun `painted images get the picked format and are upscaled`() = runTest {
+        var asked: ImageFormat? = null
+        val painter = object : ImageAgent {
+            override suspend fun generate(prompt: String, count: Int) = generate(prompt, count, null)
+            override suspend fun generate(prompt: String, count: Int, format: ImageFormat?): ApiResult<List<File>> {
+                asked = format
+                return ApiResult.Ok(listOf(File("a.png")))
+            }
+        }
+        val upscaler = ImageUpscaler { File("big-${it.name}") }
+
+        val outcome = GenerateImagesUseCase("{{prompt}}", { painter }, 1, upscaler = upscaler)
+            .generate(ImageRequest("x", format = ImageFormat.LANDSCAPE))
+
+        assertEquals(Outcome.Ok(listOf(File("big-a.png"))), outcome)
+        assertEquals(ImageFormat.LANDSCAPE, asked)
+    }
+
+    @Test
+    fun `images under the painted minimum are upscaled 2x`() {
+        assertEquals(2, upscaleFactor(832, 1248))
+        assertEquals(2, upscaleFactor(1248, 832))
+        assertEquals(1, upscaleFactor(1024, 1024))
+        assertEquals(1, upscaleFactor(1024, 1536))
+    }
+
     private fun template(id: String) = ImageTemplate(id, id.replaceFirstChar { it.uppercase() }, "$id use", "Rules for {{content}} in {{format}} for {{audience}}.")
 
     private val templateList = listOf("universal", "concept", "architecture", "workflow").map(::template)

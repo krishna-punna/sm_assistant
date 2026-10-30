@@ -2,6 +2,7 @@ package com.smassistant.app.agents
 
 import com.smassistant.app.data.ApiConfig
 import com.smassistant.app.data.ApiService
+import com.smassistant.app.data.ImageFormat
 import com.smassistant.app.media.MediaCache
 import com.smassistant.app.media.extensionFor
 import com.smassistant.app.net.ApiError
@@ -33,7 +34,21 @@ fun interface ImageAgent {
     val service: ApiService get() = ApiService.GEMINI
 
     suspend fun generate(prompt: String, count: Int): ApiResult<List<File>>
+
+    /**
+     * [count] images in [format] (docs/design/image-templates.md §2), or the agent's own default
+     * when null. An agent that can't take a size (Cloudflare FLUX, always square) ignores it.
+     */
+    suspend fun generate(prompt: String, count: Int, format: ImageFormat?): ApiResult<List<File>> = generate(prompt, count)
 }
+
+/** The ratio Gemini's `imageConfig.aspectRatio` takes for [format]. */
+internal val ImageFormat.aspectRatio: String
+    get() = when (this) {
+        ImageFormat.PORTRAIT -> "2:3"
+        ImageFormat.SQUARE -> "1:1"
+        ImageFormat.LANDSCAPE -> "3:2"
+    }
 
 /**
  * Gemini image model: POST {api}/models/{imageModel}:generateContent, one image per call, so
@@ -45,17 +60,19 @@ class GeminiImageAgent(
     private val cache: MediaCache,
     private val client: OkHttpClient = Http.generationClient,
 ) : ImageAgent {
-    override suspend fun generate(prompt: String, count: Int): ApiResult<List<File>> {
+    override suspend fun generate(prompt: String, count: Int): ApiResult<List<File>> = generate(prompt, count, null)
+
+    override suspend fun generate(prompt: String, count: Int, format: ImageFormat?): ApiResult<List<File>> {
         val current = config()
         if (current.api.isBlank() || current.key.isBlank() || current.imageModel.isBlank()) {
             return ApiResult.Failed(ApiError.NotConfigured)
         }
-        val results = coroutineScope { List(count) { async { generateOne(current, prompt) } }.awaitAll() }
+        val results = coroutineScope { List(count) { async { generateOne(current, prompt, format) } }.awaitAll() }
         val files = results.filterIsInstance<ApiResult.Ok<File>>().map { it.value }
         return if (files.isNotEmpty()) ApiResult.Ok(files) else results.first() as ApiResult.Failed
     }
 
-    private suspend fun generateOne(config: ApiConfig, prompt: String): ApiResult<File> {
+    private suspend fun generateOne(config: ApiConfig, prompt: String, format: ImageFormat?): ApiResult<File> {
         val result = client.postJson(
             url = "${config.api.trimEnd('/')}/models/${config.imageModel}:generateContent",
             headers = mapOf("x-goog-api-key" to config.key),
@@ -71,6 +88,7 @@ class GeminiImageAgent(
                         add("TEXT")
                         add("IMAGE")
                     }
+                    format?.let { putJsonObject("imageConfig") { put("aspectRatio", it.aspectRatio) } }
                 }
             },
         )
