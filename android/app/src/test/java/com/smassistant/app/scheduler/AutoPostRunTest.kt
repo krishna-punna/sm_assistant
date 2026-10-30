@@ -5,6 +5,7 @@ import com.smassistant.app.generate.GenerateContentAndMediaUseCase
 import com.smassistant.app.generate.GeneratedVideo
 import com.smassistant.app.linkedin.LinkedInPost
 import com.smassistant.app.linkedin.PostToLinkedInUseCase
+import com.smassistant.app.linkedin.SignInExpiry
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
 import com.smassistant.app.prompt.PreparedPrompt
@@ -30,6 +31,7 @@ class AutoPostRunTest {
     private var video: Outcome<GeneratedVideo> = Outcome.Ok(GeneratedVideo(File("v.mp4"), emptyList()))
     private var reply: ApiResult<LinkedInPost> = ApiResult.Ok(LinkedInPost("urn:li:share:7"))
     private val prompts = mutableListOf<String>()
+    private var expiry: SignInExpiry? = null
 
     private val linkedIn = PostToLinkedInUseCase(
         tags = { listOf("#java") },
@@ -53,6 +55,7 @@ class AutoPostRunTest {
         generateVideo = { prompts += "video: $it"; video },
         linkedIn = linkedIn,
         now = { 1000L },
+        signInExpiry = { expiry },
     )
 
     private fun scheduler(type: PostType = PostType.TEXT) =
@@ -101,6 +104,44 @@ class AutoPostRunTest {
     }
 
     @Test
+    fun `an expired LinkedIn sign-in fails the run before anything is generated`() = runTest {
+        expiry = SignInExpiry.Expired(500L)
+        val outcome = run(scheduler())
+        assertFalse(outcome.record.ok)
+        assertFalse(outcome.retry)
+        assertTrue(outcome.record.message.startsWith("Your LinkedIn sign-in expired"))
+        assertTrue(topics.isEmpty())
+        assertTrue(published.isEmpty())
+    }
+
+    @Test
+    fun `a sign-in that expires soon still posts`() = runTest {
+        expiry = SignInExpiry.Soon(5000L, daysLeft = 3)
+        assertTrue(run(scheduler()).record.ok)
+    }
+
+    @Test
+    fun `review first holds the finished post instead of publishing it`() = runTest {
+        val outcome = run(scheduler(PostType.TEXT_WITH_IMAGE).copy(reviewFirst = true))
+        assertTrue(published.isEmpty())
+        assertTrue(outcome.record.ok)
+        assertTrue(outcome.record.awaitingReview)
+        assertEquals("Ready for your review: “Kafka Partitions”", outcome.record.message)
+        assertEquals(PendingPost("Kafka Partitions", "Kafka partitions explained\n\n#java", listOf("a.png", "b.png"), 1000L), outcome.held)
+    }
+
+    @Test
+    fun `a run is skipped while an earlier post waits for review`() = runTest {
+        val waiting = PendingPost("Kafka Partitions", "text")
+        val outcome = run(scheduler().copy(reviewFirst = true, pending = waiting))
+        assertTrue(outcome.skipped)
+        assertFalse(outcome.retry)
+        assertEquals("Skipped: “Kafka Partitions” is still waiting for your review.", outcome.record.message)
+        assertTrue(topics.isEmpty())
+        assertTrue(published.isEmpty())
+    }
+
+    @Test
     fun `media that fails means nothing is posted`() = runTest {
         images = Outcome.Failed(ApiError.InvalidKey, "Gemini")
         val outcome = run(scheduler(PostType.TEXT_WITH_IMAGE))
@@ -143,9 +184,9 @@ class AutoPostRunTest {
 
     @Test
     fun `network errors and rate limits are retried, key errors are not`() = runTest {
-        text = Outcome.Failed(ApiError.Unreachable("Timed out"), "Claude")
+        text = Outcome.Failed(ApiError.Unreachable("Timed out"), "Gemini")
         assertTrue(run(scheduler()).retry)
-        text = Outcome.Failed(ApiError.InvalidKey, "Claude")
+        text = Outcome.Failed(ApiError.InvalidKey, "Gemini")
         assertFalse(run(scheduler()).retry)
         text = Outcome.Ok("Fine")
         reply = ApiResult.Failed(ApiError.RateLimited)

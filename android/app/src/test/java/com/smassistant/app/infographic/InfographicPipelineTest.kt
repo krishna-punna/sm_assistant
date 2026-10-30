@@ -89,6 +89,5 @@ class InfographicPipelineTest {
         val style = File("src/main/assets/prompts/illustration.md").readText()
         listOf("{{prompt}}", "{{colors}}").forEach { assertTrue(it, style.contains(it)) }
         assertTrue(style.contains("Do not include any text"))
-        assertTrue(File("src/main/assets/prompts/illustration_svg.md").readText().contains("No `<text>`"))
     }
 }

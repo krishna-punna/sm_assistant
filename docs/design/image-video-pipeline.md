@@ -32,14 +32,14 @@ the renderer and the illustration step, and the PNGs are encoded into the slides
 
 | Feature | Today | Problem |
 |---|---|---|
-| Generate Image | `GenerateImagesUseCase` puts the topic and 3 few-shot examples into `prompts/image.md` and asks the image agent for 4 finished images. Gemini paints them; Claude writes a whole SVG (`prompts/image_svg.md`, 16k tokens) that AndroidSVG draws. | Diffusion models misspell and blur the dense text a cheat sheet needs. The LLM never plans the content, so facts and structure vary. Claude's full SVG is slow and often cut off or overflowing, because the model has to do layout and text measuring itself. |
+| Generate Image | `GenerateImagesUseCase` puts the topic and 3 few-shot examples into `prompts/image.md` and asks the image agent for 4 finished images. Gemini, Cloudflare or Pollinations.AI paint them. | Diffusion models misspell and blur the dense text a cheat sheet needs. The LLM never plans the content, so facts and structure vary. Claude's full SVG is slow and often cut off or overflowing, because the model has to do layout and text measuring itself. |
 | Generate Video | `GenerateVideoUseCase` asks the image agent for 4 separate slides (`prompts/video.md`), then `Media3SlideshowMaker` encodes them. | The 4 calls don't know about each other, so slides repeat or skip steps and the style changes between slides. |
 
 ## New design
 
 ### 1. LLM generates content → structured JSON
 
-The **text agent** (Claude, Gemini or Groq, the user's default) gets the topic and a system prompt
+The **text agent** (Gemini, Groq, Cloudflare or Pollinations.AI, the user's default) gets the topic and a system prompt
 (`prompts/infographic.md`, with the few-shot examples from `image_examples.md` as content and layout
 ideas) and replies with one JSON object. Video uses `prompts/video_deck.md` and replies with a deck.
 The model only decides *what* to say and which building blocks to use; it never writes coordinates.
@@ -98,7 +98,7 @@ AndroidSVG can draw:
 - **Footer**: the takeaway on a dark band with a light-bulb icon.
 - Text is wrapped by measuring it (`TextMeasurer`; on the device it measures with the real font
   through `Paint`), since SVG text doesn't wrap. Short content is padded to the format; long
-  content makes a portrait image taller.
+  content is laid out on a wider page at the same ratio (see image-templates.md).
 
 Renderer output for a sample definition, before illustrations are painted in (the tinted panels
 with icons are the illustration slots):
@@ -111,7 +111,7 @@ slot already holds a tinted placeholder with an icon, so the SVG is a complete i
 ### 4. AI-generated illustrations
 
 For each slot, the **image agent** for that purpose (Gemini, or the Cloudflare and Pollinations
-agents from PR #56; Claude draws a small SVG) gets a short prompt:
+agents from PR #56) gets a short prompt:
 the slot's prompt plus a fixed style suffix (*flat vector illustration, the palette's colours,
 plain background, no text, no letters, no logos*). Illustrations never carry text, which is what
 diffusion models are bad at. At most 2 slots per image (hero + one card) and 1 per video slide keep
@@ -144,8 +144,8 @@ whole story, so the slides follow on from each other and share a style.
 
 The direct "image agent paints the whole infographic" flow stays as the fallback when no text agent
 is set up, so existing setups with only a Gemini key keep working. `image.md` and
-`image_examples.md` stay in use (the examples now feed the infographic prompt). `image_svg.md` is
-replaced by a short illustration prompt for Claude.
+`image_examples.md` stay in use (the examples now feed the infographic prompt). The Claude agent and
+its SVG prompts (`image_svg.md`, `illustration_svg.md`) were removed on 2026-10-29.
 
 ## Rollout
 
@@ -173,8 +173,7 @@ retry, not an error, so a bad check can't stop Generate Image.
 | Finished infographic (Generate Image only) | `ImageReviewer`: the text agent looks at a 1568 px JPEG of the image with `prompts/image_review.md` and scores it from 0 to 10 for topic, plan, readable text, clean illustrations, layout and facts. | Under `min_score`, the definition is written again with the review's problems and drawn again, up to `retries` times. The best-scored image is kept. |
 | Painted images (no text agent) | `imageProblem` with a 512 px minimum. | Blank ones are painted once more, then left out. |
 
-The review uses `TextAgent.see`, which sends the image to Claude (image block), Gemini
-(`inlineData`) or an OpenAI-compatible API (`image_url`). A model that can't see images returns an
+The review uses `TextAgent.see`, which sends the image to Gemini (`inlineData`) or an OpenAI-compatible API (`image_url`). A model that can't see images returns an
 error, and the image is kept without a review. The settings are in `app.yml`:
 
 ```yaml
@@ -186,3 +185,5 @@ image_checks:
 
 Cost: with the review on, each image costs one more text-agent call, and a rejected one costs
 another definition, its illustrations and another review.
+
+See [image-templates.md](image-templates.md) (planned 2026-10-30) for picking and filling one of Krishna's prompt templates per image.

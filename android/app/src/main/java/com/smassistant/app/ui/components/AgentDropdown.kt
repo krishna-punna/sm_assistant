@@ -28,14 +28,17 @@ import com.smassistant.app.agents.isUsableImageAgent
 import com.smassistant.app.data.AiModel
 import com.smassistant.app.data.ApiService
 import com.smassistant.app.data.ApiSettingsStore
+import com.smassistant.app.data.ImageFormat
 import com.smassistant.app.data.MediaPurpose
 import com.smassistant.app.data.forMedia
 import com.smassistant.app.generate.VIDEO_LENGTHS
+import com.smassistant.app.generate.parseImageTemplates
 import com.smassistant.app.generate.videoLengthLabel
 import com.smassistant.app.prompt.PromptType
+import com.smassistant.app.prompt.loadPromptAsset
 
 /**
- * "Agent: Claude ▾" above a text feature's conversation: picks which set-up agent writes the
+ * "Agent: Gemini ▾" above a text feature's conversation: picks which set-up agent writes the
  * next result. The choice is the same default as on the AI Agent screen, so it sticks.
  *
  * The image and video screens show it as "Text agent" with a "Text model" picker ([showModel]),
@@ -81,7 +84,7 @@ private fun TextModelDropdown(store: ApiSettingsStore, agent: ApiService) {
 /**
  * "Image agent: Gemini ▾" and "Image model: … ▾" on the image features, or "Video agent" and
  * "Video model" on the video features ([purpose]): images and video slides each keep their own
- * agent and model. Gemini paints them, Claude draws them as SVG. The agent picker lists only
+ * agent and model. The agent picker lists only
  * set-up agents and is hidden unless there's a choice; the model picker shows the models last
  * listed on the agent's settings screen and is hidden until there are some.
  */
@@ -148,11 +151,47 @@ fun PromptTypeDropdown() {
     )
 }
 
+/**
+ * "Template: Auto ▾" and "Format: Auto ▾" on the image screens (docs/design/image-templates.md):
+ * Auto lets the AI agent pick the template for the content and the app pick the formats; a picked
+ * template or format is used for every image. Both choices are saved for the next submit.
+ */
+@Composable
+fun ImageTemplatePickers() {
+    val appContext = LocalContext.current.applicationContext
+    val preferences = remember { AgentPreferences(appContext) }
+    val templates = remember { parseImageTemplates(loadPromptAsset(appContext, "image_templates")) }
+    var template by remember { mutableStateOf(preferences.imageTemplate?.takeIf { id -> templates.any { it.id == id } }) }
+    var format by remember { mutableStateOf(preferences.imageFormat) }
+    SelectDropdown(
+        label = "Template",
+        selected = template,
+        options = listOf<String?>(null) + templates.map { it.id },
+        optionLabel = { id -> if (id == null) "Auto (AI picks)" else templates.firstOrNull { it.id == id }?.name ?: id },
+        onSelect = {
+            preferences.imageTemplate = it
+            template = it
+        },
+        testTag = "imageTemplateDropdown",
+    )
+    SelectDropdown(
+        label = "Format",
+        selected = format,
+        options = listOf<ImageFormat?>(null) + ImageFormat.entries,
+        optionLabel = { it?.words?.replaceFirstChar { c -> c.uppercase() } ?: "Auto" },
+        onSelect = {
+            preferences.imageFormat = it
+            format = it
+        },
+        testTag = "imageFormatDropdown",
+    )
+}
+
 @Composable
 private fun MediaModelDropdown(store: ApiSettingsStore, agent: ApiService, purpose: MediaPurpose, name: String) {
-    var model by remember(agent) { mutableStateOf(store.load(agent).forMedia(purpose).let { if (agent == ApiService.CLAUDE) it.model else it.imageModel }) }
+    var model by remember(agent) { mutableStateOf(store.load(agent).forMedia(purpose).imageModel) }
     val listed = remember(agent) {
-        store.cachedModels(agent)?.lists?.let { if (agent == ApiService.CLAUDE) it.text else it.image }.orEmpty()
+        store.cachedModels(agent)?.lists?.image.orEmpty()
     }
     if (listed.isEmpty()) return
     val options = if (listed.any { it.id == model }) listed else listOf(AiModel(model)) + listed

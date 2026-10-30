@@ -15,7 +15,7 @@ import java.io.File
 private class FakeAgent(private val replies: List<ApiResult<String>>) : TextAgent {
     constructor(reply: ApiResult<String>) : this(listOf(reply))
 
-    override val service = ApiService.CLAUDE
+    override val service = ApiService.GEMINI
     val calls = mutableListOf<Pair<String, String>>()
 
     override suspend fun generate(system: String, user: String): ApiResult<String> {
@@ -36,7 +36,7 @@ class GenerateTextTest {
     fun `no agent and errors map to outcomes`() = runTest {
         assertEquals(Outcome.NoAgent, GenerateTextUseCase("SYSTEM", { null })("p"))
         assertEquals(
-            Outcome.Failed(ApiError.InvalidKey, "Claude"),
+            Outcome.Failed(ApiError.InvalidKey, "Gemini"),
             GenerateTextUseCase("SYSTEM", { FakeAgent(ApiResult.Failed(ApiError.InvalidKey)) })("p"),
         )
     }

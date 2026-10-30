@@ -1,6 +1,7 @@
 package com.smassistant.app.scheduler
 
 import android.Manifest
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -14,6 +15,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.smassistant.app.MainActivity
 import com.smassistant.app.R
+import com.smassistant.app.navigation.Routes
 
 /**
  * The notification after each scheduled run (SC-7): "Posted …" opening the post, or what went
@@ -21,14 +23,12 @@ import com.smassistant.app.R
  */
 class RunNotifier(private val context: Context) {
     fun show(scheduler: AutoPostScheduler, record: RunRecord) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-        ) {
-            return
-        }
+        if (!allowed()) return
         createChannel()
         val open = record.postUrl?.let { Intent(Intent.ACTION_VIEW, Uri.parse(it)) }
-            ?: Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            ?: Intent(context, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                .apply { if (record.awaitingReview) putExtra(MainActivity.EXTRA_ROUTE, Routes.SCHEDULERS) }
         val tap = PendingIntent.getActivity(
             context,
             scheduler.id.hashCode(),
@@ -37,14 +37,60 @@ class RunNotifier(private val context: Context) {
         )
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_monochrome)
-            .setContentTitle(if (record.ok) "Posted to LinkedIn: ${scheduler.displayName}" else "Scheduled post failed: ${scheduler.displayName}")
+            .setContentTitle(
+                when {
+                    record.awaitingReview -> "Review scheduled post: ${scheduler.displayName}"
+                    record.ok -> "Posted to LinkedIn: ${scheduler.displayName}"
+                    else -> "Scheduled post failed: ${scheduler.displayName}"
+                },
+            )
             .setContentText(record.message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(record.message))
             .setContentIntent(tap)
             .setAutoCancel(true)
             .build()
+        notify(scheduler.id.hashCode(), notification)
+    }
+
+    /** One notification (replaced, not stacked) saying the LinkedIn sign-in runs out soon. */
+    fun showSignInWarning(message: String) {
+        if (!allowed()) return
+        createChannel()
+        val open = Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        val tap = PendingIntent.getActivity(context, SIGN_IN_ID, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_launcher_monochrome)
+            .setContentTitle("LinkedIn sign-in expiring")
+            .setContentText(message)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(message))
+            .setContentIntent(tap)
+            .setAutoCancel(true)
+            .build()
+        notify(SIGN_IN_ID, notification)
+    }
+
+    /**
+     * The ongoing notification while a run works in the foreground. Android shows a foreground
+     * service's notification even without the notification permission (in the task manager).
+     */
+    fun progress(scheduler: AutoPostScheduler): Notification {
+        createChannel()
+        return NotificationCompat.Builder(context, PROGRESS_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_launcher_monochrome)
+            .setContentTitle("Preparing scheduled post: ${scheduler.displayName}")
+            .setContentText("Writing the post and making its ${scheduler.postType.label.lowercase()}…")
+            .setProgress(0, 0, true)
+            .setOngoing(true)
+            .setSilent(true)
+            .build()
+    }
+
+    private fun allowed() = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+
+    private fun notify(id: Int, notification: Notification) {
         try {
-            NotificationManagerCompat.from(context).notify(scheduler.id.hashCode(), notification)
+            NotificationManagerCompat.from(context).notify(id, notification)
         } catch (e: SecurityException) {
             // Permission taken away between the check and the call.
         }
@@ -53,10 +99,14 @@ class RunNotifier(private val context: Context) {
     private fun createChannel() {
         val channel = NotificationChannel(CHANNEL_ID, "Scheduled posts", NotificationManager.IMPORTANCE_DEFAULT)
             .apply { description = "How each scheduled LinkedIn post went" }
-        context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        val progress = NotificationChannel(PROGRESS_CHANNEL_ID, "Scheduled post in progress", NotificationManager.IMPORTANCE_LOW)
+            .apply { description = "Shown while a scheduled post is being made" }
+        context.getSystemService(NotificationManager::class.java).createNotificationChannels(listOf(channel, progress))
     }
 
     private companion object {
         const val CHANNEL_ID = "scheduled_posts"
+        const val SIGN_IN_ID = 0x51_6E
+        const val PROGRESS_CHANNEL_ID = "scheduled_post_progress"
     }
 }

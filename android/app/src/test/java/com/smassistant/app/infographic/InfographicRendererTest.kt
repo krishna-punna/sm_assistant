@@ -34,8 +34,8 @@ class InfographicRendererTest {
 
         assertTrue(rendered.svg.startsWith("<svg xmlns=\"http://www.w3.org/2000/svg\""))
         assertTrue(rendered.svg.endsWith("</svg>"))
-        assertEquals(1080, rendered.width)
-        assertTrue(rendered.height >= 1620)
+        assertTrue(rendered.width >= 1080)
+        assertEquals(rendered.width * 3 / 2f, rendered.height.toFloat(), 1f)
         assertTrue(rendered.svg.contains("""<tspan fill="#FACC15"> Internals</tspan>"""))
         assertTrue(rendered.svg.contains("List&lt;String&gt;"))
         assertTrue(rendered.svg.contains("Pre-size the list"))
@@ -56,12 +56,40 @@ class InfographicRendererTest {
     }
 
     @Test
-    fun `short content is padded to the format and long content grows taller`() {
+    fun `short content is padded to the format and long content is laid out wider at the same ratio`() {
         val short = spec.copy(sections = sections.take(1), hero = null)
         assertEquals(1620, renderer.render(short).height)
         assertEquals(1080, renderer.render(short.copy(format = InfographicFormat.SQUARE)).height)
-        renderer.render(spec.copy(format = InfographicFormat.SQUARE)).let { assertEquals(1080, it.width); assertTrue(it.height > 1080) }
         renderer.render(short.copy(format = InfographicFormat.LANDSCAPE)).let { assertEquals(1620, it.width); assertEquals(1080, it.height) }
+        for ((format, ratio) in listOf(InfographicFormat.PORTRAIT to 1.5f, InfographicFormat.LANDSCAPE to 2 / 3f)) {
+            renderer.render(spec.copy(format = format)).let {
+                assertTrue("$format", it.width >= format.width)
+                assertEquals("$format", it.width * ratio, it.height.toFloat(), 1f)
+            }
+        }
+        // The whole cheat sheet on a square doesn't fit 1080 x 1080, so it is laid out wider.
+        val half = spec.copy(format = InfographicFormat.SQUARE, sections = sections.take(4))
+        renderer.render(half).let {
+            assertTrue(it.width > 1080)
+            assertEquals(it.width, it.height)
+        }
+    }
+
+    @Test
+    fun `content too long even for a page twice as wide is centred on a page widened to the ratio`() {
+        val long = spec.copy(sections = List(8) { Section("Card $it", SectionBody.Table(listOf("A", "B", "C"), List(7) { i -> listOf("cell $i", "cell", "cell") })) })
+        renderer.render(long.copy(format = InfographicFormat.SQUARE)).let {
+            assertTrue(it.width > 2160)
+            assertEquals(it.width.toFloat(), it.height.toFloat(), 1f)
+        }
+    }
+
+    @Test
+    fun `the brand name is drawn in the footer, with or without a takeaway`() {
+        assertTrue(renderer.render(spec.copy(brand = "Acme Labs")).svg.contains(">Acme Labs<"))
+        val noTakeaway = renderer.render(spec.copy(sections = sections.take(1), takeaway = null, brand = "Acme Labs"))
+        assertTrue(noTakeaway.svg.contains(">Acme Labs<"))
+        assertFalse(renderer.render(spec.copy(brand = "  ")).svg.contains("Acme"))
     }
 
     @Test

@@ -145,7 +145,7 @@ class GenerateVideoUseCase(
  */
 fun appGenerateVideo(context: Context): GenerateVideoUseCase {
     val cache = MediaCache(context)
-    val selector = appImageAgentSelector(context, cache, MediaPurpose.VIDEO, illustrations = true)
+    val selector = appImageAgentSelector(context, cache, MediaPurpose.VIDEO)
     return GenerateVideoUseCase(
         slideTemplate = loadPromptAsset(context, "video"),
         agent = selector::imageAgent,

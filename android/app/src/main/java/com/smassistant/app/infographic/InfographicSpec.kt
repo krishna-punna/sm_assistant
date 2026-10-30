@@ -26,6 +26,8 @@ data class InfographicSpec(
     val hero: String? = null,
     val sections: List<Section> = emptyList(),
     val takeaway: String? = null,
+    /** The user's brand name (app.yml `image_style`), drawn small in the footer; never written by the model. */
+    val brand: String? = null,
 )
 
 enum class InfographicFormat(val key: String, val width: Int) {
@@ -55,6 +57,24 @@ sealed interface SectionBody {
         data class Stat(val value: String, val label: String)
     }
     data class Illustration(val prompt: String, val caption: String? = null) : SectionBody
+
+    /**
+     * A bar chart of measured values (the Data template, docs/design/image-templates.md): each bar's
+     * length is drawn to scale from its [Bar.amount], and its [Bar.value] is printed exactly as written.
+     */
+    data class Chart(val bars: List<Bar>, val unit: String? = null) : SectionBody {
+        data class Bar(val label: String, val value: String, val amount: Double)
+    }
+
+    /**
+     * Components and the arrows between them (the Architecture and Workflow templates): each node
+     * may belong to a [Node.group] (a service boundary, a tier), and each edge may carry a label
+     * ("REST", "async", "no"). Branches are edges from one node to several.
+     */
+    data class Diagram(val nodes: List<Node>, val edges: List<Edge>) : SectionBody {
+        data class Node(val id: String, val label: String, val group: String? = null)
+        data class Edge(val from: String, val to: String, val label: String? = null)
+    }
 }
 
 /** A video: slides that share one palette, each a square infographic. */
@@ -69,6 +89,9 @@ internal object Limits {
     const val TABLE_ROWS = 7
     const val FLOW_NODES = 8
     const val SLIDES = 8
+    const val CHART_BARS = 8
+    const val DIAGRAM_NODES = 10
+    const val DIAGRAM_EDGES = 14
     const val TEXT = 220
 }
 
@@ -151,6 +174,8 @@ private fun section(json: JsonObject): Section? {
                 SectionBody.Stats.Stat(value.clip(12), stat.string("label").orEmpty().clip(60))
             }
             .take(4).takeIf { it.isNotEmpty() }?.let { SectionBody.Stats(it) }
+        "chart", "bar_chart", "bars" -> chart(json)
+        "diagram", "architecture", "graph" -> diagram(json)
         "illustration" -> json.string("prompt")?.takeIf { it.isNotBlank() }
             ?.let { SectionBody.Illustration(it.clip(), json.string("caption")?.takeIf { c -> c.isNotBlank() }?.clip()) }
         else -> SectionBody.Bullets(items).takeIf { items.isNotEmpty() }
@@ -161,6 +186,52 @@ private fun section(json: JsonObject): Section? {
         body = body,
         icon = json.string("icon")?.lowercase()?.takeIf { it in ICONS },
     )
+}
+
+/** Bars as `{"label": "Redis", "value": "0.5 ms"}`; a value without a number, or fewer than 2 bars, is no chart. */
+private fun chart(json: JsonObject): SectionBody.Chart? {
+    val bars = json.array("bars").ifEmpty { json.array("items") }.filterIsInstance<JsonObject>()
+        .mapNotNull { bar ->
+            val value = bar.string("value")?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            val amount = NUMBER.find(value.replace(",", ""))?.value?.toDoubleOrNull()?.takeIf { it >= 0 } ?: return@mapNotNull null
+            SectionBody.Chart.Bar(bar.string("label").orEmpty().clip(40), value.clip(16), amount)
+        }
+        .take(Limits.CHART_BARS)
+    if (bars.size < 2) return null
+    return SectionBody.Chart(bars, json.string("unit")?.takeIf { it.isNotBlank() }?.clip(30))
+}
+
+private val NUMBER = Regex("""\d+(?:\.\d+)?""")
+
+/**
+ * Nodes as `{"id": "api", "label": "API Gateway", "group": "Backend"}` or plain labels, and edges as
+ * `{"from": "api", "to": "orders", "label": "REST"}` or `["api", "orders"]`, matched to nodes by id or
+ * label. Edges to unknown nodes, to themselves and repeats are dropped; fewer than 2 nodes is no diagram.
+ */
+private fun diagram(json: JsonObject): SectionBody.Diagram? {
+    val nodes = json.array("nodes").mapNotNull { element ->
+        when (element) {
+            is JsonPrimitive -> element.contentOrNull?.trim()?.takeIf { it.isNotEmpty() }?.let { SectionBody.Diagram.Node(it, it.clip(40)) }
+            is JsonObject -> {
+                val label = (element.string("label") ?: element.string("name") ?: element.string("id"))?.takeIf { it.isNotBlank() }
+                label?.let { SectionBody.Diagram.Node(element.string("id")?.takeIf { id -> id.isNotBlank() } ?: it, it.clip(40), element.string("group")?.takeIf { g -> g.isNotBlank() }?.clip(30)) }
+            }
+            else -> null
+        }
+    }.distinctBy { it.id.lowercase() }.take(Limits.DIAGRAM_NODES)
+    if (nodes.size < 2) return null
+    fun find(key: String?) = key?.trim()?.lowercase()?.let { k -> nodes.firstOrNull { it.id.lowercase() == k } ?: nodes.firstOrNull { it.label.lowercase() == k } }
+    val edges = json.array("edges").mapNotNull { element ->
+        val (from, to, label) = when (element) {
+            is JsonArray -> Triple(element.getOrNull(0)?.text(), element.getOrNull(1)?.text(), element.getOrNull(2)?.text())
+            is JsonObject -> Triple(element.string("from"), element.string("to"), element.string("label"))
+            else -> return@mapNotNull null
+        }
+        val a = find(from) ?: return@mapNotNull null
+        val b = find(to)?.takeIf { it != a } ?: return@mapNotNull null
+        SectionBody.Diagram.Edge(a.id, b.id, label?.takeIf { it.isNotBlank() }?.clip(20))
+    }.distinctBy { it.from to it.to }.take(Limits.DIAGRAM_EDGES)
+    return SectionBody.Diagram(nodes, edges)
 }
 
 private fun side(json: JsonObject?, defaultLabel: String): SectionBody.Compare.Side? {

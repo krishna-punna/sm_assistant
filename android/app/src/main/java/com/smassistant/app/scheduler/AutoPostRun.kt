@@ -12,6 +12,8 @@ import com.smassistant.app.generate.appGenerateImages
 import com.smassistant.app.generate.appGenerateTechnicalContent
 import com.smassistant.app.generate.appGenerateVideo
 import com.smassistant.app.linkedin.PostToLinkedInUseCase
+import com.smassistant.app.linkedin.SignInExpiry
+import com.smassistant.app.linkedin.appSignInExpiry
 import com.smassistant.app.linkedin.appPostToLinkedIn
 import com.smassistant.app.linkedin.linkedInErrorMessage
 import com.smassistant.app.net.ApiError
@@ -30,7 +32,15 @@ import kotlinx.coroutines.coroutineScope
  * it failed on something that may pass in a few minutes (network, rate limit), so the worker
  * tries again before recording it (SC-NFR3).
  */
-data class RunOutcome(val record: RunRecord, val title: String? = null, val retry: Boolean = false)
+data class RunOutcome(
+    val record: RunRecord,
+    val title: String? = null,
+    val retry: Boolean = false,
+    /** For a "review before posting" scheduler: the post made and held for approval. */
+    val held: PendingPost? = null,
+    /** True when the run did nothing (an earlier post still waits for review), so the topic doesn't move on. */
+    val skipped: Boolean = false,
+)
 
 /**
  * One scheduled run (docs/requirements/13-scheduled-posts.md, SC-1…3b): the scheduler's next topic
@@ -45,10 +55,20 @@ class AutoPostRun(
     private val generateVideo: suspend (String) -> Outcome<GeneratedVideo>,
     private val linkedIn: PostToLinkedInUseCase,
     private val now: () -> Long = System::currentTimeMillis,
+    /** The LinkedIn sign-in's expiry; an expired one fails the run before anything is generated. */
+    private val signInExpiry: () -> SignInExpiry? = { null },
 ) {
     suspend operator fun invoke(scheduler: AutoPostScheduler): RunOutcome {
         val topic = scheduler.currentTopic() ?: return failed("Choose at least one technical content type.")
+        scheduler.pending?.let { waiting ->
+            return RunOutcome(
+                RunRecord(now(), ok = false, message = "Skipped: “${waiting.title}” is still waiting for your review.", awaitingReview = true),
+                skipped = true,
+            )
+        }
         if (!linkedIn.isConfigured()) return failed(linkedInErrorMessage(ApiError.NotConfigured))
+        val expiry = signInExpiry()
+        if (expiry is SignInExpiry.Expired) return failed(expiry.message().orEmpty())
 
         val type = scheduler.postType.promptType
         val prompts = when (val outcome = preparePrompt(topicRequest(topic, scheduler.recentTitles), type)) {
@@ -85,6 +105,14 @@ class AutoPostRun(
         if (post.text.isBlank()) return failed("The agent wrote an empty post, so nothing was posted.", title)
         if (!post.fitsLimit) {
             return failed("The post was ${post.overLimitBy} characters over LinkedIn's ${linkedIn.limit}-character limit with the hashtags, so it wasn't posted.", title)
+        }
+
+        if (scheduler.reviewFirst) {
+            return RunOutcome(
+                RunRecord(now(), ok = true, message = "Ready for your review: “$title”", awaitingReview = true),
+                title,
+                held = PendingPost(title, post.text, files.map { it.path }, now()),
+            )
         }
 
         return when (val result = linkedIn.post(post.text, files)) {
@@ -154,5 +182,6 @@ fun appAutoPostRun(context: Context): AutoPostRun {
         generateImages = appGenerateImages(context)::invoke,
         generateVideo = appGenerateVideo(context)::invoke,
         linkedIn = appPostToLinkedIn(context),
+        signInExpiry = appSignInExpiry(context),
     )
 }

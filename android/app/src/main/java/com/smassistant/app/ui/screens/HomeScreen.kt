@@ -3,7 +3,9 @@ package com.smassistant.app.ui.screens
 import androidx.compose.runtime.Composable
 import com.smassistant.app.navigation.Routes
 import com.smassistant.app.ui.components.MenuButton
+import com.smassistant.app.ui.components.SignInWarningCard
 import com.smassistant.app.ui.components.SmScreen
+import com.smassistant.app.ui.components.rememberSignInWarning
 import com.smassistant.app.ui.theme.SmIcon
 
 /**
@@ -12,7 +14,9 @@ import com.smassistant.app.ui.theme.SmIcon
  */
 @Composable
 fun HomeScreen(onNavigate: (String) -> Unit) {
+    val signInWarning = rememberSignInWarning()
     SmScreen(sectionTitle = null, onBackToHome = null) {
+        signInWarning?.let { SignInWarningCard(it) { onNavigate(Routes.LINKEDIN_SETTINGS) } }
         MenuButton("LinkedIn API", SmIcon.LINKEDIN) { onNavigate(Routes.LINKEDIN_SETTINGS) }
         MenuButton("AI Agent", SmIcon.AGENT) { onNavigate(Routes.AI_AGENTS) }
         MenuButton("SM Assistant", SmIcon.ASSISTANT) { onNavigate(Routes.HUB) }

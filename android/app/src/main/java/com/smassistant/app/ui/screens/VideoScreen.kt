@@ -11,7 +11,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.smassistant.app.chat.ChatViewModel
+import com.smassistant.app.chat.sessionChatViewModel
 import com.smassistant.app.data.MediaPurpose
 import com.smassistant.app.chat.VideoSaver
 import com.smassistant.app.generate.GenerateContentAndMediaUseCase
@@ -37,7 +37,7 @@ fun VideoScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToH
     val appContext = LocalContext.current.applicationContext
     val viewModel = viewModel {
         val useCase = appGenerateVideo(appContext)
-        ChatViewModel(createSavedStateHandle(), VideoSaver) { prompt -> useCase(prompt) }
+        sessionChatViewModel(appContext, Feature.VIDEO.name, createSavedStateHandle(), VideoSaver) { prompt -> useCase(prompt) }
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val postViewModel = viewModel { PostViewModel(appPostToLinkedIn(appContext), appSmartTrim(appContext)) }

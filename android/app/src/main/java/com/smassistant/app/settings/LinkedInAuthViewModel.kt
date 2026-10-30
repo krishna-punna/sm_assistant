@@ -10,6 +10,7 @@ import com.smassistant.app.linkedin.LinkedInOAuth
 import com.smassistant.app.linkedin.LinkedInOAuthApp
 import com.smassistant.app.linkedin.LinkedInRedirect
 import com.smassistant.app.linkedin.LinkedInSession
+import com.smassistant.app.linkedin.activeSession
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
 import com.smassistant.app.net.userMessage
@@ -146,9 +147,5 @@ class LinkedInAuthViewModel(
         else -> error.userMessage(ApiService.LINKEDIN.displayName)
     }
 
-    private fun currentSession(): LinkedInSession? {
-        val session = authStore.session() ?: return null
-        val key = settings.load(ApiService.LINKEDIN).key
-        return session.takeIf { key.isNotBlank() && LinkedInOAuth.hash(key) == it.tokenHash }
-    }
+    private fun currentSession(): LinkedInSession? = activeSession(authStore, settings.load(ApiService.LINKEDIN).key)
 }

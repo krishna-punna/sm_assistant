@@ -17,7 +17,7 @@ private val JSON_MEDIA_TYPE = "application/json".toMediaType()
 
 /**
  * POSTs [body] as JSON and returns the parsed JSON response. Non-2xx answers become an
- * [ApiError] carrying the provider's `error.message` (the shape Anthropic, Google and Groq share).
+ * [ApiError] carrying the provider's `error.message` (the shape Google and Groq share).
  */
 suspend fun OkHttpClient.postJson(url: String, headers: Map<String, String>, body: JsonElement): ApiResult<JsonObject> {
     val request = try {
@@ -54,7 +54,7 @@ suspend fun OkHttpClient.sendJson(request: Request): ApiResult<JsonObject> {
 }
 
 /**
- * The provider's message from an error body, if present: `error.message` (Anthropic, Google,
+ * The provider's message from an error body, if present: `error.message` (Google,
  * OpenAI-compatible), `error` as a string or `errors[0].message` (Cloudflare).
  */
 fun JsonObject.errorMessage(): String? =

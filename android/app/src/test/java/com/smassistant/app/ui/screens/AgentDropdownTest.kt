@@ -27,16 +27,16 @@ class AgentDropdownTest {
     fun listsTheSetUpAgentsAndSwitchesToThePickedOne() {
         var picked: ApiService? = null
         compose.setContent {
-            var selected by remember { mutableStateOf(ApiService.CLAUDE) }
-            AgentDropdown(listOf(ApiService.CLAUDE, ApiService.GROQ), selected) { picked = it; selected = it }
+            var selected by remember { mutableStateOf(ApiService.GEMINI) }
+            AgentDropdown(listOf(ApiService.GEMINI, ApiService.GROQ), selected) { picked = it; selected = it }
         }
-        compose.onNodeWithTag("agentDropdown").assertTextEquals("Claude ▾").performClick()
-        compose.onNodeWithText("✓ Claude").assertExists()
-        compose.onNodeWithText("Gemini").assertDoesNotExist()
+        compose.onNodeWithTag("agentDropdown").assertTextEquals("Gemini ▾").performClick()
+        compose.onNodeWithText("✓ Gemini").assertExists()
+        compose.onNodeWithText("Cloudflare").assertDoesNotExist()
         compose.onNodeWithText("Groq").performClick()
 
         assertEquals(ApiService.GROQ, picked)
         compose.onNodeWithTag("agentDropdown").assertTextEquals("Groq ▾")
-        compose.onNodeWithText("✓ Claude").assertDoesNotExist()
+        compose.onNodeWithText("✓ Gemini").assertDoesNotExist()
     }
 }

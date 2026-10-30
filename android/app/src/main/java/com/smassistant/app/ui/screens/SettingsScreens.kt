@@ -212,7 +212,7 @@ private fun DefaultTextAgentPicker() {
 fun DefaultTextAgentChips(selected: ApiService, onSelect: (ApiService) -> Unit) =
     DefaultAgentChips("Default agent for text", TEXT_AGENTS, selected, onSelect)
 
-/** Which agent makes images, or video slides ([purpose]): Gemini and the diffusion agents paint them, Claude draws them as SVG. */
+/** Which agent makes images, or video slides ([purpose]): Gemini and the diffusion agents paint them. */
 @Composable
 private fun DefaultImageAgentPicker(purpose: MediaPurpose) {
     val appContext = LocalContext.current.applicationContext
@@ -368,9 +368,7 @@ private fun ModelPickers(
     SelectDropdown("Model", state.model, text.map { it.id }, labelOf(text, "Choose a model"), onModelChange, "modelPicker")
     if (state.showImageModel) {
         val image = state.imageOptions
-        val imageBlank = if (state.mediaFromTextModels) "Same as text model" else "Choose a model"
-        val imageIds = (if (state.mediaFromTextModels) listOf("") else emptyList()) + image.map { it.id }
-        SelectDropdown("Image model", state.imageModel, imageIds, labelOf(image, imageBlank), onImageModelChange, "imageModelPicker")
+        SelectDropdown("Image model", state.imageModel, image.map { it.id }, labelOf(image, "Choose a model"), onImageModelChange, "imageModelPicker")
         val video = state.videoOptions
         val videoIds = listOf("") + video.map { it.id }
         SelectDropdown("Video model", state.videoModel, videoIds, labelOf(video, "Same as image model"), onVideoModelChange, "videoModelPicker")

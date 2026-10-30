@@ -32,8 +32,23 @@ enum class PostType(val label: String, val promptType: PromptType) {
     TEXT_WITH_VIDEO("Text & Video", PromptType.TEXT_AND_VIDEO),
 }
 
-/** How the last run went, shown on the scheduler list. [postUrl] opens the post when it was published. */
-data class RunRecord(val at: Long, val ok: Boolean, val message: String, val postUrl: String? = null)
+/**
+ * How the last run went, shown on the scheduler list. [postUrl] opens the post when it was published;
+ * [awaitingReview] is true when the run made a post that waits for the user's approval.
+ */
+data class RunRecord(
+    val at: Long,
+    val ok: Boolean,
+    val message: String,
+    val postUrl: String? = null,
+    val awaitingReview: Boolean = false,
+)
+
+/**
+ * A post a "review before posting" scheduler made and holds until the user approves it: the final
+ * [text] (hashtags included) and the paths of its generated [media] in the app's cache.
+ */
+data class PendingPost(val title: String, val text: String, val media: List<String> = emptyList(), val createdAt: Long = 0L)
 
 /**
  * One scheduler (docs/requirements/13-scheduled-posts.md): on its [schedule] it picks the next of
@@ -52,6 +67,10 @@ data class AutoPostScheduler(
     /** Titles of the latest posts, newest first, so new prompts can avoid repeating them. */
     val recentTitles: List<String> = emptyList(),
     val lastRun: RunRecord? = null,
+    /** When on, a run makes the post and waits for the user to approve it instead of publishing it. */
+    val reviewFirst: Boolean = false,
+    /** The post waiting for review; while there is one, later runs are skipped. */
+    val pending: PendingPost? = null,
     /** Epoch millis of the next planned run while [enabled]; null when nothing is planned. */
     val nextRunAt: Long? = null,
 ) {
@@ -113,6 +132,16 @@ object SchedulerJson {
                 put("ok", run.ok)
                 put("message", run.message)
                 run.postUrl?.let { put("postUrl", it) }
+                if (run.awaitingReview) put("awaitingReview", true)
+            })
+        }
+        put("reviewFirst", s.reviewFirst)
+        s.pending?.let { post ->
+            put("pending", buildJsonObject {
+                put("title", post.title)
+                put("text", post.text)
+                put("media", strings(post.media))
+                put("createdAt", post.createdAt)
             })
         }
         s.nextRunAt?.let { put("nextRunAt", it) }
@@ -146,6 +175,16 @@ object SchedulerJson {
                     ok = run.bool("ok") ?: false,
                     message = run.string("message").orEmpty(),
                     postUrl = run.string("postUrl"),
+                    awaitingReview = run.bool("awaitingReview") ?: false,
+                )
+            },
+            reviewFirst = json.bool("reviewFirst") ?: defaults.reviewFirst,
+            pending = (json["pending"] as? JsonObject)?.let { post ->
+                PendingPost(
+                    title = post.string("title").orEmpty(),
+                    text = post.string("text").orEmpty(),
+                    media = post.strings("media"),
+                    createdAt = post.long("createdAt") ?: 0L,
                 )
             },
             nextRunAt = json.long("nextRunAt"),

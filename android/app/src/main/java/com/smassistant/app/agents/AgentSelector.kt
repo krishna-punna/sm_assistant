@@ -4,20 +4,16 @@ import android.content.Context
 import com.smassistant.app.data.ApiConfig
 import com.smassistant.app.data.ApiService
 import com.smassistant.app.data.ApiSettingsStore
+import com.smassistant.app.data.ImageFormat
 import com.smassistant.app.data.MediaPurpose
 import com.smassistant.app.data.forMedia
 import com.smassistant.app.generate.DEFAULT_VIDEO_SECONDS
 import com.smassistant.app.generate.VIDEO_LENGTHS
-import com.smassistant.app.media.AndroidSvgRenderer
 import com.smassistant.app.media.MediaCache
-import com.smassistant.app.net.Http
 import com.smassistant.app.prompt.PromptType
-import com.smassistant.app.prompt.loadPromptAsset
-import java.util.concurrent.TimeUnit
 
 /** Agents that can generate text, in fallback order. */
 val TEXT_AGENTS = listOf(
-    ApiService.CLAUDE,
     ApiService.GEMINI,
     ApiService.GROQ,
     ApiService.CLOUDFLARE,
@@ -25,20 +21,18 @@ val TEXT_AGENTS = listOf(
 )
 
 /**
- * Agents that can make images, in fallback order: Gemini paints them, Claude writes them as SVG,
- * and Cloudflare and Pollinations.AI run diffusion models such as FLUX.
+ * Agents that can make images, in fallback order: Gemini paints them, and Cloudflare and
+ * Pollinations.AI run diffusion models such as FLUX.
  */
 val IMAGE_AGENTS = listOf(
     ApiService.GEMINI,
-    ApiService.CLAUDE,
     ApiService.CLOUDFLARE,
     ApiService.POLLINATIONS,
 )
 
-/** True when [service] has what it needs to make images: Claude a text model, the others an image model. */
+/** True when [service] has what it needs to make images: a key and an image model. */
 fun ApiConfig.isUsableImageAgent(service: ApiService) = when (service) {
     ApiService.GEMINI -> key.isNotBlank() && imageModel.isNotBlank()
-    ApiService.CLAUDE -> isUsableAgent()
     ApiService.CLOUDFLARE, ApiService.POLLINATIONS -> isConfigured() && imageModel.isNotBlank()
     else -> false
 }
@@ -88,7 +82,23 @@ class AgentPreferences(context: Context) {
             prefs.edit().putString(KEY_PROMPT_TYPE, value.name).apply()
         }
 
+    /** The image template id last picked on the image screens (docs/design/image-templates.md); null is Auto. */
+    var imageTemplate: String?
+        get() = prefs.getString(KEY_IMAGE_TEMPLATE, null)
+        set(value) {
+            prefs.edit().putString(KEY_IMAGE_TEMPLATE, value).apply()
+        }
+
+    /** The image format last picked on the image screens; null is Auto (the app picks per image). */
+    var imageFormat: ImageFormat?
+        get() = ImageFormat.of(prefs.getString(KEY_IMAGE_FORMAT, null))
+        set(value) {
+            prefs.edit().putString(KEY_IMAGE_FORMAT, value?.key).apply()
+        }
+
     private companion object {
+        const val KEY_IMAGE_TEMPLATE = "image_template"
+        const val KEY_IMAGE_FORMAT = "image_format"
         const val KEY_PROMPT_TYPE = "prompt_type"
         const val KEY_VIDEO_SECONDS = "video_seconds"
         const val KEY_DEFAULT_TEXT = "default_text_agent"
@@ -135,35 +145,23 @@ fun appAgentSelector(context: Context): AgentSelector {
 }
 
 /**
- * The image selector the screens use: Gemini's image model, Claude drawing SVG (`prompts/image_svg.md`)
- * rendered on the device, or the image model of Cloudflare or Pollinations.AI.
- * [purpose] picks the default agent and model: images and video slides each have their own.
- * With [illustrations] Claude draws the infographic pipeline's text-free pictures (`prompts/illustration_svg.md`).
+ * The image selector the screens use: Gemini's image model, or the image model of Cloudflare or
+ * Pollinations.AI. [purpose] picks the default agent and model: images and video slides each have their own.
  */
 fun appImageAgentSelector(
     context: Context,
     cache: MediaCache = MediaCache(context),
     purpose: MediaPurpose = MediaPurpose.IMAGE,
-    illustrations: Boolean = false,
 ): ImageAgentSelector {
     val store = ApiSettingsStore(context)
     val preferences = AgentPreferences(context)
     val configOf = { service: ApiService -> store.load(service).forMedia(purpose) }
     val gemini = GeminiImageAgent({ configOf(ApiService.GEMINI) }, cache)
-    // A long SVG can take a few minutes to write.
-    val svgClient = Http.generationClient.newBuilder().readTimeout(300, TimeUnit.SECONDS).build()
-    val claude = ClaudeSvgImageAgent(
-        text = claudeAgent({ configOf(ApiService.CLAUDE) }, svgClient, SVG_MAX_TOKENS),
-        systemPrompt = loadPromptAsset(context, if (illustrations) "illustration_svg" else "image_svg"),
-        cache = cache,
-        renderer = AndroidSvgRenderer(),
-    )
     return ImageAgentSelector(
         configOf = configOf,
         preferred = { preferences.defaultMediaAgent(purpose) },
         agentFor = { service ->
             when (service) {
-                ApiService.CLAUDE -> claude
                 ApiService.CLOUDFLARE -> CloudflareImageAgent({ configOf(service) }, cache)
                 ApiService.POLLINATIONS -> PollinationsImageAgent({ configOf(service) }, cache)
                 else -> gemini

@@ -93,6 +93,7 @@ fun ImageStrip(
     selected: Set<Int>,
     onToggle: (Int) -> Unit,
     onOpen: (Int) -> Unit,
+    labels: List<String?> = emptyList(),
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
@@ -111,6 +112,18 @@ fun ImageStrip(
                         .semantics { contentDescription = "Image ${index + 1}" },
                 ) {
                     GeneratedImage(file, Modifier.fillMaxSize(), maxSidePx = 400)
+                    labels.getOrNull(index)?.let { label ->
+                        Text(
+                            label,
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .padding(4.dp)
+                                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f), RoundedCornerShape(4.dp))
+                                .padding(horizontal = 4.dp, vertical = 2.dp)
+                                .testTag("imageLabel$index"),
+                        )
+                    }
                     Checkbox(
                         checked = index in selected,
                         onCheckedChange = { onToggle(index) },

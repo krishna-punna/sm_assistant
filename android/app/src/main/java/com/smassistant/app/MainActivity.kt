@@ -13,6 +13,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.luminance
 import com.smassistant.app.media.MediaCache
+import com.smassistant.app.navigation.Routes
 import com.smassistant.app.navigation.SmNavHost
 import com.smassistant.app.scheduler.SchedulerEngine
 import com.smassistant.app.ui.theme.SmAssistantTheme
@@ -32,12 +33,16 @@ class MainActivity : ComponentActivity() {
                 runCatching { SchedulerEngine(applicationContext).ensurePlanned() }
             }.start()
         }
+        // A notification can ask for Scheduled Posts, for a post waiting for review. The activity is
+        // exported (it's the launcher), so only that route is accepted from an intent.
+        val openRoute = intent?.getStringExtra(EXTRA_ROUTE)
+            ?.takeIf { savedInstanceState == null && it == Routes.SCHEDULERS }
         val themes = ThemeStore(applicationContext)
         setContent {
             var themeId by rememberSaveable { mutableStateOf(themes.themeId) }
             LaunchedEffect(themeId) { matchSystemBars(SmThemes.byId(themeId)) }
             SmAssistantTheme(SmThemes.byId(themeId)) {
-                SmNavHost(onThemeChosen = { chosen ->
+                SmNavHost(openRoute = openRoute, onThemeChosen = { chosen ->
                     themes.save(chosen)
                     themeId = chosen
                 })
@@ -58,9 +63,12 @@ class MainActivity : ComponentActivity() {
         )
     }
 
-    private companion object {
+    companion object {
+        /** A route to open over Home when the app starts, from [com.smassistant.app.scheduler.RunNotifier]. */
+        const val EXTRA_ROUTE = "com.smassistant.app.ROUTE"
+
         // The scrims enableEdgeToEdge() uses by default behind 3-button navigation.
-        val LightScrim = Color.argb(0xe6, 0xFF, 0xFF, 0xFF)
-        val DarkScrim = Color.argb(0x80, 0x1b, 0x1b, 0x1b)
+        private val LightScrim = Color.argb(0xe6, 0xFF, 0xFF, 0xFF)
+        private val DarkScrim = Color.argb(0x80, 0x1b, 0x1b, 0x1b)
     }
 }

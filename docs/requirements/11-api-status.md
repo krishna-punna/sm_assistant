@@ -16,7 +16,7 @@ Home → **API Status** *(S15 in the [screen inventory](02-screens-and-navigatio
 |---------|------|-------|
 | "SM Assistant" | App bar | |
 | "API Status" | Section chip (yellow) | |
-| One card per service | Status card | LinkedIn, Claude, Gemini, Groq, Cloudflare, Pollinations.AI. Shows the service name, a coloured status dot (spinner while checking), a status label and a one-line detail. |
+| One card per service | Status card | LinkedIn, Gemini, Groq, Cloudflare, Pollinations.AI. Shows the service name, a coloured status dot (spinner while checking), a status label and a one-line detail. |
 | Test again | Button (green) | Re-runs every check. |
 | Back to Home | Footer button (black) | |
 
@@ -28,7 +28,6 @@ Home → **API Status** *(S15 in the [screen inventory](02-screens-and-navigatio
 
   | Service | Request |
   |---------|---------|
-  | Claude | `GET /v1/models` with `x-api-key` |
   | Gemini | `GET /v1beta/models` with `x-goog-api-key` |
   | Groq | `GET /openai/v1/models` with a Bearer key |
   | LinkedIn | `GET /v2/userinfo` with the access token as Bearer |

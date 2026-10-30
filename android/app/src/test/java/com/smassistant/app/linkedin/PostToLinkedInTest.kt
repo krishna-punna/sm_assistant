@@ -184,7 +184,7 @@ class PostToLinkedInTest {
     }
 
     private class TrimAgent(private val reply: suspend () -> ApiResult<String>) : TextAgent {
-        override val service = ApiService.CLAUDE
+        override val service = ApiService.GEMINI
         var request = ""
         override suspend fun generate(system: String, user: String): ApiResult<String> {
             request = user

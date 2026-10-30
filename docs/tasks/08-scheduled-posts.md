@@ -18,6 +18,9 @@ Requirement: [13 Scheduled LinkedIn posts](../requirements/13-scheduled-posts.md
 | SC-9 | Optional name | done | |
 | SC-10 | Run now | done | |
 | SC-NFR1…4 | WorkManager, no catch-up bursts, retries, existing secrets | done | `SchedulerEngine`, `AutoPostWorker`; Doze note on the editor |
+| SC-11 *(improvement review, P1)* | Optional "Review before posting": a run makes the post and waits for approval | done | `reviewFirst` / `PendingPost`; Review & post (same confirm dialog) or Discard on the list; later runs skip while one waits; the notification opens Scheduled Posts |
+| SC-12 *(P1)* | Warn before the LinkedIn sign-in expires; expired sign-in fails the run before generating | done | `SignInExpiry`; card on Home and Scheduled Posts in the last 7 days; reminder notification after runs |
+| SC-NFR5 *(P1)* | Image and video runs work in the foreground (no 10-minute background limit) | done | `AutoPostWorker.runInForeground`, dataSync type; falls back to background work when Android 12+ refuses |
 
 ## Implementation
 

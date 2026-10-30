@@ -33,8 +33,6 @@ data class ApiSettingsUiState(
     /** Model pickers (AI agents only): the chosen ids and what the provider last listed. */
     val showModels: Boolean = false,
     val showImageModel: Boolean = false,
-    /** Claude draws images with its text models, so its image and video pickers list those and blank means the text model. */
-    val mediaFromTextModels: Boolean = false,
     val model: String = "",
     val imageModel: String = "",
     val videoModel: String = "",
@@ -46,7 +44,7 @@ data class ApiSettingsUiState(
     val textOptions get() = withCurrent(model, models.text)
     val imageOptions get() = withCurrent(imageModel, mediaModels)
     val videoOptions get() = withCurrent(videoModel, mediaModels)
-    private val mediaModels get() = if (mediaFromTextModels) models.text else models.image
+    private val mediaModels get() = models.image
 
     private fun withCurrent(id: String, list: List<AiModel>) =
         if (id.isBlank() || list.any { it.id == id }) list else listOf(AiModel(id)) + list
@@ -83,7 +81,6 @@ class ApiSettingsViewModel(
                 accountId = it.accountId,
                 showModels = catalog != null,
                 showImageModel = catalog != null && service in IMAGE_AGENTS,
-                mediaFromTextModels = service == ApiService.CLAUDE,
                 model = it.model,
                 imageModel = it.imageModel,
                 videoModel = it.videoModel,

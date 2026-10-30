@@ -22,7 +22,7 @@ class ApiConnectionCheckTest {
     private fun config(path: String = "/some/api/path?x=1", key: String = "secret") =
         ApiConfig(api = server.url(path).toString(), key = key)
 
-    private fun statusFor(code: Int, service: ApiService = ApiService.CLAUDE) = runBlocking {
+    private fun statusFor(code: Int, service: ApiService = ApiService.GROQ) = runBlocking {
         server.enqueue(MockResponse().setResponseCode(code))
         check.check(service, config())
     }
@@ -41,7 +41,6 @@ class ApiConnectionCheckTest {
     @Test
     fun `sends the right path and auth header per service`() = runBlocking {
         val expected = mapOf(
-            ApiService.CLAUDE to ("/v1/models" to ("x-api-key" to "secret")),
             ApiService.GEMINI to ("/v1beta/models" to ("x-goog-api-key" to "secret")),
             ApiService.GROQ to ("/openai/v1/models" to ("Authorization" to "Bearer secret")),
             ApiService.LINKEDIN to ("/v2/userinfo" to ("Authorization" to "Bearer secret")),
@@ -54,13 +53,6 @@ class ApiConnectionCheckTest {
             assertEquals(service.name, pathAndHeader.first, request.path)
             assertEquals(service.name, pathAndHeader.second.second, request.getHeader(pathAndHeader.second.first))
         }
-    }
-
-    @Test
-    fun `claude check sends the api version`() = runBlocking {
-        server.enqueue(MockResponse())
-        check.check(ApiService.CLAUDE, config())
-        assertEquals("2023-06-01", server.takeRequest().getHeader("anthropic-version"))
     }
 
     @Test

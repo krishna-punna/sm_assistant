@@ -43,7 +43,7 @@ class HttpTest {
 
     @Test
     fun `user messages name the service`() {
-        assertEquals("Claude rejected the API key. Check it in settings.", ApiError.InvalidKey.userMessage("Claude"))
+        assertEquals("Gemini rejected the API key. Check it in settings.", ApiError.InvalidKey.userMessage("Gemini"))
         assertEquals("Groq returned an error (HTTP 500)", ApiError.Server(500).userMessage("Groq"))
     }
 }
