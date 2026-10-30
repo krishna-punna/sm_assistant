@@ -8,7 +8,8 @@ const val NOT_SPECIFIED = "not specified"
 
 /**
  * One of Krishna's image prompt templates from `assets/prompts/image_templates.md`
- * (docs/requirements/15): its [id] (e.g. "workflow"), its [name], the "Use when" line the
+ * (docs/requirements/15), or video templates from `video_templates.md` (docs/requirements/16,
+ * which also have a `{{duration}}` slot): its [id] (e.g. "workflow"), its [name], the "Use when" line the
  * template chooser reads, and the [body] with `{{content}}`, `{{audience}}`, `{{style}}`,
  * `{{brand}}` and `{{format}}` slots.
  */
@@ -22,10 +23,19 @@ data class ImageTemplate(
      * The template with its slots filled. [format] is the image format in words, e.g.
      * "portrait 2:3". An optional input left blank reads [NOT_SPECIFIED]; one the template has no
      * slot for is added at the end when it is set, so audience and brand reach every template.
+     * [duration] is the video length in words, e.g. "45 seconds", used by the video templates.
      */
-    fun fill(content: String, format: String, audience: String = "", style: String = "", brand: String = ""): String {
+    fun fill(
+        content: String,
+        format: String,
+        audience: String = "",
+        style: String = "",
+        brand: String = "",
+        duration: String = "",
+    ): String {
         val optional = listOf(
             Triple("audience", "Target audience", audience),
+            Triple("duration", "Target duration", duration),
             Triple("style", "Brand/style preferences", style),
             Triple("brand", "Brand name", brand),
         )
