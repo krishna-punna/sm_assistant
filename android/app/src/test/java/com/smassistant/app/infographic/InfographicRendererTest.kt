@@ -93,6 +93,72 @@ class InfographicRendererTest {
     }
 
     @Test
+    fun `chart and diagram sections stay inside their cards`() {
+        val chart = SectionBody.Chart(
+            listOf(
+                SectionBody.Chart.Bar("Redis", "0.5 ms", 0.5),
+                SectionBody.Chart.Bar("Postgres on a managed cloud instance", "12 ms", 12.0),
+                SectionBody.Chart.Bar("S3", "120 ms", 120.0),
+            ),
+            "p99 read latency",
+        )
+        // A skip-ahead and a backward arrow, so both side lanes are drawn.
+        val diagram = SectionBody.Diagram(
+            listOf(
+                SectionBody.Diagram.Node("api", "API Gateway", "Edge"),
+                SectionBody.Diagram.Node("orders", "Order Service", "Backend"),
+                SectionBody.Diagram.Node("db", "Orders DB", "Backend"),
+                SectionBody.Diagram.Node("queue", "Kafka", "Messaging"),
+            ),
+            listOf(
+                SectionBody.Diagram.Edge("api", "orders", "REST"),
+                SectionBody.Diagram.Edge("orders", "db", "SQL"),
+                SectionBody.Diagram.Edge("api", "db"),
+                SectionBody.Diagram.Edge("db", "queue", "CDC events"),
+                SectionBody.Diagram.Edge("queue", "orders", "retry"),
+            ),
+        )
+        val palette = Palette.NAVY
+        val card = Regex("""<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)" rx="18" fill="${palette.card}" stroke=""")
+        for (format in InfographicFormat.entries) {
+            val sections = listOf(Section("Latency", chart), Section("Order flow", diagram), Section("Notes", SectionBody.Bullets(listOf("point"))))
+            val svg = renderer.render(InfographicSpec("Orders", format = format, palette = palette, sections = sections)).svg
+            val cards = card.findAll(svg).toList()
+            assertEquals("$format", 3, cards.size)
+            for (i in 0..1) {
+                val (x, y, w, h) = cards[i].groupValues.drop(1).map { it.toFloat() }
+                val inside = svg.substring(cards[i].range.last + 1, cards[i + 1].range.first)
+                drawnBounds(inside).forEach { (left, top, right, bottom) ->
+                    assertTrue("$format ${sections[i].heading}: $left,$top..$right,$bottom outside $x,$y ${w}x$h",
+                        left >= x - 0.5f && top >= y - 0.5f && right <= x + w + 0.5f && bottom <= y + h + 0.5f)
+                }
+            }
+        }
+    }
+
+    /** Left, top, right and bottom of each rect, circle, text (measured as the renderer does), arrow and arrow head. */
+    private fun drawnBounds(svg: String): List<List<Float>> {
+        fun Regex.all() = findAll(svg).map { m -> m.groupValues.drop(1) }
+        val rects = Regex("""<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"""").all()
+            .map { it.map(String::toFloat) }.map { (x, y, w, h) -> listOf(x, y, x + w, y + h) }
+        val circles = Regex("""<circle cx="([\d.]+)" cy="([\d.]+)" r="([\d.]+)"""").all()
+            .map { it.map(String::toFloat) }.map { (cx, cy, r) -> listOf(cx - r, cy - r, cx + r, cy + r) }
+        val texts = Regex("""<text x="([\d.]+)" y="([\d.]+)" font-family="[^"]+" font-size="([\d.]+)"([^>]*)>([^<]*)</text>""").all().map { (x, y, size, rest, text) ->
+            val width = ApproxTextMeasurer.width(text, size.toFloat(), "bold" in rest, FontFamily.SANS)
+            val left = when {
+                "text-anchor=\"middle\"" in rest -> x.toFloat() - width / 2
+                "text-anchor=\"end\"" in rest -> x.toFloat() - width
+                else -> x.toFloat()
+            }
+            listOf(left, y.toFloat() - size.toFloat(), left + width, y.toFloat())
+        }
+        val points = Regex("""(?:d|points)="([^"]+)"""").all().flatMap { (list) ->
+            Regex("""(-?[\d.]+)[ ,](-?[\d.]+)""").findAll(list).map { val (px, py) = it.destructured; listOf(px.toFloat(), py.toFloat(), px.toFloat(), py.toFloat()) }
+        }
+        return (rects + circles + texts + points).toList()
+    }
+
+    @Test
     fun `wraps text to the width and ends cut text with an ellipsis`() {
         val lines = wrapText("the quick brown fox jumps over the lazy dog", 200f, 24f, ApproxTextMeasurer)
         assertTrue(lines.size > 1)

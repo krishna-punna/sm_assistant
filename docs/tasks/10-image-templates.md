@@ -30,8 +30,8 @@ Status: planned 2026-10-30, waiting for Krishna's approval. One PR per implement
 | IT-T1 | unit | Asset parses into 10 unique templates, each with `{{content}}`; filling leaves no `{{…}}` or `[PASTE…]`; no asset has `4:5`, `16:9` or `9:16` (`ImageTemplatesTest`). | done |
 | IT-T2 | unit | Chooser reads ids, ignores unknown ones, falls back to Universal on a bad reply or failed call (`TemplateChooserTest`). | done |
 | IT-T3 | unit | Generate Image calls content → chooser → 4 writers with the planned templates and formats; a user-picked template skips the chooser (`GenerateImagesTest`). | done |
-| IT-T4 | unit | Portrait and landscape render at exactly their ratio for long content, square too after widening; the brand name is drawn (`InfographicRendererTest`); chart and diagram sections (IT-I7, IT-I8) render inside their cards. | partial |
-| IT-T5 | unit | Each agent sends the right size field per format (`ImageAgentTest`). | todo |
+| IT-T4 | unit | Portrait and landscape render at exactly their ratio for long content, square too after widening; the brand name is drawn; chart and diagram sections (IT-I7, IT-I8) render inside their cards in every format (`InfographicRendererTest`, with `ChartSectionTest` and `DiagramSectionTest`). | done |
+| IT-T5 | unit | Each agent sends the right size field per format: Gemini's aspect ratio (`ImageAgentTest`), Pollinations' size (`ProviderImageAgentsTest`); Cloudflare's models take no size. | done |
 | IT-T6 | unit | Template checks find invented numbers, made-up code and missing cards; the review request lists the template's rules (`TemplateCheckTest`, `ImageReviewerTest`). | done |
 | IT-T7 | UI | Template and Format pickers list every option and save the choice; the strip shows labels (`ImageTemplatePickersTest`, `ImageLabelTest`). | done |
 
