@@ -3,6 +3,7 @@ package com.smassistant.app.chat
 import androidx.lifecycle.SavedStateHandle
 import com.smassistant.app.net.ApiError
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -182,5 +183,54 @@ class ChatViewModelTest {
         }
         val restored = ChatViewModel<String>(handle) { Outcome.NoAgent }
         assertEquals(ChatUiState<String>(input = "draft"), restored.state.value)
+    }
+
+    @Test
+    fun `a long conversation is saved without its oldest exchanges`() = runTest(dispatcher) {
+        val handle = SavedStateHandle()
+        val long = "x".repeat(ChatViewModel.MAX_SAVED_CHARS / 3)
+        val first = ChatViewModel(handle, TextSaver) { Outcome.Ok("$it: $long") }
+        listOf("one", "two", "three", "four").forEach {
+            first.onInputChange(it)
+            first.submit()
+            advanceUntilIdle()
+        }
+        assertEquals(8, first.state.value.items.size)
+
+        val restored = ChatViewModel(handle, TextSaver) { Outcome.Ok("again") }.state.value.items
+        val inputs = restored.filterIsInstance<ChatItem.Input>().map { it.text }
+        assertTrue(inputs.size < 4)
+        assertEquals("four", inputs.last())
+        // Every saved result still has its input.
+        assertEquals(inputs.size, restored.filterIsInstance<ChatItem.Result<String>>().size)
+    }
+
+    @Test
+    fun `a generation on a shared session finishes for the next screen and can be cancelled there`() = runTest(dispatcher) {
+        val session = ChatSession<String>()
+        val scope = CoroutineScope(dispatcher)
+        val gate = CompletableDeferred<Unit>()
+        val first = ChatViewModel(SavedStateHandle(), TextSaver, session, scope) { gate.await(); Outcome.Ok("Post about $it") }
+        first.onInputChange("caching")
+        first.submit()
+
+        // Leaving and opening the screen again builds a new ViewModel (and saved state) on the same session.
+        val handle = SavedStateHandle()
+        val second = ChatViewModel(handle, TextSaver, session, scope) { Outcome.Ok("unused") }
+        assertTrue(second.state.value.busy)
+        gate.complete(Unit)
+        advanceUntilIdle()
+        assertEquals("Post about caching", (second.state.value.items.last() as ChatItem.Result<String>).value)
+        // The finished result reached the new screen's saved state too.
+        assertEquals(second.state.value, ChatViewModel(handle, TextSaver) { Outcome.NoAgent }.state.value)
+
+        val stuck = ChatViewModel(SavedStateHandle(), TextSaver, session, scope) { CompletableDeferred<Unit>().await(); Outcome.Ok(it) }
+        stuck.onInputChange("again")
+        stuck.submit()
+        val third = ChatViewModel(SavedStateHandle(), TextSaver, session, scope) { Outcome.Ok("unused") }
+        third.cancel()
+        advanceUntilIdle()
+        assertFalse(third.state.value.busy)
+        assertEquals("Cancelled", (third.state.value.items.last() as ChatItem.Failure).message)
     }
 }

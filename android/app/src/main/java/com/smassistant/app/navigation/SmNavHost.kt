@@ -1,6 +1,7 @@
 package com.smassistant.app.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -28,10 +29,13 @@ import com.smassistant.app.ui.screens.VideoScreen
 @Composable
 fun SmNavHost(
     navController: NavHostController = rememberNavController(),
+    openRoute: String? = null,
     onThemeChosen: (ThemeId) -> Unit = {},
 ) {
     // "Back to Home" always returns to Home and clears everything above it.
     val backToHome: () -> Unit = { navController.popBackStack(Routes.HOME, inclusive = false) }
+
+    LaunchedEffect(openRoute) { openRoute?.let { navController.navigate(it) } }
 
     NavHost(navController = navController, startDestination = Routes.HOME) {
         composable(Routes.HOME) {
@@ -109,6 +113,7 @@ fun SmNavHost(
             SchedulersScreen(
                 onAdd = { navController.navigate(Routes.schedulerEdit(null)) },
                 onEdit = { navController.navigate(Routes.schedulerEdit(it)) },
+                onSignIn = { navController.navigate(Routes.LINKEDIN_SETTINGS) },
                 onBackToHome = backToHome,
             )
         }

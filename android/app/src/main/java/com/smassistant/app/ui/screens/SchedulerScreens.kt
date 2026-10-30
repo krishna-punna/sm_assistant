@@ -39,6 +39,13 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextOverflow
+import com.smassistant.app.generate.appSmartTrim
+import com.smassistant.app.linkedin.PostState
+import com.smassistant.app.linkedin.PostViewModel
+import com.smassistant.app.linkedin.appPostToLinkedIn
+import com.smassistant.app.scheduler.PendingPost
+import com.smassistant.app.ui.components.PostDialogs
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -57,16 +64,24 @@ import com.smassistant.app.scheduler.TechTopics
 import com.smassistant.app.scheduler.formatRunTime
 import com.smassistant.app.ui.components.PrimaryButton
 import com.smassistant.app.ui.components.SelectDropdown
+import com.smassistant.app.ui.components.SignInWarningCard
 import com.smassistant.app.ui.components.SmScreen
+import com.smassistant.app.ui.components.rememberSignInWarning
 import java.time.DayOfWeek
 import java.time.LocalTime
 
 /** Scheduled Posts (docs/requirements/13-scheduled-posts.md, SC-I5): the user's schedulers. */
 @Composable
-fun SchedulersScreen(onAdd: () -> Unit, onEdit: (String) -> Unit, onBackToHome: () -> Unit) {
+fun SchedulersScreen(onAdd: () -> Unit, onEdit: (String) -> Unit, onSignIn: () -> Unit, onBackToHome: () -> Unit) {
     val appContext = LocalContext.current.applicationContext
     val viewModel = viewModel { SchedulersViewModel(SchedulerStore(appContext)) { SchedulerEngine(appContext) } }
     val state by viewModel.state.collectAsStateWithLifecycle()
+    // Approving a post waiting for review uses the same confirm dialog as Post in LinkedIn.
+    val postViewModel = viewModel { PostViewModel(appPostToLinkedIn(appContext), appSmartTrim(appContext)) }
+    val postState by postViewModel.state.collectAsStateWithLifecycle()
+    LaunchedEffect(postState) {
+        (postState as? PostState.Posted)?.let { viewModel.reviewPosted(it.post.url) }
+    }
 
     LifecycleResumeEffect(Unit) {
         viewModel.refresh()
@@ -90,6 +105,8 @@ fun SchedulersScreen(onAdd: () -> Unit, onEdit: (String) -> Unit, onBackToHome: 
 
     SchedulersContent(
         state = state,
+        signInWarning = rememberSignInWarning(),
+        onSignIn = onSignIn,
         notificationsAllowed = notificationsAllowed,
         onAllowNotifications = {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -99,13 +116,26 @@ fun SchedulersScreen(onAdd: () -> Unit, onEdit: (String) -> Unit, onBackToHome: 
         onEnabledChange = viewModel::setEnabled,
         onRunNow = viewModel::runNow,
         onDelete = viewModel::delete,
+        onReview = { id -> viewModel.review(id)?.let { (text, files) -> postViewModel.review(text, files) } },
+        onDiscard = viewModel::discard,
         onBackToHome = onBackToHome,
+    )
+    PostDialogs(
+        state = postState,
+        onTextChange = postViewModel::onTextChange,
+        onConfirm = postViewModel::confirm,
+        onDismiss = postViewModel::dismiss,
+        onOpenSettings = onSignIn,
+        onTrimWithAi = postViewModel::trimWithAi,
+        onCutToFit = postViewModel::cutToFit,
     )
 }
 
 @Composable
 fun SchedulersContent(
     state: SchedulersUiState,
+    signInWarning: String? = null,
+    onSignIn: () -> Unit = {},
     notificationsAllowed: Boolean,
     onAllowNotifications: () -> Unit,
     onAdd: () -> Unit,
@@ -114,6 +144,8 @@ fun SchedulersContent(
     onRunNow: (String) -> Unit,
     onDelete: (String) -> Unit,
     onBackToHome: () -> Unit,
+    onReview: (String) -> Unit = {},
+    onDiscard: (String) -> Unit = {},
 ) {
     var deleting by rememberSaveable { mutableStateOf<String?>(null) }
     SmScreen(sectionTitle = "Scheduled Posts", onBackToHome = onBackToHome) {
@@ -122,6 +154,7 @@ fun SchedulersContent(
                 "with your default hashtags.",
             style = MaterialTheme.typography.bodyMedium,
         )
+        signInWarning?.let { SignInWarningCard(it, onSignIn) }
         if (state.schedulers.isNotEmpty() && !notificationsAllowed) {
             OutlinedCard(Modifier.fillMaxWidth()) {
                 Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -140,6 +173,8 @@ fun SchedulersContent(
                 onEdit = { onEdit(scheduler.id) },
                 onRunNow = { onRunNow(scheduler.id) },
                 onDelete = { deleting = scheduler.id },
+                onReview = { onReview(scheduler.id) },
+                onDiscard = { onDiscard(scheduler.id) },
             )
         }
         PrimaryButton("Add scheduler", onAdd, Modifier.testTag("addScheduler"))
@@ -168,6 +203,8 @@ private fun SchedulerCard(
     onEdit: () -> Unit,
     onRunNow: () -> Unit,
     onDelete: () -> Unit,
+    onReview: () -> Unit,
+    onDiscard: () -> Unit,
 ) {
     val uriHandler = LocalUriHandler.current
     Card(Modifier.fillMaxWidth().testTag("scheduler-${scheduler.id}")) {
@@ -198,11 +235,34 @@ private fun SchedulerCard(
                     color = if (run.ok) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.error,
                 )
             }
+            scheduler.pending?.let { post -> PendingPostSection(scheduler.id, post, onReview, onDiscard) }
             Row {
                 scheduler.lastRun?.postUrl?.let { url -> TextButton(onClick = { uriHandler.openUri(url) }) { Text("Open post") } }
                 TextButton(onClick = onRunNow) { Text("Run now") }
                 TextButton(onClick = onEdit) { Text("Edit") }
                 TextButton(onClick = onDelete) { Text("Delete") }
+            }
+        }
+    }
+}
+
+/** A post made by a "review before posting" run: the start of its text, Review (opens the confirm dialog) and Discard. */
+@Composable
+private fun PendingPostSection(id: String, post: PendingPost, onReview: () -> Unit, onDiscard: () -> Unit) {
+    OutlinedCard(Modifier.fillMaxWidth().padding(top = 4.dp).testTag("pending-$id")) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Waiting for your review", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            Text(post.title, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
+            Text(post.text, style = MaterialTheme.typography.bodySmall, maxLines = 3, overflow = TextOverflow.Ellipsis)
+            if (post.media.isNotEmpty()) {
+                Text(
+                    if (post.media.size == 1) "1 media file attached" else "${post.media.size} media files attached",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            Row {
+                TextButton(onClick = onReview, modifier = Modifier.testTag("review-$id")) { Text("Review & post") }
+                TextButton(onClick = onDiscard, modifier = Modifier.testTag("discard-$id")) { Text("Discard") }
             }
         }
     }
@@ -226,6 +286,7 @@ fun SchedulerEditorScreen(id: String?, onSaved: () -> Unit, onBackToHome: () -> 
         actions = SchedulerEditorActions(
             onName = viewModel::onName,
             onEnabled = viewModel::onEnabled,
+            onReviewFirst = viewModel::onReviewFirst,
             onQuery = viewModel::onQuery,
             onToggleTopic = viewModel::onToggleTopic,
             onPostType = viewModel::onPostType,
@@ -247,6 +308,7 @@ fun SchedulerEditorScreen(id: String?, onSaved: () -> Unit, onBackToHome: () -> 
 data class SchedulerEditorActions(
     val onName: (String) -> Unit = {},
     val onEnabled: (Boolean) -> Unit = {},
+    val onReviewFirst: (Boolean) -> Unit = {},
     val onQuery: (String) -> Unit = {},
     val onToggleTopic: (String) -> Unit = {},
     val onPostType: (PostType) -> Unit = {},
@@ -280,6 +342,16 @@ fun SchedulerEditorContent(state: SchedulerEditorUiState, actions: SchedulerEdit
         }
 
         SelectDropdown("Post type", draft.postType, PostType.entries, { it.label }, actions.onPostType, "postType")
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Review before posting")
+                Text(
+                    "Each run makes the post and notifies you; it goes to LinkedIn only after you approve it.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            Switch(checked = draft.reviewFirst, onCheckedChange = actions.onReviewFirst, modifier = Modifier.testTag("reviewFirst"))
+        }
 
         Text("Schedule", style = MaterialTheme.typography.titleSmall)
         SelectDropdown("Repeat", schedule.frequency, Frequency.entries, { it.label }, actions.onFrequency, "frequency")
