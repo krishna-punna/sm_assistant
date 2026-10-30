@@ -109,6 +109,12 @@ class GenerateVideoTest {
         {"title": "One", "hero": "slide 1 of 4: picture"}, {"title": "Two", "takeaway": "b"},
         {"title": "Three", "takeaway": "c"}, {"title": "Four", "takeaway": "d"}]}"""
 
+    // A deck the Workflow template's storyboard checks pass: the steps are on a steps card.
+    private val workflowDeck = """{"palette": "teal", "slides": [
+        {"title": "One", "hero": "slide 1 of 4: picture"},
+        {"title": "Two", "sections": [{"heading": "Retry", "type": "steps", "items": ["Request arrives", "Fails", "Retry"]}]},
+        {"title": "Three", "takeaway": "c"}, {"title": "Four", "takeaway": "d"}]}"""
+
     private fun deckUseCase(writer: ScriptedTextAgent?, agent: ImageAgent? = this.agent) = GenerateVideoUseCase(
         "slide {{slide}} of {{slides}}: {{prompt}}", { agent }, maker, { File("out.mp4") }, seconds = { seconds },
         decks = SlideDecks({ writer }, SlideDeckWriter("Plan {{slides}} slides of {{seconds}} s.{{examples}}"), pipeline),
@@ -298,7 +304,7 @@ class GenerateVideoTest {
         val writer = ScriptedTextAgent(
             ApiResult.Ok("1. Request arrives\n2. Retry"),
             ApiResult.Ok("""{"primary": "workflow"}"""),
-            ApiResult.Ok(deck),
+            ApiResult.Ok(workflowDeck),
         )
 
         assertTrue(templateUseCase(writer)("Write a post on retries") is Outcome.Ok)
