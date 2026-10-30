@@ -71,6 +71,7 @@ private fun InfographicSpec.texts(): List<String> = listOfNotNull(title, subtitl
         is SectionBody.Stats -> body.items.flatMap { listOf(it.value, it.label) }.filter { it.isNotBlank() }
         is SectionBody.Illustration -> listOfNotNull(body.caption)
         is SectionBody.Chart -> body.bars.flatMap { listOf(it.label, it.value) }.filter { it.isNotBlank() } + listOfNotNull(body.unit)
+        is SectionBody.Diagram -> body.nodes.flatMap { listOfNotNull(it.label, it.group) }.distinct() + body.edges.mapNotNull { it.label }
     }
 }
 

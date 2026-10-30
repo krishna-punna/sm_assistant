@@ -22,7 +22,7 @@ val TEMPLATE_LAYOUTS: Map<String, TemplateLayout> = mapOf(
     ),
     "architecture" to TemplateLayout(
         listOf(ImageFormat.LANDSCAPE, ImageFormat.PORTRAIT),
-        "a flow of the components in the order data moves, a table of the components and their roles, and bullets for boundaries, failure paths and asynchronous parts",
+        "a diagram of the components grouped by boundary with labelled arrows, a table of the components and their roles, and bullets for failure paths and asynchronous parts",
     ),
     "comparison" to TemplateLayout(
         listOf(ImageFormat.LANDSCAPE, ImageFormat.PORTRAIT),
@@ -30,7 +30,7 @@ val TEMPLATE_LAYOUTS: Map<String, TemplateLayout> = mapOf(
     ),
     "workflow" to TemplateLayout(
         listOf(ImageFormat.PORTRAIT, ImageFormat.LANDSCAPE),
-        "steps and flow cards in the order the content gives, with short step labels",
+        "steps and flow cards in the order the content gives, with short step labels, and a diagram when the flow branches or loops",
     ),
     "code" to TemplateLayout(
         listOf(ImageFormat.PORTRAIT, ImageFormat.SQUARE),
