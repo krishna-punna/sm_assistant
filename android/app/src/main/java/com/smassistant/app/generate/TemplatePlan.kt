@@ -42,7 +42,7 @@ val TEMPLATE_LAYOUTS: Map<String, TemplateLayout> = mapOf(
     ),
     "data" to TemplateLayout(
         listOf(ImageFormat.LANDSCAPE, ImageFormat.SQUARE),
-        "stats and table cards with the content's exact numbers, units and baselines",
+        "chart, stats and table cards with the content's exact numbers, units and baselines",
     ),
     "learning" to TemplateLayout(
         listOf(ImageFormat.PORTRAIT, ImageFormat.SQUARE),

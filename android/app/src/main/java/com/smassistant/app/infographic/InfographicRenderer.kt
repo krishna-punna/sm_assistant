@@ -243,6 +243,7 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
         is SectionBody.Compare -> compare(body, width, palette)
         is SectionBody.Stats -> stats(body, width, color, palette)
         is SectionBody.Illustration -> illustration(body, section.icon, width, color, palette)
+        is SectionBody.Chart -> chart(body, width, color, palette)
     }
 
     private fun list(
@@ -388,6 +389,33 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
                 svg.text(stat.value, tx + tileWidth / 2, ty + 20 + 44, 46f, color, bold = true, anchor = "middle")
                 svg.lines(labels[i], tx + tileWidth / 2, ty + 20 + 52 + 6, 20f, 26f, palette.mutedText, anchor = "middle")
             }
+        }
+    }
+
+    /** Horizontal bars to scale: the label on the left, the bar, then the value exactly as written; the unit underneath. */
+    private fun chart(body: SectionBody.Chart, width: Float, color: String, palette: Palette): Block {
+        val labelWidth = width * 0.34f
+        val labels = body.bars.map { wrapText(it.label.ifBlank { " " }, labelWidth, 20f, measurer, maxLines = 2) }
+        val valueWidth = body.bars.maxOf { measurer.width(it.value, 20f, true, FontFamily.SANS) } + 10
+        val track = max(40f, width - labelWidth - 12 - valueWidth)
+        val most = body.bars.maxOf { it.amount }.takeIf { it > 0 } ?: 1.0
+        val rowHeights = labels.map { max(34f, it.size * 26f) }
+        val unit = body.unit?.let { wrapText(it, width, 18f, measurer, maxLines = 1) }.orEmpty()
+        val height = rowHeights.sum() + (rowHeights.size - 1) * ITEM_GAP + if (unit.isEmpty()) 0f else 8 + 24f
+        return Block(height) { svg, x, y ->
+            var top = y
+            body.bars.forEachIndexed { i, bar ->
+                val rowHeight = rowHeights[i]
+                svg.lines(labels[i], x, top + (rowHeight - labels[i].size * 26f) / 2, 20f, 26f, palette.text)
+                val barX = x + labelWidth + 12
+                val barY = top + (rowHeight - 24) / 2
+                svg.rect(barX, barY, track, 24f, fill = mix(color, palette.card, 0.88f), rx = 6f)
+                val length = max(6f, (bar.amount / most * track).toFloat())
+                svg.rect(barX, barY, length, 24f, fill = color, rx = 6f)
+                svg.text(bar.value, barX + length + 8, baseline(barY, 24f, 20f), 20f, palette.text, bold = true)
+                top += rowHeight + ITEM_GAP
+            }
+            svg.lines(unit, x, top - ITEM_GAP + 8, 18f, 24f, palette.mutedText)
         }
     }
 
