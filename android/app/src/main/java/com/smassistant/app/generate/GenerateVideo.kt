@@ -7,9 +7,12 @@ import com.smassistant.app.agents.TextAgent
 import com.smassistant.app.agents.appAgentSelector
 import com.smassistant.app.agents.appImageAgentSelector
 import com.smassistant.app.chat.Outcome
+import com.smassistant.app.data.AppConfig
 import com.smassistant.app.data.MediaPurpose
 import com.smassistant.app.infographic.InfographicPipeline
 import com.smassistant.app.infographic.InfographicRenderer
+import com.smassistant.app.infographic.InfographicSpec
+import com.smassistant.app.infographic.SlideDeck
 import com.smassistant.app.infographic.revealSteps
 import com.smassistant.app.media.AndroidFrameBlender
 import com.smassistant.app.media.AndroidImageInspector
@@ -19,6 +22,7 @@ import com.smassistant.app.media.Media3SlideshowMaker
 import com.smassistant.app.media.MediaCache
 import com.smassistant.app.media.PaintTextMeasurer
 import com.smassistant.app.media.SlideshowMaker
+import com.smassistant.app.media.reviewJpeg
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
 import com.smassistant.app.prompt.loadPromptAsset
@@ -52,9 +56,10 @@ data class GeneratedVideo(
 
 /**
  * A slide ready for the video: its pictures in order ([frames], several for a step-by-step
- * reveal, the last one the whole slide), and the seconds its scene asked for (null: an equal share).
+ * reveal, the last one the whole slide), the seconds its scene asked for (null: an equal share)
+ * and the [spec] it was drawn from.
  */
-internal data class DrawnSlide(val frames: List<File>, val seconds: Int? = null) {
+internal data class DrawnSlide(val frames: List<File>, val seconds: Int? = null, val spec: InfographicSpec? = null) {
     constructor(file: File, seconds: Int? = null) : this(listOf(file), seconds)
 
     /** The whole slide. */
@@ -69,8 +74,10 @@ internal data class DrawnVideo(val slides: List<DrawnSlide>, val format: VideoFo
 
 /**
  * The video pipeline's parts: the text agent that plans the deck, how each slide is drawn, the
- * [content] step that first writes the no-limit technical content the deck represents, and the
- * video [templates] the chooser picks from for that content (docs/design/video-templates.md).
+ * [content] step that first writes the no-limit technical content the deck represents, the
+ * video [templates] the chooser picks from for that content (docs/design/video-templates.md), and
+ * the [reviewer] that looks at every finished slide: when one scores too low the deck is planned
+ * again with the problems, up to [retries] times, and the better-scored video is kept.
  */
 class SlideDecks(
     val textAgent: () -> TextAgent?,
@@ -78,6 +85,8 @@ class SlideDecks(
     val pipeline: InfographicPipeline,
     val content: MediaContentWriter? = null,
     val templates: Templates? = null,
+    val reviewer: ImageReviewer? = null,
+    val retries: Int = 1,
 )
 
 /**
@@ -173,10 +182,42 @@ class GenerateVideoUseCase(
             VideoBrief(choice.primary, content, seconds, style = templates.style())
         }
         val format = brief?.format ?: DEFAULT_VIDEO_FORMAT
-        val deck = when (val result = parts.writer.write(writer, topic, slides, seconds / slides, content, brief)) {
-            is ApiResult.Failed -> return Outcome.Failed(result.error, writer.service.displayName)
-            is ApiResult.Ok -> result.value
+        val reviewer = parts.reviewer
+        var feedback = emptyList<String>()
+        var best: Pair<DrawnVideo, Int>? = null
+        var failure: Outcome.Failed? = null
+        repeat(if (reviewer == null) 1 else parts.retries + 1) {
+            val deck = when (val result = parts.writer.write(writer, topic, slides, seconds / slides, content, brief, feedback)) {
+                is ApiResult.Failed -> return best?.let { Outcome.Ok(it.first) } ?: Outcome.Failed(result.error, writer.service.displayName)
+                is ApiResult.Ok -> result.value
+            }
+            val video = when (val drawn = drawDeck(parts, deck, format)) {
+                is Outcome.Ok -> drawn.value
+                is Outcome.Failed -> {
+                    failure = drawn
+                    feedback = listOf("the slides couldn't be drawn; use simpler sections")
+                    return@repeat
+                }
+                Outcome.NoAgent -> return Outcome.NoAgent
+            }
+            reviewer ?: return Outcome.Ok(video)
+            val reviews = coroutineScope {
+                video.slides.map { slide -> async { slide.spec?.let { reviewer.review(writer, topic, it, slide.file, brief?.template) } } }.awaitAll()
+            }
+            val failed = reviews.withIndex().filter { (_, review) -> review != null && !reviewer.passes(review) }
+            if (failed.isEmpty()) return Outcome.Ok(video)
+            // The video is as good as its weakest scene.
+            val score = reviews.filterNotNull().minOf { it.score }
+            if (best == null || score > best!!.second) best = video to score
+            feedback = failed.flatMap { (i, review) ->
+                review!!.problems.ifEmpty { listOf("it scored ${review.score}/10; make it clearer") }.map { "slide ${i + 1}: $it" }
+            }
         }
+        return best?.let { Outcome.Ok(it.first) } ?: failure!!
+    }
+
+    /** Draws every slide of [deck] at [format]; slides that can't be drawn are left out, and too few fail. */
+    private suspend fun drawDeck(parts: SlideDecks, deck: SlideDeck, format: VideoFormat): Outcome<DrawnVideo> {
         val illustrator = agent()
         val images = coroutineScope {
             deck.slides.zip(deck.scenes).map { (slide, scene) ->
@@ -186,7 +227,7 @@ class GenerateVideoUseCase(
                 async {
                     parts.pipeline.drawSteps(sized, steps, illustrator, ILLUSTRATIONS_PER_SLIDE)
                         .takeIf { it.isNotEmpty() }
-                        ?.let { DrawnSlide(it, scene.seconds) }
+                        ?.let { DrawnSlide(it, scene.seconds, sized) }
                 }
             }.awaitAll()
         }.filterNotNull()
@@ -223,6 +264,7 @@ class GenerateVideoUseCase(
  */
 fun appGenerateVideo(context: Context): GenerateVideoUseCase {
     val cache = MediaCache(context)
+    val checks = AppConfig.imageChecks(context)
     val selector = appImageAgentSelector(context, cache, MediaPurpose.VIDEO)
     return GenerateVideoUseCase(
         slideTemplate = loadPromptAsset(context, "video"),
@@ -245,6 +287,8 @@ fun appGenerateVideo(context: Context): GenerateVideoUseCase {
             ),
             content = appMediaContentWriter(context),
             templates = appVideoTemplates(context),
+            reviewer = if (checks.visionReview) ImageReviewer(loadPromptAsset(context, "image_review"), ::reviewJpeg, checks.minScore) else null,
+            retries = if (checks.visionReview) checks.retries else 0,
         ),
     )
 }

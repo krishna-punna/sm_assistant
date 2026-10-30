@@ -1,6 +1,7 @@
 package com.smassistant.app.generate
 
 import com.smassistant.app.agents.ImageAgent
+import com.smassistant.app.agents.TextAgent
 import com.smassistant.app.chat.Outcome
 import com.smassistant.app.infographic.InfographicComposer
 import com.smassistant.app.infographic.InfographicFormat
@@ -220,6 +221,31 @@ class GenerateVideoTest {
         assertEquals(3_000L - 360, slideMillis[4])
         assertEquals(one, slideMillis[8])
         assertEquals(4, outcome.value.slides.size)
+    }
+
+    @Test
+    fun `a slide the review scores too low has the deck planned again with its problems`() = runTest {
+        // First plan: slide 2 fails; second plan: every slide passes.
+        val scores = ArrayDeque(listOf(9, 4, 9, 9, 9, 9, 9, 9).map { if (it == 4) """{"score": 4, "problems": ["text too small"]}""" else """{"score": $it}""" })
+        val seeing = object : TextAgent by ScriptedTextAgent(ApiResult.Ok(deck)) {
+            val calls = mutableListOf<String>()
+            override suspend fun generate(system: String, user: String): ApiResult<String> {
+                calls += user
+                return ApiResult.Ok(deck)
+            }
+            override suspend fun see(system: String, user: String, jpeg: ByteArray) = ApiResult.Ok(synchronized(scores) { scores.removeFirst() })
+        }
+        val useCase = GenerateVideoUseCase(
+            "slide {{slide}} of {{slides}}: {{prompt}}", { agent }, maker, { File("out.mp4") }, seconds = { seconds },
+            decks = SlideDecks({ seeing }, SlideDeckWriter("Plan."), pipeline, reviewer = ImageReviewer("R.", { byteArrayOf(1) })),
+        )
+
+        assertTrue(useCase("Retries") is Outcome.Ok)
+
+        assertEquals(2, seeing.calls.size)
+        assertTrue(seeing.calls[1].contains("A review rejected slides drawn from your last plan"))
+        assertTrue(seeing.calls[1].contains(Regex("- slide \\d: text too small")))
+        assertEquals(0, scores.size)
     }
 
     @Test
