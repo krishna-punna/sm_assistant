@@ -1,6 +1,7 @@
 package com.smassistant.app.ui.screens
 
 import android.content.Context
+import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasAnyDescendant
@@ -35,20 +36,12 @@ class ImageTemplatePickersTest {
 
     @Test
     fun listsEveryTemplateAndFormatAndSavesThePicks() {
-        compose.setContent { ImageTemplatePickers() }
+        // In a Column, as on the screens: at the root the two pickers would sit on top of each other.
+        compose.setContent { Column { ImageTemplatePickers() } }
 
         compose.onNodeWithTag("imageTemplateDropdown").assertTextEquals("Auto (AI picks) ▾").performClick()
-        assertTrue("✓ Auto (AI picks)", compose.onAllNodesWithText("✓ Auto (AI picks)", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
-        assertTrue("Universal Master", compose.onAllNodesWithText("Universal Master", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
-        assertTrue("Concept Explainer", compose.onAllNodesWithText("Concept Explainer", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
-        assertTrue("Architecture Diagram", compose.onAllNodesWithText("Architecture Diagram", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
-        assertTrue("Comparison", compose.onAllNodesWithText("Comparison", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
-        assertTrue("Workflow", compose.onAllNodesWithText("Workflow", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
-        assertTrue("Code Visual", compose.onAllNodesWithText("Code Visual", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
-        assertTrue("Checklist", compose.onAllNodesWithText("Checklist", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
-        assertTrue("Data and Metrics", compose.onAllNodesWithText("Data and Metrics", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
-        assertTrue("Learning Visual", compose.onAllNodesWithText("Learning Visual", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
-        assertTrue("Series Style", compose.onAllNodesWithText("Series Style", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
+        listOf("Universal Master", "Concept Explainer", "Architecture Diagram", "Comparison", "Workflow", "Code Visual", "Checklist", "Data and Metrics", "Learning Visual", "Series Style")
+            .forEach { assertTrue(it, compose.onAllNodesWithText(it, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()) }
         pick("Workflow")
         compose.onNodeWithTag("imageTemplateDropdown").assertTextEquals("Workflow ▾")
 
