@@ -1,5 +1,7 @@
 package com.smassistant.app.scheduler
 
+import com.smassistant.app.data.ImageFormat
+import com.smassistant.app.data.MediaPurpose
 import com.smassistant.app.prompt.PromptType
 import java.time.DayOfWeek
 import java.time.LocalTime
@@ -30,11 +32,16 @@ enum class PostType(val label: String, val promptType: PromptType) {
     VIDEO("Video", PromptType.VIDEO),
     TEXT_WITH_IMAGE("Text & Image", PromptType.TEXT_AND_IMAGE),
     TEXT_WITH_VIDEO("Text & Video", PromptType.TEXT_AND_VIDEO),
+    ;
+
+    /** True when the post has images, so the image template and format apply. */
+    val hasImages get() = promptType.media == MediaPurpose.IMAGE
 }
 
 /**
  * How the last run went, shown on the scheduler list. [postUrl] opens the post when it was published;
- * [awaitingReview] is true when the run made a post that waits for the user's approval.
+ * [awaitingReview] is true when the run made a post that waits for the user's approval; [template]
+ * is the id of the image template its first image followed.
  */
 data class RunRecord(
     val at: Long,
@@ -42,13 +49,21 @@ data class RunRecord(
     val message: String,
     val postUrl: String? = null,
     val awaitingReview: Boolean = false,
+    val template: String? = null,
 )
 
 /**
  * A post a "review before posting" scheduler made and holds until the user approves it: the final
- * [text] (hashtags included) and the paths of its generated [media] in the app's cache.
+ * [text] (hashtags included), the paths of its generated [media] in the app's cache and the image
+ * [template] they followed.
  */
-data class PendingPost(val title: String, val text: String, val media: List<String> = emptyList(), val createdAt: Long = 0L)
+data class PendingPost(
+    val title: String,
+    val text: String,
+    val media: List<String> = emptyList(),
+    val createdAt: Long = 0L,
+    val template: String? = null,
+)
 
 /**
  * One scheduler (docs/requirements/13-scheduled-posts.md): on its [schedule] it picks the next of
@@ -73,6 +88,10 @@ data class AutoPostScheduler(
     val pending: PendingPost? = null,
     /** Epoch millis of the next planned run while [enabled]; null when nothing is planned. */
     val nextRunAt: Long? = null,
+    /** The image template id every image post of this scheduler follows; null is Auto (the AI agent picks). */
+    val imageTemplate: String? = null,
+    /** The image format every image post of this scheduler uses; null is Auto. */
+    val imageFormat: ImageFormat? = null,
 ) {
     val displayName get() = name.ifBlank { topics.take(2).joinToString(", ").ifBlank { "Scheduler" } }
 
@@ -133,6 +152,7 @@ object SchedulerJson {
                 put("message", run.message)
                 run.postUrl?.let { put("postUrl", it) }
                 if (run.awaitingReview) put("awaitingReview", true)
+                run.template?.let { put("template", it) }
             })
         }
         put("reviewFirst", s.reviewFirst)
@@ -142,9 +162,12 @@ object SchedulerJson {
                 put("text", post.text)
                 put("media", strings(post.media))
                 put("createdAt", post.createdAt)
+                post.template?.let { put("template", it) }
             })
         }
         s.nextRunAt?.let { put("nextRunAt", it) }
+        s.imageTemplate?.let { put("imageTemplate", it) }
+        s.imageFormat?.let { put("imageFormat", it.key) }
     }
 
     fun fromJson(json: JsonObject): AutoPostScheduler {
@@ -176,6 +199,7 @@ object SchedulerJson {
                     message = run.string("message").orEmpty(),
                     postUrl = run.string("postUrl"),
                     awaitingReview = run.bool("awaitingReview") ?: false,
+                    template = run.string("template"),
                 )
             },
             reviewFirst = json.bool("reviewFirst") ?: defaults.reviewFirst,
@@ -185,9 +209,12 @@ object SchedulerJson {
                     text = post.string("text").orEmpty(),
                     media = post.strings("media"),
                     createdAt = post.long("createdAt") ?: 0L,
+                    template = post.string("template"),
                 )
             },
             nextRunAt = json.long("nextRunAt"),
+            imageTemplate = json.string("imageTemplate")?.takeIf { it.isNotBlank() },
+            imageFormat = ImageFormat.of(json.string("imageFormat")),
         )
     }
 

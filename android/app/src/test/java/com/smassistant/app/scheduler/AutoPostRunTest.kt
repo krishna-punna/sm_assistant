@@ -1,8 +1,10 @@
 package com.smassistant.app.scheduler
 
 import com.smassistant.app.chat.Outcome
+import com.smassistant.app.data.ImageFormat
 import com.smassistant.app.generate.GenerateContentAndMediaUseCase
 import com.smassistant.app.generate.GeneratedVideo
+import com.smassistant.app.generate.ImageRequest
 import com.smassistant.app.linkedin.LinkedInPost
 import com.smassistant.app.linkedin.PostToLinkedInUseCase
 import com.smassistant.app.linkedin.SignInExpiry
@@ -31,6 +33,7 @@ class AutoPostRunTest {
     private var video: Outcome<GeneratedVideo> = Outcome.Ok(GeneratedVideo(File("v.mp4"), emptyList()))
     private var reply: ApiResult<LinkedInPost> = ApiResult.Ok(LinkedInPost("urn:li:share:7"))
     private val prompts = mutableListOf<String>()
+    private val imageRequests = mutableListOf<ImageRequest>()
     private var expiry: SignInExpiry? = null
 
     private val linkedIn = PostToLinkedInUseCase(
@@ -51,7 +54,7 @@ class AutoPostRunTest {
             }
         },
         generateText = { prompts += it; text },
-        generateImages = { prompts += "images: $it"; images },
+        generateImages = { imageRequests += it; prompts += "images: ${it.prompt}"; images },
         generateVideo = { prompts += "video: $it"; video },
         linkedIn = linkedIn,
         now = { 1000L },
@@ -128,6 +131,28 @@ class AutoPostRunTest {
         assertTrue(outcome.record.awaitingReview)
         assertEquals("Ready for your review: “Kafka Partitions”", outcome.record.message)
         assertEquals(PendingPost("Kafka Partitions", "Kafka partitions explained\n\n#java", listOf("a.png", "b.png"), 1000L), outcome.held)
+    }
+
+    @Test
+    fun `image posts follow the scheduler's template and format and record the template used`() = runTest {
+        images = Outcome.Ok(listOf(File("tpl-workflow-portrait-a.png"), File("tpl-concept-square-b.png")))
+
+        val fixed = run(scheduler(PostType.IMAGE).copy(imageTemplate = "workflow", imageFormat = ImageFormat.PORTRAIT))
+        val held = run(scheduler(PostType.TEXT_WITH_IMAGE).copy(reviewFirst = true))
+
+        assertEquals(
+            listOf(
+                ImageRequest("Explain everything about partitions", "workflow", ImageFormat.PORTRAIT),
+                ImageRequest("Explain everything about partitions"),
+            ),
+            imageRequests,
+        )
+        assertEquals("workflow", fixed.record.template)
+        assertEquals("workflow", held.record.template)
+        assertEquals("workflow", held.held!!.template)
+        // Images without a template label (no text agent) record none.
+        images = Outcome.Ok(listOf(File("a.png")))
+        assertNull(run(scheduler(PostType.IMAGE)).record.template)
     }
 
     @Test

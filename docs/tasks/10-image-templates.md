@@ -19,7 +19,7 @@ Status: planned 2026-10-30, waiting for Krishna's approval. One PR per implement
 | IT-I10 | `ImageAgent.generate` takes a format: Gemini `imageConfig.aspectRatio`, Pollinations `size` 1024x1536 / 1024x1024 / 1536x1024, Cloudflare square only; painted images under the minimum are upscaled 2x on the device. | IT-I3 | done |
 | IT-I11 | AI-painted and Both modes (`image_style.mode`): the filled template is the image prompt (in full for Gemini, condensed to ≤1,500 characters by the text agent for FLUX on Cloudflare and Pollinations), then pixel checks and the vision review. Both is the default mode (Krishna, 2026-10-30): images 1 and 3 drawn, 2 and 4 painted. | IT-I9, IT-I10 | done |
 | IT-I12 | Video: replaced by Krishna's own video templates (2026-10-30), see [11-video-templates.md](11-video-templates.md). | IT-I4 | replaced |
-| IT-I13 | Scheduler: run history shows the template used; a schedule can fix a template and format (default Auto) in `SchedulerStore`. | IT-I5 | todo |
+| IT-I13 | Scheduler: run history shows the template used; a schedule can fix a template and format (default Auto) in `SchedulerStore`. | IT-I5 | done |
 | IT-I14 | `image_examples.md`: a `template:` tag on each of the 21 examples; `pickImageExamples` prefers examples of the chosen template. | IT-I4 | todo |
 | IT-I15 | Image Style settings screen (audience, brand name, style guide, series on/off, mode), overriding app.yml `image_style`. Split out of IT-I5. | IT-I5 | todo |
 
