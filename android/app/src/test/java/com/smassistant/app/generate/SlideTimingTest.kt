@@ -36,4 +36,9 @@ class SlideTimingTest {
         assertEquals(List(4) { 2_000L }, sceneMillis(listOf(1, 5, 5, 5), 8))
         assertEquals(emptyList<Long>(), sceneMillis(emptyList(), 30))
     }
+
+    @Test
+    fun `a fade blends a quarter, a half and three quarters`() {
+        assertEquals(listOf(0.25f, 0.5f, 0.75f), fadeAmounts())
+    }
 }

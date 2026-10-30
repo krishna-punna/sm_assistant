@@ -6,6 +6,7 @@ import com.smassistant.app.infographic.InfographicComposer
 import com.smassistant.app.infographic.InfographicFormat
 import com.smassistant.app.infographic.InfographicPipeline
 import com.smassistant.app.infographic.InfographicRenderer
+import com.smassistant.app.media.FrameBlender
 import com.smassistant.app.media.SlideshowMaker
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
@@ -184,6 +185,41 @@ class GenerateVideoTest {
         // The result keeps one picture per slide: the whole slide.
         assertEquals(listOf("One-3", "Two-0", "Three-0", "Four-0").map { File("$it.png") }, outcome.value.slides)
         assertEquals(6, drawn)
+    }
+
+    @Test
+    fun `scenes fade into each other from blended frames taken from the end of each scene`() = runTest {
+        val timed = """{"palette": "teal", "slides": [
+            {"title": "One", "seconds": 10, "takeaway": "a"}, {"title": "Two", "seconds": 1, "takeaway": "b"},
+            {"title": "Three", "seconds": 10, "takeaway": "c"}, {"title": "Four", "seconds": 10, "takeaway": "d"}]}"""
+        val blends = mutableListOf<String>()
+        val blender = FrameBlender { from, to, amount, width, height ->
+            assertEquals(1080 to 1920, width to height)
+            val name = "${from.nameWithoutExtension}-${to.nameWithoutExtension}-$amount"
+            synchronized(blends) { blends += name }
+            if (from.name == "Three.png") null else File("$name.png")
+        }
+        seconds = 60
+        val useCase = GenerateVideoUseCase(
+            "slide {{slide}} of {{slides}}: {{prompt}}", { agent }, maker, { File("out.mp4") }, seconds = { seconds },
+            decks = SlideDecks({ ScriptedTextAgent(ApiResult.Ok(timed)) }, SlideDeckWriter("Plan."), pipeline),
+            blender = blender,
+        )
+
+        val outcome = useCase("x") as Outcome.Ok
+
+        // Two is cut short to the 3 s minimum but still long enough to fade; Three's blend fails, so it cuts.
+        val fades = { from: String, to: String -> listOf(0.25f, 0.5f, 0.75f).map { File("$from-$to-$it.png") } }
+        assertEquals(
+            listOf(File("One.png")) + fades("One", "Two") + File("Two.png") + fades("Two", "Three") + File("Three.png") + File("Four.png"),
+            encoded,
+        )
+        val one = slideMillis[0] + 360
+        assertEquals(60_000L, slideMillis.sum())
+        assertEquals(listOf(120L, 120L, 120L), slideMillis.subList(1, 4))
+        assertEquals(3_000L - 360, slideMillis[4])
+        assertEquals(one, slideMillis[8])
+        assertEquals(4, outcome.value.slides.size)
     }
 
     @Test

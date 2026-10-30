@@ -37,3 +37,15 @@ fun sceneMillis(requested: List<Int?>, totalSeconds: Int, minSeconds: Int = MIN_
 
 private fun equalShares(total: Long, count: Int): List<Long> =
     List(count) { i -> total / count + if (i == count - 1) total % count else 0 }
+
+/** Blended frames in a fade between two scenes (docs/tasks VT-I6). */
+const val FADE_FRAMES = 3
+
+/** How long each blended frame of a fade shows: the fade takes [FADE_FRAMES] x this. */
+const val FADE_FRAME_MILLIS = 120L
+
+/** A scene shorter than this keeps a hard cut, so the fade never eats most of it. */
+const val MIN_FADED_SCENE_MILLIS = 2_000L
+
+/** The blend amounts of a fade's frames, e.g. 0.25, 0.5 and 0.75. */
+fun fadeAmounts(frames: Int = FADE_FRAMES): List<Float> = (1..frames).map { it / (frames + 1f) }
