@@ -13,6 +13,7 @@ import com.smassistant.app.generate.appGenerateImages
 import com.smassistant.app.generate.appGenerateTechnicalContent
 import com.smassistant.app.generate.appGenerateVideo
 import com.smassistant.app.generate.imageLabel
+import com.smassistant.app.generate.videoLabel
 import com.smassistant.app.linkedin.PostToLinkedInUseCase
 import com.smassistant.app.linkedin.SignInExpiry
 import com.smassistant.app.linkedin.appSignInExpiry
@@ -49,7 +50,7 @@ data class RunOutcome(
  * → Prepare Prompt for the post type → Generate Technical Content and/or the images or video →
  * the length check with default hashtags → Post in LinkedIn. Nothing is posted unless every part
  * the post type needs came back and the text fits. Images follow the scheduler's template and format
- * (Auto unless it fixes them), and the run records the template the first image followed.
+ * (Auto unless it fixes them), and the run records the template the first image, or the video, followed.
  */
 class AutoPostRun(
     private val preparePrompt: suspend (String, PromptType) -> Outcome<PromptSet>,
@@ -104,7 +105,7 @@ class AutoPostRun(
             }
         }
 
-        val template = files.firstNotNullOfOrNull { imageLabel(it)?.templateId }
+        val template = files.firstNotNullOfOrNull { imageLabel(it)?.templateId ?: videoLabel(it)?.templateId }
         val post = linkedIn.prepare(markdown)
         if (post.text.isBlank()) return failed("The agent wrote an empty post, so nothing was posted.", title)
         if (!post.fitsLimit) {

@@ -32,6 +32,13 @@ class VideoScreenTest {
     }
 
     @Test
+    fun resultShowsTheTemplateAndSizeOfALabelledVideo() {
+        val slides = (1..4).map { File("s$it.png") }
+        compose.setContent { VideoResult(GeneratedVideo(File("vtpl-workflow-vertical-video.mp4"), slides, seconds = 90), posting = false, onPost = {}) }
+        compose.onNodeWithText("Workflow or Lifecycle · 9:16 · 4 slides, 1 min 30 sec").assertExists()
+    }
+
+    @Test
     fun withoutGeminiSetUpOpensAgentSettings() {
         var setUp = 0
         compose.setContent { VideoScreen(onSetUpAgent = { setUp++ }, onSetUpLinkedIn = {}, onBackToHome = {}) }

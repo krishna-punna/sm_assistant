@@ -52,6 +52,19 @@ class VideoTemplatesTest {
     }
 
     @Test
+    fun `a video's file name carries its template and size`() {
+        val labelled = labelVideo(File("cache/abc.mp4"), "workflow", VideoFormat.VERTICAL)
+        assertEquals(File("cache/vtpl-workflow-vertical-abc.mp4"), labelled)
+        val label = videoLabel(labelled)!!
+        assertEquals(VideoLabel("workflow", VideoFormat.VERTICAL), label)
+        assertEquals("Workflow or Lifecycle · 9:16", label.text(templates))
+        assertEquals("Mystery · 16:9", VideoLabel("mystery", VideoFormat.LANDSCAPE).text(templates))
+        assertEquals(null, videoLabel(File("abc.mp4")))
+        // An image's label isn't a video's.
+        assertEquals(null, videoLabel(File("tpl-workflow-portrait-a.png")))
+    }
+
+    @Test
     fun `only the video sizes are mentioned`() {
         for (size in listOf("2:3", "3:2", "4:5")) assertFalse(size, asset.contains(size))
     }

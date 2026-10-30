@@ -69,8 +69,8 @@ internal data class DrawnSlide(val frames: List<File>, val seconds: Int? = null,
 /** [millis] split into [parts] equal shares, the remainder on the last. */
 private fun split(millis: Long, parts: Int): List<Long> = List(parts) { i -> millis / parts + if (i == parts - 1) millis % parts else 0 }
 
-/** The slides of a video and the size they were drawn for. */
-internal data class DrawnVideo(val slides: List<DrawnSlide>, val format: VideoFormat)
+/** The slides of a video, the size they were drawn for and the video template they follow. */
+internal data class DrawnVideo(val slides: List<DrawnSlide>, val format: VideoFormat, val templateId: String? = null)
 
 /**
  * The video pipeline's parts: the text agent that plans the deck, how each slide is drawn, the
@@ -129,7 +129,9 @@ class GenerateVideoUseCase(
         }
         val images = video.slides.map { it.file }
         val (frames, millis) = timeline(video, sceneMillis(video.slides.map { it.seconds }, length))
-        return maker.make(frames, newVideoFile(), millis, video.format.width, video.format.height).fold(
+        // A video made from a template carries it and its size in the file name, so saved results keep them.
+        val output = newVideoFile().let { file -> video.templateId?.let { labelVideo(file, it, video.format) } ?: file }
+        return maker.make(frames, output, millis, video.format.width, video.format.height).fold(
             onSuccess = { Outcome.Ok(GeneratedVideo(it, images, length, video.format)) },
             onFailure = { Outcome.Failed(ApiError.BadResponse(it.message ?: "couldn't encode the video"), VIDEO_MAKER) },
         )
@@ -191,7 +193,7 @@ class GenerateVideoUseCase(
                 is ApiResult.Failed -> return best?.let { Outcome.Ok(it.first) } ?: Outcome.Failed(result.error, writer.service.displayName)
                 is ApiResult.Ok -> result.value
             }
-            val video = when (val drawn = drawDeck(parts, deck, format)) {
+            val video = when (val drawn = drawDeck(parts, deck, format, brief?.template?.id)) {
                 is Outcome.Ok -> drawn.value
                 is Outcome.Failed -> {
                     failure = drawn
@@ -216,8 +218,8 @@ class GenerateVideoUseCase(
         return best?.let { Outcome.Ok(it.first) } ?: failure!!
     }
 
-    /** Draws every slide of [deck] at [format]; slides that can't be drawn are left out, and too few fail. */
-    private suspend fun drawDeck(parts: SlideDecks, deck: SlideDeck, format: VideoFormat): Outcome<DrawnVideo> {
+    /** Draws every slide of [deck] at [format], for the template [templateId]; slides that can't be drawn are left out, and too few fail. */
+    private suspend fun drawDeck(parts: SlideDecks, deck: SlideDeck, format: VideoFormat, templateId: String?): Outcome<DrawnVideo> {
         val illustrator = agent()
         val images = coroutineScope {
             deck.slides.zip(deck.scenes).map { (slide, scene) ->
@@ -232,7 +234,7 @@ class GenerateVideoUseCase(
             }.awaitAll()
         }.filterNotNull()
         return if (images.size >= MIN_SLIDES) {
-            Outcome.Ok(DrawnVideo(images, format))
+            Outcome.Ok(DrawnVideo(images, format, templateId))
         } else {
             Outcome.Failed(ApiError.BadResponse("only ${images.size} slide could be drawn"), INFOGRAPHIC_RENDERER)
         }

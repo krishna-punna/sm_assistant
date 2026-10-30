@@ -156,6 +156,14 @@ class AutoPostRunTest {
     }
 
     @Test
+    fun `video posts record the template the video followed`() = runTest {
+        video = Outcome.Ok(GeneratedVideo(File("vtpl-architecture-landscape-v.mp4"), emptyList()))
+        assertEquals("architecture", run(scheduler(PostType.VIDEO)).record.template)
+        video = Outcome.Ok(GeneratedVideo(File("v.mp4"), emptyList()))
+        assertNull(run(scheduler(PostType.TEXT_WITH_VIDEO)).record.template)
+    }
+
+    @Test
     fun `a run is skipped while an earlier post waits for review`() = runTest {
         val waiting = PendingPost("Kafka Partitions", "text")
         val outcome = run(scheduler().copy(reviewFirst = true, pending = waiting))

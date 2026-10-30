@@ -6,6 +6,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -18,11 +19,15 @@ import com.smassistant.app.generate.GenerateContentAndMediaUseCase
 import com.smassistant.app.generate.GeneratedVideo
 import com.smassistant.app.generate.appGenerateVideo
 import com.smassistant.app.generate.appSmartTrim
+import com.smassistant.app.generate.parseImageTemplates
+import com.smassistant.app.generate.text
+import com.smassistant.app.generate.videoLabel
 import com.smassistant.app.generate.videoLengthLabel
 import com.smassistant.app.linkedin.PostState
 import com.smassistant.app.linkedin.PostViewModel
 import com.smassistant.app.linkedin.appPostToLinkedIn
 import com.smassistant.app.navigation.Feature
+import com.smassistant.app.prompt.loadPromptAsset
 import com.smassistant.app.ui.components.MediaAgentDropdown
 import com.smassistant.app.ui.components.PostDialogs
 import com.smassistant.app.ui.components.PostInLinkedInButton
@@ -80,8 +85,13 @@ fun VideoScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToH
 fun VideoResult(video: GeneratedVideo, posting: Boolean, onPost: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         VideoPlayer(video.file, aspectRatio = video.format.width.toFloat() / video.format.height)
+        val appContext = LocalContext.current.applicationContext
+        // "Workflow or Lifecycle · 9:16" for a video made from a template (docs/design/video-templates.md).
+        val label = remember(video.file) {
+            videoLabel(video.file)?.text(runCatching { parseImageTemplates(loadPromptAsset(appContext, "video_templates")) }.getOrDefault(emptyList()))
+        }
         Text(
-            "${video.slides.size} slides, ${videoLengthLabel(video.seconds)}",
+            listOfNotNull(label, "${video.slides.size} slides, ${videoLengthLabel(video.seconds)}").joinToString(" · "),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

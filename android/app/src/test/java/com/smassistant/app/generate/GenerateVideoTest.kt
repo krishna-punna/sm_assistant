@@ -332,7 +332,9 @@ class GenerateVideoTest {
             decks = SlideDecks({ writer }, SlideDeckWriter("Plan {{format}}."), sizing, templates = Templates(wide, TemplateChooser("{{templates}}", wide))),
         )
 
-        assertTrue(useCase("Order service") is Outcome.Ok)
+        val made = useCase("Order service") as Outcome.Ok
+        assertEquals(File("vtpl-architecture-landscape-out.mp4"), made.value.file)
+        assertEquals(VideoFormat.LANDSCAPE, made.value.format)
         assertEquals(1920 to 1080, size)
         assertEquals(List(4) { InfographicFormat.WIDE }, drawnFormats)
         assertEquals("Plan landscape 16:9.", writer.calls[1].first)
