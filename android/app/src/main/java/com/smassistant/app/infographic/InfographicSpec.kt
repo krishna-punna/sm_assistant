@@ -26,6 +26,8 @@ data class InfographicSpec(
     val hero: String? = null,
     val sections: List<Section> = emptyList(),
     val takeaway: String? = null,
+    /** The user's brand name (app.yml `image_style`), drawn small in the footer; never written by the model. */
+    val brand: String? = null,
 )
 
 enum class InfographicFormat(val key: String, val width: Int) {
