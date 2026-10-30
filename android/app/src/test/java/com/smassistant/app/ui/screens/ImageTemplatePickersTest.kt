@@ -2,7 +2,6 @@ package com.smassistant.app.ui.screens
 
 import android.content.Context
 import androidx.compose.ui.semantics.SemanticsActions
-import androidx.compose.ui.test.and
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasClickAction
