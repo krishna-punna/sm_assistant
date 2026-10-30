@@ -57,6 +57,14 @@ sealed interface SectionBody {
         data class Stat(val value: String, val label: String)
     }
     data class Illustration(val prompt: String, val caption: String? = null) : SectionBody
+
+    /**
+     * A bar chart of measured values (the Data template, docs/design/image-templates.md): each bar's
+     * length is drawn to scale from its [Bar.amount], and its [Bar.value] is printed exactly as written.
+     */
+    data class Chart(val bars: List<Bar>, val unit: String? = null) : SectionBody {
+        data class Bar(val label: String, val value: String, val amount: Double)
+    }
 }
 
 /** A video: slides that share one palette, each a square infographic. */
@@ -71,6 +79,7 @@ internal object Limits {
     const val TABLE_ROWS = 7
     const val FLOW_NODES = 8
     const val SLIDES = 8
+    const val CHART_BARS = 8
     const val TEXT = 220
 }
 
@@ -153,6 +162,7 @@ private fun section(json: JsonObject): Section? {
                 SectionBody.Stats.Stat(value.clip(12), stat.string("label").orEmpty().clip(60))
             }
             .take(4).takeIf { it.isNotEmpty() }?.let { SectionBody.Stats(it) }
+        "chart", "bar_chart", "bars" -> chart(json)
         "illustration" -> json.string("prompt")?.takeIf { it.isNotBlank() }
             ?.let { SectionBody.Illustration(it.clip(), json.string("caption")?.takeIf { c -> c.isNotBlank() }?.clip()) }
         else -> SectionBody.Bullets(items).takeIf { items.isNotEmpty() }
@@ -164,6 +174,21 @@ private fun section(json: JsonObject): Section? {
         icon = json.string("icon")?.lowercase()?.takeIf { it in ICONS },
     )
 }
+
+/** Bars as `{"label": "Redis", "value": "0.5 ms"}`; a value without a number, or fewer than 2 bars, is no chart. */
+private fun chart(json: JsonObject): SectionBody.Chart? {
+    val bars = json.array("bars").ifEmpty { json.array("items") }.filterIsInstance<JsonObject>()
+        .mapNotNull { bar ->
+            val value = bar.string("value")?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            val amount = NUMBER.find(value.replace(",", ""))?.value?.toDoubleOrNull()?.takeIf { it >= 0 } ?: return@mapNotNull null
+            SectionBody.Chart.Bar(bar.string("label").orEmpty().clip(40), value.clip(16), amount)
+        }
+        .take(Limits.CHART_BARS)
+    if (bars.size < 2) return null
+    return SectionBody.Chart(bars, json.string("unit")?.takeIf { it.isNotBlank() }?.clip(30))
+}
+
+private val NUMBER = Regex("""\d+(?:\.\d+)?""")
 
 private fun side(json: JsonObject?, defaultLabel: String): SectionBody.Compare.Side? {
     json ?: return null
