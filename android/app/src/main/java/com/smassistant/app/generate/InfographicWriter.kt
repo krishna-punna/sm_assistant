@@ -38,11 +38,27 @@ class InfographicWriter(
         layoutIdea: String,
         content: String = "",
         feedback: List<String> = emptyList(),
+        brief: ImageBrief? = null,
     ): ApiResult<InfographicSpec> {
         val system = systemPrompt.replace("{{examples}}", formatImageExamples(pickImageExamples(examples, topic)))
-        val user = "Topic: $topic${contentBlock(content)}\n\nLayout idea: $layoutIdea${feedbackBlock(feedback)}"
-        return askTwice(agent, system, user, ::parseInfographic) { infographicProblems(it, "$topic\n$content") }
+        val user = "Topic: $topic${contentBlock(content)}${templateBlock(brief, content)}\n\nLayout idea: $layoutIdea${feedbackBlock(feedback)}"
+        val result = askTwice(agent, system, user, ::parseInfographic) { infographicProblems(it, "$topic\n$content") }
+        // The brief's format is the one the image is made in, whatever the model chose.
+        return if (brief != null && result is ApiResult.Ok) ApiResult.Ok(result.value.copy(format = brief.format.infographic)) else result
     }
+}
+
+/**
+ * The image template the infographic follows (docs/design/image-templates.md): its rules, filled
+ * with the style inputs. The content isn't repeated; the template points at the content above.
+ */
+private fun templateBlock(brief: ImageBrief?, content: String): String {
+    brief ?: return ""
+    val source = if (content.isBlank()) "(the topic above)" else "(the technical content above)"
+    val rules = brief.copy(content = source).filled()
+    return "\n\nImage template: ${brief.template.name}, ${brief.format.words}. Plan the infographic by this template. " +
+        "The app draws the image from your JSON, so the template decides what to show and how to arrange it; " +
+        "keep its content rules and turn its design rules into your choice of sections.\n\n$rules"
 }
 
 /**
