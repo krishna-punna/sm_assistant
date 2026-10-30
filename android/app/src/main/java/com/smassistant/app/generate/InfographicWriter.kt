@@ -76,19 +76,40 @@ private fun templateBlock(brief: ImageBrief?, content: String): String {
  * The video's "LLM generates content" step: one call plans every slide ([systemPrompt] is
  * `prompts/video_deck.md`, `{{slides}}` the slide count, `{{seconds}}` how long each slide
  * shows, `{{examples}}` the closest few-shot examples), so the slides tell one story in one palette. Asked once more if the reply isn't a usable deck
- * or fails [slideDeckProblems].
+ * or fails [slideDeckProblems]. A [brief] adds the video template the storyboard follows.
  */
 class SlideDeckWriter(
     private val systemPrompt: String,
     private val examples: List<ImageExample> = emptyList(),
 ) {
-    suspend fun write(agent: TextAgent, topic: String, slides: Int, secondsPerSlide: Int, content: String = ""): ApiResult<SlideDeck> {
+    suspend fun write(
+        agent: TextAgent,
+        topic: String,
+        slides: Int,
+        secondsPerSlide: Int,
+        content: String = "",
+        brief: VideoBrief? = null,
+    ): ApiResult<SlideDeck> {
         val system = systemPrompt
             .replace("{{slides}}", slides.toString())
             .replace("{{seconds}}", secondsPerSlide.toString())
-            .replace("{{examples}}", formatImageExamples(pickImageExamples(examples, topic)))
-        return askTwice(agent, system, "Topic: $topic${contentBlock(content)}", ::parseSlideDeck, ::slideDeckProblems)
+            .replace("{{examples}}", formatImageExamples(pickImageExamples(examples, topic, template = brief?.template?.id)))
+        val user = "Topic: $topic${contentBlock(content)}${videoTemplateBlock(brief, content)}"
+        return askTwice(agent, system, user, ::parseSlideDeck, ::slideDeckProblems)
     }
+}
+
+/**
+ * The video template the storyboard follows (docs/design/video-templates.md, section 3), filled
+ * with the length, format and style inputs. The content isn't repeated; the template points at it.
+ */
+private fun videoTemplateBlock(brief: VideoBrief?, content: String): String {
+    brief ?: return ""
+    val source = if (content.isBlank()) "(the topic above)" else "(the technical content above)"
+    return "\n\nVideo template: ${brief.template.name}, ${brief.format}, ${brief.seconds} seconds. Plan the slides by this template. " +
+        "The app draws every slide from your JSON and plays them in order without sound, so the template decides " +
+        "the story and what each slide shows; keep its content rules and turn its scenes into slides.\n\n" +
+        brief.copy(content = source).filled()
 }
 
 /**

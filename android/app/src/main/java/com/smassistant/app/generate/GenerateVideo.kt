@@ -43,14 +43,16 @@ const val VIDEO_MAKER = "the video maker"
 data class GeneratedVideo(val file: File, val slides: List<File>, val seconds: Int = DEFAULT_VIDEO_SECONDS)
 
 /**
- * The video pipeline's parts: the text agent that plans the deck, how each slide is drawn, and
- * the [content] step that first writes the no-limit technical content the deck represents.
+ * The video pipeline's parts: the text agent that plans the deck, how each slide is drawn, the
+ * [content] step that first writes the no-limit technical content the deck represents, and the
+ * video [templates] the chooser picks from for that content (docs/design/video-templates.md).
  */
 class SlideDecks(
     val textAgent: () -> TextAgent?,
     val writer: SlideDeckWriter,
     val pipeline: InfographicPipeline,
     val content: MediaContentWriter? = null,
+    val templates: Templates? = null,
 )
 
 /**
@@ -63,7 +65,9 @@ class SlideDecks(
  *
  * The video is as long as the length picked on the screen ([seconds], read on each submit,
  * Requirement 9): that sets how many slides are planned ([slidesFor]) and the slides that
- * come back share the time equally.
+ * come back share the time equally. With video templates the chooser picks one for the technical
+ * content (the prompt when there is none), and the deck follows it; a failed choice gives the
+ * Universal Master.
  */
 class GenerateVideoUseCase(
     private val slideTemplate: String,
@@ -77,7 +81,7 @@ class GenerateVideoUseCase(
         val topic = prompt.trim()
         val length = seconds()
         val slides = slidesFor(length)
-        val drawn = decks?.let { parts -> parts.textAgent()?.let { writer -> deckSlides(parts, writer, topic, slides, length / slides) } }
+        val drawn = decks?.let { parts -> parts.textAgent()?.let { writer -> deckSlides(parts, writer, topic, slides, length) } }
             ?: paintedSlides(topic, slides)
             ?: return Outcome.NoAgent
         val images = when (drawn) {
@@ -96,7 +100,7 @@ class GenerateVideoUseCase(
         writer: TextAgent,
         topic: String,
         slides: Int,
-        secondsPerSlide: Int,
+        seconds: Int,
     ): Outcome<List<File>> {
         val content = parts.content?.let { step ->
             when (val result = step.write(writer, topic)) {
@@ -104,7 +108,11 @@ class GenerateVideoUseCase(
                 is ApiResult.Ok -> result.value
             }
         }.orEmpty()
-        val deck = when (val result = parts.writer.write(writer, topic, slides, secondsPerSlide, content)) {
+        val brief = parts.templates?.let { templates ->
+            val choice = templates.chooser.choose(writer, content.ifBlank { topic })
+            VideoBrief(choice.primary, content, seconds, style = templates.style())
+        }
+        val deck = when (val result = parts.writer.write(writer, topic, slides, seconds / slides, content, brief)) {
             is ApiResult.Failed -> return Outcome.Failed(result.error, writer.service.displayName)
             is ApiResult.Ok -> result.value
         }
@@ -139,7 +147,7 @@ class GenerateVideoUseCase(
 }
 
 /**
- * The video generator the screens use: the default text agent writes the content and plans the deck, the selected video
+ * The video generator the screens and the scheduler use: the default text agent writes the content, picks the video template and plans the deck, the selected video
  * agent and model paint the illustrations, slides are drawn at 1080 px (the video's size) and
  * encoded on the device, as long as the length picked on the screen.
  */
@@ -165,6 +173,13 @@ fun appGenerateVideo(context: Context): GenerateVideoUseCase {
                 inspector = AndroidImageInspector,
             ),
             content = appMediaContentWriter(context),
+            templates = appVideoTemplates(context),
         ),
     )
+}
+
+/** The video templates from `prompts/video_templates.md`, their chooser and the Image Style settings. */
+internal fun appVideoTemplates(context: Context): Templates {
+    val all = parseImageTemplates(loadPromptAsset(context, "video_templates"))
+    return Templates(all, TemplateChooser(loadPromptAsset(context, "choose_template"), all, media = "video"), ImageStyleStore(context)::load)
 }
