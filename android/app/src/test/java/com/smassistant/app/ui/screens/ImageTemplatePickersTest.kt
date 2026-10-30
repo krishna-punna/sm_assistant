@@ -3,6 +3,7 @@ package com.smassistant.app.ui.screens
 import android.content.Context
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -13,6 +14,7 @@ import com.smassistant.app.ui.components.ImageStrip
 import com.smassistant.app.ui.components.ImageTemplatePickers
 import java.io.File
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -32,13 +34,13 @@ class ImageTemplatePickersTest {
 
         compose.onNodeWithTag("imageTemplateDropdown").assertTextEquals("Auto (AI picks) ▾").performClick()
         listOf("Universal Master", "Concept Explainer", "Architecture Diagram", "Comparison", "Code Visual", "Checklist", "Data and Metrics", "Learning Visual", "Series Style")
-            .forEach { compose.onNodeWithText(it).assertExists() }
-        compose.onNodeWithText("Workflow").performClick()
+            .forEach { assertTrue(it, compose.onAllNodesWithText(it, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()) }
+        compose.onNodeWithText("Workflow", useUnmergedTree = true).performClick()
         compose.onNodeWithTag("imageTemplateDropdown").assertTextEquals("Workflow ▾")
 
         compose.onNodeWithTag("imageFormatDropdown").assertTextEquals("Auto ▾").performClick()
-        listOf("Portrait 2:3", "Square 1:1").forEach { compose.onNodeWithText(it).assertExists() }
-        compose.onNodeWithText("Landscape 3:2").performClick()
+        listOf("Portrait 2:3", "Square 1:1").forEach { compose.onNodeWithText(it, useUnmergedTree = true).assertExists() }
+        compose.onNodeWithText("Landscape 3:2", useUnmergedTree = true).performClick()
 
         val preferences = AgentPreferences(context)
         assertEquals("workflow", preferences.imageTemplate)
@@ -48,7 +50,8 @@ class ImageTemplatePickersTest {
     @Test
     fun theStripShowsEachImagesTemplate() {
         compose.setContent { ImageStrip(listOf(File("a.png"), File("b.png")), setOf(0, 1), {}, {}, labels = listOf("Workflow · 2:3", null)) }
-        compose.onNodeWithTag("imageLabel0").assertTextEquals("Workflow · 2:3")
-        compose.onNodeWithTag("imageLabel1").assertDoesNotExist()
+        // The label sits inside the clickable thumbnail, which merges its text away.
+        compose.onNodeWithTag("imageLabel0", useUnmergedTree = true).assertTextEquals("Workflow · 2:3")
+        compose.onNodeWithTag("imageLabel1", useUnmergedTree = true).assertDoesNotExist()
     }
 }
