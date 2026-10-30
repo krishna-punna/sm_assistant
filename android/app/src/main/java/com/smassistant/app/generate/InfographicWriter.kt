@@ -25,7 +25,7 @@ val INFOGRAPHIC_LAYOUT_IDEAS = listOf(
 /**
  * The "LLM generates content" step of the pipeline: sends the topic to a text agent with
  * [systemPrompt] (`prompts/infographic.md`, its `{{examples}}` filled with the few-shot examples
- * closest to the topic) and reads back the JSON definition. A reply that isn't a usable
+ * of the brief's template and those closest to the topic) and reads back the JSON definition. A reply that isn't a usable
  * definition, or that fails [infographicProblems], is asked for once more with the problems
  * named. [feedback] carries what a review found wrong with the last image drawn from it.
  */
@@ -41,7 +41,8 @@ class InfographicWriter(
         feedback: List<String> = emptyList(),
         brief: ImageBrief? = null,
     ): ApiResult<InfographicSpec> {
-        val system = systemPrompt.replace("{{examples}}", formatImageExamples(pickImageExamples(examples, topic)))
+        val picked = pickImageExamples(examples, topic, template = brief?.template?.id)
+        val system = systemPrompt.replace("{{examples}}", formatImageExamples(picked))
         val user = "Topic: $topic${contentBlock(content)}${templateBlock(brief, content)}\n\nLayout idea: $layoutIdea${feedbackBlock(feedback)}"
         val result = askTwice(agent, system, user, ::parseInfographic) {
             infographicProblems(it, "$topic\n$content") + templateProblems(it, brief?.template?.id, content)
