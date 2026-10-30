@@ -17,6 +17,7 @@ import com.smassistant.app.chat.ImagesSaver
 import com.smassistant.app.generate.ContentAndImages
 import com.smassistant.app.generate.GenerateContentAndMediaUseCase
 import com.smassistant.app.generate.appGenerateImages
+import com.smassistant.app.generate.pickedImageRequest
 import com.smassistant.app.generate.appGenerateTechnicalContent
 import com.smassistant.app.generate.appSmartTrim
 import com.smassistant.app.linkedin.PostState
@@ -24,6 +25,7 @@ import com.smassistant.app.linkedin.PostViewModel
 import com.smassistant.app.linkedin.appPostToLinkedIn
 import com.smassistant.app.navigation.Feature
 import com.smassistant.app.ui.components.TextAgentDropdown
+import com.smassistant.app.ui.components.ImageTemplatePickers
 import com.smassistant.app.ui.components.MediaAgentDropdown
 import com.smassistant.app.ui.components.ErrorCard
 import com.smassistant.app.ui.components.GeneratingRow
@@ -39,9 +41,10 @@ import java.io.File
 fun ContentAndImageScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToHome: () -> Unit) {
     val appContext = LocalContext.current.applicationContext
     val useCase = remember(appContext) {
+        val images = appGenerateImages(appContext)
         GenerateContentAndMediaUseCase(
             appGenerateTechnicalContent(appContext)::invoke,
-            appGenerateImages(appContext)::invoke,
+            { prompt -> images.generate(pickedImageRequest(appContext, prompt)) },
             GenerateContentAndMediaUseCase.IMAGES_NOT_SET_UP,
         )
     }
@@ -63,6 +66,7 @@ fun ContentAndImageScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit,
         header = {
             TextAgentDropdown(label = "Text agent", showModel = true)
             MediaAgentDropdown()
+            ImageTemplatePickers()
         },
         inputContent = { PromptCard("Your prompt", it, collapsedLines = 4) },
         resultContent = { result ->

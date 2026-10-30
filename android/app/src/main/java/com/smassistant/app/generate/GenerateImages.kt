@@ -1,6 +1,7 @@
 package com.smassistant.app.generate
 
 import android.content.Context
+import com.smassistant.app.agents.AgentPreferences
 import com.smassistant.app.agents.IMAGES_PER_REQUEST
 import com.smassistant.app.agents.ImageAgent
 import com.smassistant.app.agents.TextAgent
@@ -126,7 +127,10 @@ class GenerateImagesUseCase(
                 val brief = briefs?.get(i)
                 val idea = brief?.let { "${it.format.words}: ${layoutOf(it.template).sections}" }
                     ?: INFOGRAPHIC_LAYOUT_IDEAS[i % INFOGRAPHIC_LAYOUT_IDEAS.size]
-                async { infographic(parts, writer, topic, idea, content, illustrator, brief) }
+                async {
+                    val outcome = infographic(parts, writer, topic, idea, content, illustrator, brief)
+                    if (brief != null && outcome is Outcome.Ok) Outcome.Ok(labelImage(outcome.value, brief.template.id, brief.format)) else outcome
+                }
             }.awaitAll()
         }
         val files = outcomes.filterIsInstance<Outcome.Ok<File>>().map { it.value }
@@ -184,6 +188,12 @@ class GenerateImagesUseCase(
     private fun imagePrompt(prompt: String) = styleTemplate
         .replace("{{examples}}", formatImageExamples(pickImageExamples(examples, prompt)))
         .replace("{{prompt}}", prompt)
+}
+
+/** The request for [prompt] with the template and format last picked on the image screens. */
+fun pickedImageRequest(context: Context, prompt: String): ImageRequest {
+    val preferences = AgentPreferences(context)
+    return ImageRequest(prompt, preferences.imageTemplate, preferences.imageFormat)
 }
 
 /**

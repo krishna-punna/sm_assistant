@@ -249,7 +249,7 @@ examples of the chosen template before keyword matches. They keep working as lay
 | `INFOGRAPHIC_LAYOUT_IDEAS` | Replaced by template-driven plans (section 4). |
 | `InfographicWriter.write(…)` | Takes an `ImageBrief` instead of `topic, layoutIdea, content`; `format` from the brief overrides the model's. |
 | `ImageAgent.generate(prompt, count)` | Gets a `format` (or `ImageSize`) argument; each agent maps it to its API (section 2). |
-| Result type | `Outcome<List<File>>` becomes a list of `GeneratedImage(file, template, format)` so the screen and history can show the template. `ResultSaver` keeps reading old saved results. |
+| Result type | Stays `Outcome<List<File>>`: the template and format are kept in the file name (`labelImage` / `imageLabel`), so saved results, posting and the scheduler need no new types. |
 | `InfographicRenderer` | Portrait capped at 2:3; new `diagram` and `chart` sections; `flow` branches; brand label in the footer. |
 | `GenerateVideoUseCase` / `SlideDeckWriter` | Same `ImageBrief` inputs; per-slide template. |
 | Design doc | `image-video-pipeline.md` points here for the template step. |
@@ -265,7 +265,7 @@ One PR per task, in this order (details in [docs/tasks/10](../tasks/10-image-tem
 | 2 | IT-I2 | `TemplateChooser` + `choose_template.md`, tests |
 | 3 | IT-I3 | `ImageBrief`, `image_style` in app.yml, `ImageRequest` / `GeneratedImage` refactor |
 | 4 | IT-I4 | App-drawn Generate Image uses the template (writer brief, 4-image plan, template label) |
-| 5 | IT-I5 | Template and Format pickers on Image and Content & Image; Image Style settings screen |
+| 5 | IT-I5 | Template and Format pickers on Image and Content & Image; template label under each image |
 | 6 | IT-I6 | Renderer: portrait capped at 2:3, brand label |
 | 7 | IT-I7 | Renderer: `chart` section (Data template) |
 | 8 | IT-I8 | Renderer: `diagram` section and flow branches (Architecture, Workflow) |
@@ -275,5 +275,6 @@ One PR per task, in this order (details in [docs/tasks/10](../tasks/10-image-tem
 | 12 | IT-I12 | Video: template per deck and slide, series rules |
 | 13 | IT-I13 | Scheduler: template in run history, optional per-schedule template and format |
 | 14 | IT-I14 | Few-shot examples tagged by template |
+| 15 | IT-I15 | Image Style settings screen (split out of PR 5) |
 
 PRs 7, 8, 13 and 14 can be dropped or reordered without breaking the rest. Until PR 11 lands, all 4 images are app-drawn.

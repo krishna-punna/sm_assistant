@@ -28,11 +28,14 @@ import com.smassistant.app.agents.isUsableImageAgent
 import com.smassistant.app.data.AiModel
 import com.smassistant.app.data.ApiService
 import com.smassistant.app.data.ApiSettingsStore
+import com.smassistant.app.data.ImageFormat
 import com.smassistant.app.data.MediaPurpose
 import com.smassistant.app.data.forMedia
 import com.smassistant.app.generate.VIDEO_LENGTHS
+import com.smassistant.app.generate.parseImageTemplates
 import com.smassistant.app.generate.videoLengthLabel
 import com.smassistant.app.prompt.PromptType
+import com.smassistant.app.prompt.loadPromptAsset
 
 /**
  * "Agent: Gemini ▾" above a text feature's conversation: picks which set-up agent writes the
@@ -145,6 +148,42 @@ fun PromptTypeDropdown() {
             type = it
         },
         testTag = "promptTypeDropdown",
+    )
+}
+
+/**
+ * "Template: Auto ▾" and "Format: Auto ▾" on the image screens (docs/design/image-templates.md):
+ * Auto lets the AI agent pick the template for the content and the app pick the formats; a picked
+ * template or format is used for every image. Both choices are saved for the next submit.
+ */
+@Composable
+fun ImageTemplatePickers() {
+    val appContext = LocalContext.current.applicationContext
+    val preferences = remember { AgentPreferences(appContext) }
+    val templates = remember { parseImageTemplates(loadPromptAsset(appContext, "image_templates")) }
+    var template by remember { mutableStateOf(preferences.imageTemplate?.takeIf { id -> templates.any { it.id == id } }) }
+    var format by remember { mutableStateOf(preferences.imageFormat) }
+    SelectDropdown(
+        label = "Template",
+        selected = template,
+        options = listOf<String?>(null) + templates.map { it.id },
+        optionLabel = { id -> if (id == null) "Auto (AI picks)" else templates.firstOrNull { it.id == id }?.name ?: id },
+        onSelect = {
+            preferences.imageTemplate = it
+            template = it
+        },
+        testTag = "imageTemplateDropdown",
+    )
+    SelectDropdown(
+        label = "Format",
+        selected = format,
+        options = listOf<ImageFormat?>(null) + ImageFormat.entries,
+        optionLabel = { it?.words?.replaceFirstChar { c -> c.uppercase() } ?: "Auto" },
+        onSelect = {
+            preferences.imageFormat = it
+            format = it
+        },
+        testTag = "imageFormatDropdown",
     )
 }
 

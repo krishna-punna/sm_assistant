@@ -4,6 +4,7 @@ import android.content.Context
 import com.smassistant.app.data.ApiConfig
 import com.smassistant.app.data.ApiService
 import com.smassistant.app.data.ApiSettingsStore
+import com.smassistant.app.data.ImageFormat
 import com.smassistant.app.data.MediaPurpose
 import com.smassistant.app.data.forMedia
 import com.smassistant.app.generate.DEFAULT_VIDEO_SECONDS
@@ -81,7 +82,23 @@ class AgentPreferences(context: Context) {
             prefs.edit().putString(KEY_PROMPT_TYPE, value.name).apply()
         }
 
+    /** The image template id last picked on the image screens (docs/design/image-templates.md); null is Auto. */
+    var imageTemplate: String?
+        get() = prefs.getString(KEY_IMAGE_TEMPLATE, null)
+        set(value) {
+            prefs.edit().putString(KEY_IMAGE_TEMPLATE, value).apply()
+        }
+
+    /** The image format last picked on the image screens; null is Auto (the app picks per image). */
+    var imageFormat: ImageFormat?
+        get() = ImageFormat.of(prefs.getString(KEY_IMAGE_FORMAT, null))
+        set(value) {
+            prefs.edit().putString(KEY_IMAGE_FORMAT, value?.key).apply()
+        }
+
     private companion object {
+        const val KEY_IMAGE_TEMPLATE = "image_template"
+        const val KEY_IMAGE_FORMAT = "image_format"
         const val KEY_PROMPT_TYPE = "prompt_type"
         const val KEY_VIDEO_SECONDS = "video_seconds"
         const val KEY_DEFAULT_TEXT = "default_text_agent"
