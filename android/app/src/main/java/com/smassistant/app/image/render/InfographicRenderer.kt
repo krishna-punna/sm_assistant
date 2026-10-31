@@ -84,7 +84,9 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
     /** One layout attempt: what was drawn, whether it fit the ratio, and the heights compared. */
     private class Drawn(val rendered: RenderedInfographic, val fits: Boolean, val contentHeight: Float, val ratioHeight: Float)
 
-    private fun renderAt(spec: InfographicSpec, width: Float, padSides: Boolean): Drawn {
+    private fun renderAt(written: InfographicSpec, width: Float, padSides: Boolean): Drawn {
+        // Every drawn word follows the text standard (AC-10), whatever the model wrote.
+        val spec = typeset(written)
         val palette = spec.palette
         val contentWidth = width - 2 * MARGIN
 
@@ -726,7 +728,8 @@ private class Svg {
         if (bold) out.append(""" font-weight="bold"""")
         if (anchor != "start") out.append(""" text-anchor="$anchor"""")
         if (opacity < 1f) out.append(""" opacity="${n(opacity)}"""")
-        out.append(">").append(textContent(content)).append("</text>")
+        // Code keeps its own spacing; every other line goes through the text standard's spacing (AC-10).
+        out.append(">").append(textContent(if (family == FontFamily.MONO) content else Typography.clean(content))).append("</text>")
     }
 
     /** One line per entry, the first line box starting at [top]. */
@@ -747,13 +750,22 @@ private class Svg {
     /** A bold title line whose words in [highlight] (lower case) are drawn in [accent]. */
     fun highlightedLine(line: String, highlight: Set<String>, x: Float, y: Float, size: Float, fill: String, accent: String) {
         out.append("""<text x="${n(x)}" y="${n(y)}" font-family="sans-serif" font-size="${n(size)}" font-weight="bold" fill="$fill">""")
-        line.split(' ').forEachIndexed { i, word ->
-            // A non-breaking space: AndroidSVG drops a normal space at the start of a <tspan>, which ran the words together.
-            val text = textContent(if (i == 0) word else "\u00A0$word")
-            val key = word.lowercase().trim { !it.isLetterOrDigit() }
-            if (key in highlight) out.append("""<tspan fill="$accent">$text</tspan>""") else out.append("<tspan>$text</tspan>")
-        }
+        out.append(spacedWords(line) { word -> if (word.lowercase().trim { !it.isLetterOrDigit() } in highlight) accent else null })
         out.append("</text>")
+    }
+
+    /**
+     * The shared writer for text drawn word by word (titles now; badges, ribbons and labels in AC-9):
+     * one `<tspan>` per word, coloured by [fill] when it returns a colour, each word after the first
+     * led by a non-breaking space. AndroidSVG drops a normal space at the start of a `<tspan>`, which
+     * ran title words together (AC-10); a non-breaking space is always drawn.
+     */
+    fun spacedWords(line: String, fill: (String) -> String?): String = buildString {
+        Typography.clean(line).split(' ').filter { it.isNotEmpty() }.forEachIndexed { i, word ->
+            val text = textContent(if (i == 0) word else "$WORD_GAP$word")
+            val color = fill(word)
+            append(if (color != null) """<tspan fill="$color">$text</tspan>""" else "<tspan>$text</tspan>")
+        }
     }
 
     fun icon(name: String, x: Float, y: Float, size: Float, color: String, strokeWidth: Float = 2f) {
@@ -804,3 +816,6 @@ private class Svg {
 }
 
 private val InfographicFormat.isWide get() = this == InfographicFormat.LANDSCAPE
+
+/** The space drawn between words in a word-by-word line: non-breaking, so AndroidSVG never drops it (AC-10). */
+internal const val WORD_GAP = '\u00A0'

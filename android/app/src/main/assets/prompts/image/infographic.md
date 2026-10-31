@@ -39,6 +39,7 @@ Planning rules:
 - "format": portrait for cheat sheets with many cards, landscape for architectures and flows, square for a grid of a few key points.
 - "hero", "art" and illustration "prompt" describe a simple flat picture of objects or a scene (servers, a coffee cup, a rocket, people at laptops). They must not ask for words, labels, letters, numbers, logos or diagrams; the app draws all text and diagrams itself. Leave "hero" out if no picture fits.
 - Icons, for "icon" and section "icon": database, server, cloud, user, lock, key, gear, check, cross, bolt, clock, chart, code, globe, queue, layers, plug, shield, rocket, warning, idea, book, search, mobile, network, arrow, box, target, star, chat, coffee, terminal, retry, cpu, list.
+- Text standard: one normal space between every two words, never words run together ("Kafka Retries", not "KafkaRetries"). Title and headings in title case; subtitle, items, captions and takeaway in sentence case. No ALL CAPS except acronyms (API, HTTP, JSON). Spell technical terms the way their owners do (JavaScript, PostgreSQL, gRPC, iOS). Use "…" for an ellipsis and a dash with spaces around it; keep punctuation consistent across cards. The app applies the same rules when it draws.
 - Escape double quotes and backslashes inside strings as JSON requires.
 
 Examples of good infographics for similar topics, as content and layout ideas (they describe finished images; turn their ideas into sections):
