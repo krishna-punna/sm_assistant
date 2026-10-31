@@ -111,6 +111,27 @@ data class SlideDeck(
 )
 
 /**
+ * A carousel (docs/design/single-image-carousel.md): square pages that share one palette, drawn in
+ * order and posted together. The first page is the cover and the last the summary; the content
+ * pages between them hold one or two sections each. [takeaway] is the carousel's one message.
+ */
+data class Carousel(val pages: List<InfographicSpec>, val takeaway: String? = null)
+
+/** Fewest and most pages a carousel has: a cover, content pages and a summary. */
+const val MIN_CAROUSEL_PAGES = 4
+const val MAX_CAROUSEL_PAGES = 10
+
+/** Reads a carousel written by `prompts/carousel.md`: every page square, in the carousel's palette, at most [MAX_CAROUSEL_PAGES]. */
+fun parseCarousel(reply: String): Result<Carousel> = jsonObjectIn(reply).mapCatching { root ->
+    val palette = Palette.of(root.string("palette"))
+    val pages = root.array("pages").filterIsInstance<JsonObject>()
+        .mapNotNull { page -> runCatching { spec(page, InfographicFormat.SQUARE, palette) }.getOrNull() }
+        .take(MAX_CAROUSEL_PAGES)
+    require(pages.isNotEmpty()) { "no pages in the reply" }
+    Carousel(pages, root.string("takeaway")?.ifEmpty { null })
+}
+
+/**
  * One slide's place in the storyboard: its [purpose], the [seconds] the model asked for, and
  * whether its sections are [reveal]ed one at a time.
  */

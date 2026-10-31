@@ -1,9 +1,14 @@
 package com.smassistant.app.generate
 
 import com.smassistant.app.agents.TextAgent
+import com.smassistant.app.infographic.Carousel
+import com.smassistant.app.infographic.MAX_CAROUSEL_PAGES
+import com.smassistant.app.infographic.MIN_CAROUSEL_PAGES
 import com.smassistant.app.infographic.InfographicSpec
 import com.smassistant.app.infographic.SlideDeck
+import com.smassistant.app.infographic.carouselProblems
 import com.smassistant.app.infographic.infographicProblems
+import com.smassistant.app.infographic.parseCarousel
 import com.smassistant.app.infographic.parseInfographic
 import com.smassistant.app.infographic.parseSlideDeck
 import com.smassistant.app.infographic.slideDeckProblems
@@ -104,6 +109,44 @@ class SlideDeckWriter(
             slideDeckProblems(deck) + brief?.let { storyboardProblems(deck, it.template.id, content, it.seconds) }.orEmpty()
         }
     }
+}
+
+/**
+ * Writes a carousel (docs/design/single-image-carousel.md) in one text-agent call ([systemPrompt] is
+ * `prompts/carousel.md`, `{{pages}}` the most pages, `{{examples}}` the closest few-shot examples),
+ * so the pages tell one story in one palette. Asked once more if the reply isn't a usable carousel or
+ * fails [carouselProblems], with [fits] saying which pages are too full for their square. A [brief]
+ * adds the image template the carousel follows; its format is ignored, since pages are always square.
+ * The brand is the user's, on every page.
+ */
+class CarouselWriter(
+    private val systemPrompt: String,
+    private val examples: List<ImageExample> = emptyList(),
+) {
+    suspend fun write(
+        agent: TextAgent,
+        topic: String,
+        content: String = "",
+        brief: ImageBrief? = null,
+        fits: (InfographicSpec) -> Boolean = { true },
+        maxPages: Int = MAX_CAROUSEL_PAGES,
+    ): ApiResult<Carousel> {
+        val system = systemPrompt
+            .replace("{{pages}}", maxPages.coerceIn(MIN_CAROUSEL_PAGES, MAX_CAROUSEL_PAGES).toString())
+            .replace("{{examples}}", formatImageExamples(pickImageExamples(examples, topic, template = brief?.template?.id)))
+        val user = "Topic: $topic${contentBlock(content)}${carouselTemplateBlock(brief, content)}"
+        val result = askTwice(agent, system, user, ::parseCarousel) { carouselProblems(it, "$topic\n$content", fits) }
+        val brand = brief?.style?.brandName?.ifBlank { null } ?: return result
+        return if (result is ApiResult.Ok) ApiResult.Ok(result.value.copy(pages = result.value.pages.map { it.copy(brand = brand) })) else result
+    }
+}
+
+/** The image template a carousel follows: its content rules, while the carousel rules decide the pages. */
+private fun carouselTemplateBlock(brief: ImageBrief?, content: String): String {
+    brief ?: return ""
+    val source = if (content.isBlank()) "(the topic above)" else "(the technical content above)"
+    return "\n\nImage template: ${brief.template.name}. Plan the carousel by this template: it decides what to show; " +
+        "the carousel rules decide the pages, which are all square.\n\n" + brief.copy(content = source).filled()
 }
 
 /**
