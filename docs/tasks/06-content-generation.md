@@ -25,7 +25,7 @@ Current code: one placeholder `FeatureScreen` shared by all six hub features; Su
 | GEN-3 | Results scroll; header, input and footer fixed | done |
 | GEN-4 | Progress while generating; clear error with Retry (Q-09) | done — spinner + Cancel, error card + Retry |
 | GEN-5 *(new, Q-13)* | Where conversations/media are stored | done (interim) — conversations in memory, media in `cacheDir/generated/` |
-| GEN-6 *(new, Q-23)* | Warn when the agent's last status isn't Connected | todo (optional) |
+| GEN-6 *(new, Q-23)* | Warn when the agent's last status isn't Connected | done (improvement #9, [12-app-improvements.md](12-app-improvements.md)) |
 
 | ID | Type | Task | Depends on | Status |
 |----|------|------|-----------|--------|
