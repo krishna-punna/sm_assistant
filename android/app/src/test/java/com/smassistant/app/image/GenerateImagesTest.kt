@@ -459,6 +459,30 @@ class GenerateImagesTest {
     }
 
     @Test
+    fun `content over the agent's prompt budget is painted as a numbered poster series (AC-6)`() = runTest {
+        val writer = ScriptedTextAgent(ApiResult.Ok("1. Request flow"), ApiResult.Ok("""{"prompts": ["Poster 1/2", "Poster 2/2"]}"""))
+        val seeing = object : TextAgent by writer {
+            override suspend fun see(system: String, user: String, jpeg: ByteArray): ApiResult<String> = ApiResult.Ok("""{"score": 9}""")
+        }
+        val dir = kotlin.io.path.createTempDirectory().toFile()
+        val agent = PaintingAgent(dir = dir)
+        val useCase = GenerateImagesUseCase(
+            "{{prompt}}", { agent }, 1,
+            infographics = templated(seeing, ImageStyle(mode = ImageMode.AUTO), ImagePainter("S.", budgets = { 10 }), ImageReviewer("R.", { byteArrayOf(1) })),
+        )
+
+        val files = (useCase.generate(ImageRequest("Caching", template = "concept")) as Outcome.Ok).value
+
+        assertEquals(listOf("Poster 1/2", "Poster 2/2"), agent.painted.map { it.first })
+        assertEquals(2, files.size)
+        assertTrue(isSeries(files))
+        assertEquals(listOf(1, 2), files.map { seriesPart(it)!!.part })
+        assertTrue(files.all { imageLabel(it)?.let { label -> label.painted && label.templateId == "concept" } == true })
+        assertTrue(drawn.isEmpty())
+        dir.deleteRecursively()
+    }
+
+    @Test
     fun `auto mode draws the poster when the painted one's text keeps failing the review`() = runTest {
         val writer = ScriptedTextAgent(ApiResult.Ok("1. Request flow"), ApiResult.Ok(caching()))
         val scores = ArrayDeque(listOf("""{"score": 3, "problems": ["The word Cahce is misspelt"]}""", """{"score": 5}""", """{"score": 9}"""))
