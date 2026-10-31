@@ -6,6 +6,10 @@ import com.smassistant.app.data.ImageSize
 import com.smassistant.app.data.ImageStyle
 import com.smassistant.app.image.render.ICONS
 import com.smassistant.app.image.render.InfographicFormat
+import com.smassistant.app.image.render.MAX_SERIES_POSTERS
+import com.smassistant.app.image.render.PosterFit
+import com.smassistant.app.image.render.parseSeries
+import com.smassistant.app.image.render.seriesProblems
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
 import java.io.File
@@ -112,6 +116,14 @@ class InfographicWriterTest {
     }
 
     @Test
+    fun `infographic prompt lets the AI decide the card count and asks for feed-width readability (AC-3)`() {
+        val text = File("src/main/assets/prompts/image/infographic.md").readText()
+        assertFalse(Regex("""\d+ to \d+ sections""").containsMatchIn(text))
+        assertTrue(text.contains("You decide how many sections"))
+        assertTrue(text.contains("550 px wide on any device"))
+    }
+
+    @Test
     fun `a style guide asks for the closest palette`() = runTest {
         val reply = ApiResult.Ok("""{"title": "Kafka Retries", "sections": [{"heading": "Why", "items": ["at least once"]},
               {"heading": "Backoff", "items": ["double the wait"]}, {"heading": "Dead letters", "items": ["park poison messages"]}]}""")
@@ -136,5 +148,50 @@ class InfographicWriterTest {
 
         assertEquals(InfographicFormat.SQUARE, spec.format)
         assertEquals("Acme", spec.brand)
+    }
+
+    private fun poster(title: String, format: String = "portrait", palette: String = "ocean") =
+        """{"title": "$title", "format": "$format", "palette": "$palette", "sections": [{"heading": "A", "items": ["a"]},
+          {"heading": "B", "items": ["b"]}, {"heading": "C", "items": ["c"]}]}"""
+
+    @Test
+    fun `a series reply is numbered and shares the first poster's format and palette (AC-7)`() {
+        val posters = parseSeries("""{"posters": [${poster("Kafka One")}, ${poster("Kafka Two", "landscape", "sunset")}]}""").getOrThrow()
+        assertEquals(listOf("1 / 2", "2 / 2"), posters.map { it.page })
+        assertEquals(1, posters.map { it.format to it.palette }.toSet().size)
+        assertEquals(InfographicFormat.PORTRAIT, posters[1].format)
+
+        val many = parseSeries("""{"posters": [${List(9) { poster("Kafka $it") }.joinToString()}]}""").getOrThrow()
+        assertEquals(MAX_SERIES_POSTERS, many.size)
+        assertEquals("6 / 6", many.last().page)
+        assertTrue(parseSeries("""{"posters": []}""").isFailure)
+    }
+
+    @Test
+    fun `series problems name a lone poster, a dense poster and repeated titles (AC-7)`() {
+        val one = parseSeries("""{"posters": [${poster("Kafka One")}]}""").getOrThrow()
+        assertTrue(seriesProblems(one, "Kafka").any { it.contains("a series has 2 or more") })
+
+        val twins = parseSeries("""{"posters": [${poster("Kafka")}, ${poster("Kafka")}]}""").getOrThrow()
+        assertTrue(seriesProblems(twins, "Kafka").any { it.contains("more than one poster is titled") })
+
+        val pair = parseSeries("""{"posters": [${poster("Kafka One")}, ${poster("Kafka Two")}]}""").getOrThrow()
+        assertEquals(emptyList<String>(), seriesProblems(pair, "Kafka"))
+        assertTrue(seriesProblems(pair, "Kafka") { it.title != "Kafka Two" }.single().startsWith("poster 2 (\"Kafka Two\") is still too dense"))
+    }
+
+    @Test
+    fun `writeSeries sends the measured numbers and applies the brief to every poster (AC-7)`() = runTest {
+        val agent = ScriptedTextAgent(ApiResult.Ok("""{"posters": [${poster("Kafka One")}, ${poster("Kafka Two")}]}"""))
+        val brief = ImageBrief(ImageTemplate("t", "T", "", "{{content}}"), "", ImageSize.SQUARE, ImageStyle(brandName = "Acme"))
+
+        val result = writer.writeSeries(agent, "Kafka", "Kafka content", PosterFit(false, 14, 2400, 1620, 9f), brief)
+
+        val posters = (result as ApiResult.Ok).value
+        assertEquals(2, posters.size)
+        assertTrue(posters.all { it.format == InfographicFormat.SQUARE && it.brand == "Acme" })
+        val ask = agent.calls.single().second
+        assertTrue(ask, ask.contains("14 cards need 2400 units of height and the format holds 1620"))
+        assertTrue(ask, ask.contains("2 to $MAX_SERIES_POSTERS posters"))
     }
 }

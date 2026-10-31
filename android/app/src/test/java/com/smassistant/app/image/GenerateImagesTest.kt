@@ -9,7 +9,6 @@ import com.smassistant.app.data.ImageSize
 import com.smassistant.app.data.ImageLayout
 import com.smassistant.app.data.ImageMode
 import com.smassistant.app.data.ImageStyle
-import com.smassistant.app.image.render.Carousel
 import com.smassistant.app.image.render.ImageFacts
 import com.smassistant.app.image.render.ImageInspector
 import com.smassistant.app.image.render.InfographicComposer
@@ -21,6 +20,7 @@ import com.smassistant.app.net.ApiResult
 import java.io.File
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -357,73 +357,54 @@ class GenerateImagesTest {
         return "{\"title\": \"Caching\", \"sections\": [${cards.joinToString()}]}"
     }
 
-    private val carouselPages = listOf("Caching", "Reads", "Expiry", "Eviction", "Summary")
-
-    private fun carouselReply(): String {
-        val cover = "{\"title\": \"Caching\", \"subtitle\": \"What a cache does\"}"
-        val pages = carouselPages.drop(1).map { "{\"title\": \"$it\", \"sections\": [{\"heading\": \"$it notes\", \"items\": [\"one point on $it\"]}]}" }
-        return "{\"palette\": \"teal\", \"pages\": [${(listOf(cover) + pages).joinToString()}]}"
-    }
-
     @Test
     fun `content too long for one image is condensed into one poster, never a carousel`() = runTest {
         val writer = ScriptedTextAgent(ApiResult.Ok(tooLong()), ApiResult.Ok(caching()))
-        val parts = Infographics({ writer }, InfographicWriter("Plan.{{examples}}"), pipeline, carousel = CarouselWriter("Pages {{pages}}.{{examples}}"))
+        val parts = Infographics({ writer }, InfographicWriter("Plan.{{examples}}"), pipeline)
 
         val outcome = GenerateImagesUseCase("{{prompt}}", { null }, IMAGES_PER_REQUEST, infographics = parts)(" Caching ")
 
         assertEquals(Outcome.Ok(listOf(File("Caching.png"))), outcome)
         assertEquals(2, writer.calls.size)
-        assertTrue(writer.calls[1].second.contains("- $CONDENSE_FEEDBACK"))
-        assertTrue(writer.calls.none { it.first.startsWith("Pages") })
+        val retry = writer.calls[1].second
+        assertTrue(retry, retry.contains("- it is too dense for one readable poster: its 8 cards need "))
+        assertTrue(retry, retry.contains("units of height and the format holds 1620") && retry.contains("keep every point"))
+        assertFalse(retry.contains("at most 11"))
     }
 
     @Test
-    fun `the Carousel layout skips the single image`() = runTest {
-        val writer = ScriptedTextAgent(
-            ApiResult.Ok("1. Request flow"),
-            ApiResult.Ok("""{"primary": "workflow", "alternates": []}"""),
-            ApiResult.Ok(carouselReply()),
-        )
-        val parts = templated(writer, ImageStyle(audience = "devs", layout = ImageLayout.CAROUSEL))
-        val withCarousel = Infographics(parts.textAgent, parts.writer, pipeline, parts.content, templates = parts.templates, carousel = CarouselWriter("Pages."))
+    fun `a saved Carousel layout reads as Auto and makes one poster (AC-5)`() = runTest {
+        assertEquals(ImageLayout.AUTO, ImageLayout.of("carousel"))
+        assertEquals(ImageLayout.AUTO, ImageLayout.of(" Carousel "))
+        assertEquals(listOf(ImageLayout.AUTO, ImageLayout.SINGLE), ImageLayout.entries)
+    }
 
-        val outcome = GenerateImagesUseCase("{{prompt}}", { null }, IMAGES_PER_REQUEST, infographics = withCarousel).generate(ImageRequest("Caching"))
+    /** A two-poster series reply covering the "Caching" content. */
+    private fun cachingSeries() = """{"posters": [${caching().replace("\"Caching\"", "\"Reads Caching\"")}, ${caching().replace("\"Caching\"", "\"Expiry Caching\"")}]}"""
 
-        assertEquals(carouselPages.size, (outcome as Outcome.Ok).value.size)
+    @Test
+    fun `a poster still too dense after condensing becomes a numbered poster series (AC-7)`() = runTest {
+        val writer = ScriptedTextAgent(ApiResult.Ok(tooLong()), ApiResult.Ok(tooLong()), ApiResult.Ok(cachingSeries()))
+        val parts = Infographics({ writer }, InfographicWriter("Plan.{{examples}}"), pipeline)
+
+        val outcome = GenerateImagesUseCase("{{prompt}}", { null }, IMAGES_PER_REQUEST, infographics = parts)(" Caching ")
+
+        assertEquals(Outcome.Ok(listOf(File("Reads.png"), File("Expiry.png"))), outcome)
         assertEquals(3, writer.calls.size)
-        assertTrue(writer.calls[2].second.contains("Image template: Workflow."))
+        val ask = writer.calls[2].second
+        assertTrue(ask, ask.contains("plan a numbered poster series") && ask.contains("Don't leave anything out"))
+        assertTrue(ask, ask.contains("8 cards need "))
     }
 
     @Test
-    fun `a poster still too long after condensing is drawn as one`() = runTest {
-        val writer = ScriptedTextAgent(ApiResult.Ok(tooLong()), ApiResult.Ok(tooLong()))
-        val parts = Infographics({ writer }, InfographicWriter("Plan.{{examples}}"), pipeline, carousel = CarouselWriter("Pages."))
+    fun `when no series can be written the dense poster is drawn as one`() = runTest {
+        val writer = ScriptedTextAgent(ApiResult.Ok(tooLong()), ApiResult.Ok(tooLong()), ApiResult.Ok("no JSON here"))
+        val parts = Infographics({ writer }, InfographicWriter("Plan.{{examples}}"), pipeline)
 
         val outcome = GenerateImagesUseCase("{{prompt}}", { null }, IMAGES_PER_REQUEST, infographics = parts)(" Caching ")
 
         assertEquals(Outcome.Ok(listOf(File("Caching.png"))), outcome)
-        assertEquals(2, writer.calls.size)
-    }
-
-    @Test
-    fun `when the Carousel layout can't make pages one image is drawn`() = runTest {
-        val writer = ScriptedTextAgent(
-            ApiResult.Ok("1. Request flow"),
-            ApiResult.Ok("""{"primary": "workflow", "alternates": []}"""),
-            ApiResult.Ok("no JSON here"),
-            ApiResult.Ok("no JSON here"),
-            ApiResult.Ok(caching()),
-        )
-        val parts = templated(writer, ImageStyle(audience = "devs", layout = ImageLayout.CAROUSEL))
-        val withCarousel = Infographics(parts.textAgent, parts.writer, pipeline, parts.content, templates = parts.templates, carousel = CarouselWriter("Pages."))
-
-        val outcome = GenerateImagesUseCase("{{prompt}}", { null }, IMAGES_PER_REQUEST, infographics = withCarousel).generate(ImageRequest("Caching"))
-
-        assertEquals(1, (outcome as Outcome.Ok).value.size)
-        // The carousel was asked for twice before the single image was written.
-        assertEquals(2, writer.calls.count { it.first.startsWith("Pages.") })
-        assertTrue(writer.calls.last().second.contains("Image template: Workflow"))
+        assertEquals(4, writer.calls.size)
     }
 
     @Test
@@ -492,6 +473,30 @@ class GenerateImagesTest {
 
         assertEquals(Outcome.Ok(listOf(File("painted-1.png"))), useCase.generate(ImageRequest("Caching", template = "concept")))
         assertTrue(drawn.isEmpty())
+    }
+
+    @Test
+    fun `content over the agent's prompt budget is painted as a numbered poster series (AC-6)`() = runTest {
+        val writer = ScriptedTextAgent(ApiResult.Ok("1. Request flow"), ApiResult.Ok("""{"prompts": ["Poster 1/2", "Poster 2/2"]}"""))
+        val seeing = object : TextAgent by writer {
+            override suspend fun see(system: String, user: String, jpeg: ByteArray): ApiResult<String> = ApiResult.Ok("""{"score": 9}""")
+        }
+        val dir = kotlin.io.path.createTempDirectory().toFile()
+        val agent = PaintingAgent(dir = dir)
+        val useCase = GenerateImagesUseCase(
+            "{{prompt}}", { agent }, 1,
+            infographics = templated(seeing, ImageStyle(mode = ImageMode.AUTO), ImagePainter("S.", budgets = { 10 }), ImageReviewer("R.", { byteArrayOf(1) })),
+        )
+
+        val files = (useCase.generate(ImageRequest("Caching", template = "concept")) as Outcome.Ok).value
+
+        assertEquals(listOf("Poster 1/2", "Poster 2/2"), agent.painted.map { it.first })
+        assertEquals(2, files.size)
+        assertTrue(isSeries(files))
+        assertEquals(listOf(1, 2), files.map { seriesPart(it)!!.part })
+        assertTrue(files.all { imageLabel(it)?.let { label -> label.painted && label.templateId == "concept" } == true })
+        assertTrue(drawn.isEmpty())
+        dir.deleteRecursively()
     }
 
     @Test

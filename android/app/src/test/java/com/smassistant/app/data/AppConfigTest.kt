@@ -2,6 +2,7 @@ package com.smassistant.app.data
 
 import java.io.File
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -137,9 +138,21 @@ class AppConfigTest {
     }
 
     @Test
+    fun `image prompt budgets come from app yml, 0 meaning no limit (AC-6)`() {
+        val shipped = File("src/main/assets/app.yml").inputStream().use(::parseImagePromptBudgets)
+        assertNull(shipped.of(ApiService.GEMINI))
+        assertEquals(2000, shipped.of(ApiService.CLOUDFLARE))
+        assertEquals(1500, shipped.of(ApiService.POLLINATIONS))
+        val custom = parseImagePromptBudgets("image_prompt_budgets:\n  pollinations: 900\n  cloudflare: nope".byteInputStream())
+        assertEquals(900, custom.of(ApiService.POLLINATIONS))
+        assertEquals(2000, custom.of(ApiService.CLOUDFLARE))
+        assertEquals(ImagePromptBudgets(), parseImagePromptBudgets("other: 1".byteInputStream()))
+    }
+
+    @Test
     fun `image style comes from app yml with defaults for missing or invalid values`() {
         assertEquals(
-            ImageStyle("students", "Acme", "navy cards", true, ImageSize.LANDSCAPE, ImageMode.DRAWN, ImageLayout.CAROUSEL),
+            ImageStyle("students", "Acme", "navy cards", true, ImageSize.LANDSCAPE, ImageMode.DRAWN, ImageLayout.AUTO),
             parseImageStyle(
                 "image_style:\n  audience: students\n  brand_name: Acme\n  style_guide: navy cards\n  series: true\n  format: Landscape\n  mode: drawn\n  layout: carousel"
                     .byteInputStream(),
