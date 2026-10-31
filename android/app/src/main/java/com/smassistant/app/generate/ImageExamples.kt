@@ -4,7 +4,7 @@ package com.smassistant.app.generate
 const val IMAGE_EXAMPLES_PER_PROMPT = 3
 
 /**
- * One few-shot example from `assets/prompts/image_examples.md`: a topic, the image prompt that suits
+ * One few-shot example from `assets/prompts/image/image_examples.md` (or `video/video_examples.md`): a topic, the image prompt that suits
  * it and the id of the image template it is an example of.
  */
 data class ImageExample(
@@ -17,7 +17,7 @@ data class ImageExample(
 
 /**
  * Reads `image_examples.md`: blocks separated by a `---` line, each with `Title:`, `Keywords:`,
- * `Template:`, `Topic:` and `Image prompt:` lines. The intro before the first `---` and incomplete
+ * `Template:`, `Topic:` and `Image prompt:` lines (`Slides:` in `video_examples.md`). The intro before the first `---` and incomplete
  * blocks are skipped; `Template:` may be left out.
  */
 fun parseImageExamples(text: String): List<ImageExample> =
@@ -28,7 +28,7 @@ fun parseImageExamples(text: String): List<ImageExample> =
         }.toMap()
         val title = fields["title"].orEmpty()
         val topic = fields["topic"].orEmpty()
-        val imagePrompt = fields["image prompt"].orEmpty()
+        val imagePrompt = (fields["image prompt"] ?: fields["slides"]).orEmpty()
         if (title.isEmpty() || topic.isEmpty() || imagePrompt.isEmpty()) return@mapNotNull null
         val keywords = fields["keywords"].orEmpty().split(',').map { it.trim().lowercase() }.filter { it.isNotEmpty() }
         ImageExample(title, keywords, topic, imagePrompt, fields["template"]?.lowercase()?.takeIf { it.isNotEmpty() })

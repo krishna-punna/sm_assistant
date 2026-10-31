@@ -57,17 +57,18 @@ class TemplateChooserTest {
     }
 
     @Test
-    fun `the video chooser asks for a video template`() = runTest {
-        val agent = ScriptedTextAgent(ApiResult.Ok("""{"primary": "concept"}"""))
-        TemplateChooser("Pick the {{media}} template.", templates, media = "video").choose(agent, "x")
-        assertEquals("Pick the video template.", agent.calls.single().first)
+    fun `the image and video choosers are their own prompts`() {
+        val image = File("src/main/assets/prompts/image/choose_image_template.md").readText()
+        val video = File("src/main/assets/prompts/video/choose_video_template.md").readText()
+        assertTrue(image.contains("LinkedIn image") && !image.contains("video"))
+        assertTrue(video.contains("LinkedIn video") && !video.contains("image"))
+        assertFalse(image.contains("{{media}}") || video.contains("{{media}}"))
     }
 
     @Test
     fun `the prompt asset lists the templates and every id it names exists`() {
-        val prompt = File("src/main/assets/prompts/choose_template.md").readText()
-        assertTrue(prompt.contains("{{media}}"))
-        val ids = parseImageTemplates(File("src/main/assets/prompts/image_templates.md").readText()).map { it.id }
+        val prompt = File("src/main/assets/prompts/image/choose_image_template.md").readText()
+        val ids = parseImageTemplates(File("src/main/assets/prompts/image/image_templates.md").readText()).map { it.id }
         assertTrue(prompt.contains("{{templates}}"))
         val tableIds = Regex("""(?m)^\| [^|]+ \| (\w+) \|$""").findAll(prompt).map { it.groupValues[1] }.filter { it != "Template" }.toList()
         assertEquals(9, tableIds.size)

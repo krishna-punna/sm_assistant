@@ -105,7 +105,7 @@ class InfographicWriterTest {
 
     @Test
     fun `infographic prompt asset keeps the examples placeholder and names every icon`() {
-        val text = File("src/main/assets/prompts/infographic.md").readText()
+        val text = File("src/main/assets/prompts/image/infographic.md").readText()
         assertTrue(text.contains("{{examples}}"))
         com.smassistant.app.infographic.ICONS.keys.forEach { assertTrue(it, text.contains(it)) }
     }

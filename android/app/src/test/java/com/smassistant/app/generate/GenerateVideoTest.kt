@@ -94,7 +94,7 @@ class GenerateVideoTest {
 
     @Test
     fun `video slide asset keeps its placeholders`() {
-        val text = File("src/main/assets/prompts/video.md").readText()
+        val text = File("src/main/assets/prompts/video/video.md").readText()
         listOf("{{prompt}}", "{{slide}}", "{{slides}}", "{{format}}").forEach { assertTrue(it, text.contains(it)) }
         assertTrue(!text.contains("Square format"))
     }
@@ -400,7 +400,7 @@ class GenerateVideoTest {
 
     @Test
     fun `video deck asset keeps its placeholders`() {
-        val text = File("src/main/assets/prompts/video_deck.md").readText()
+        val text = File("src/main/assets/prompts/video/video_deck.md").readText()
         listOf("{{slides}}", "{{seconds}}", "{{format}}", "{{examples}}").forEach { assertTrue(it, text.contains(it)) }
     }
 }

@@ -4,7 +4,7 @@ Krishna's LinkedIn technical video templates (docs/requirements/16-video-prompt-
 adapted for the app (docs/design/video-templates.md):
 
 - Videos use the standard video sizes only: vertical 9:16, square 1:1 or landscape 16:9
-  (Krishna, 2026-10-30). Images keep their own sizes in `image_templates.md`.
+  (Krishna, 2026-10-30).
 - The app draws every scene from the storyboard and makes the MP4 on the phone. There is no video
   model and no sound, so narration is on-screen text only and every label, code line and chart is
   drawn exactly by the app.
@@ -16,8 +16,8 @@ adapted for the app (docs/design/video-templates.md):
   aren't here: the app writes the content first, and `video_deck.md` holds the storyboard shape.
 
 Format: templates are separated by a line holding only `---`. Each has an `Id`, a `Name`, a
-`Use when` line and, after a `Template:` line, the template itself. The ids match the image
-templates, so the same template chooser picks them.
+`Use when` line and, after a `Template:` line, the template itself. `choose_video_template.md`
+picks one of them for the content.
 
 ---
 Id: universal

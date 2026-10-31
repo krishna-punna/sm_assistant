@@ -22,7 +22,7 @@ fun paints(mode: ImageMode, index: Int): Boolean = when (mode) {
 /**
  * Writes the prompt an AI-painted image is made from (docs/design/image-templates.md §6): the
  * filled template in full for Gemini, which reads long prompts, and for the FLUX agents the text
- * agent's condensed version of it ([condenseTemplate], `prompts/condense_image_prompt.md`), at most
+ * agent's condensed version of it ([condenseTemplate], `prompts/image/condense_image_prompt.md`), at most
  * [SHORT_IMAGE_PROMPT] characters.
  */
 class ImagePainter(private val condenseTemplate: String) {

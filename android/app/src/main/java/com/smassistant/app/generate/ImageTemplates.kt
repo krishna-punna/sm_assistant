@@ -7,7 +7,7 @@ const val UNIVERSAL_TEMPLATE = "universal"
 const val NOT_SPECIFIED = "not specified"
 
 /**
- * One of Krishna's image prompt templates from `assets/prompts/image_templates.md`
+ * One of Krishna's image prompt templates from `assets/prompts/image/image_templates.md`
  * (docs/requirements/15), or video templates from `video_templates.md` (docs/requirements/16,
  * which also have a `{{duration}}` slot): its [id] (e.g. "workflow"), its [name], the "Use when" line the
  * template chooser reads, and the [body] with `{{content}}`, `{{audience}}`, `{{style}}`,
