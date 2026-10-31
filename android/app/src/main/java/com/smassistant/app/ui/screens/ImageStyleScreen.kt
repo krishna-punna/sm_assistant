@@ -85,7 +85,6 @@ fun ImageMode.label(): String = when (this) {
 fun ImageLayout.label(): String = when (this) {
     ImageLayout.AUTO -> "Auto: one poster"
     ImageLayout.SINGLE -> "Always one image"
-    ImageLayout.CAROUSEL -> "Always a carousel"
 }
 
 @Composable
@@ -141,9 +140,8 @@ fun ImageStyleContent(state: ImageStyleUiState, actions: ImageStyleActions, onBa
         SelectDropdown("Layout", style.layout, ImageLayout.entries, { it.label() }, actions.onLayout, "styleLayout")
         Text(
             when (style.layout) {
-                ImageLayout.AUTO -> "One poster per post, like the samples; content too long is shortened to fit."
+                ImageLayout.AUTO -> "One poster per post, like the samples; content too dense is merged to fit, never cut."
                 ImageLayout.SINGLE -> "Always one image; long content is drawn with smaller text."
-                ImageLayout.CAROUSEL -> "Always a carousel of square pages: a cover, the content and a summary."
             },
             style = MaterialTheme.typography.bodySmall,
         )

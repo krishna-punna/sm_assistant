@@ -21,8 +21,8 @@ import com.smassistant.app.image.render.ImageInspector
 import com.smassistant.app.image.render.InfographicPipeline
 import com.smassistant.app.image.render.InfographicRenderer
 import com.smassistant.app.image.render.PaintTextMeasurer
+import com.smassistant.app.image.render.PosterFit
 import com.smassistant.app.image.render.imageProblem
-import com.smassistant.app.image.render.numbered
 import com.smassistant.app.image.render.reviewJpeg
 import com.smassistant.app.media.AndroidSizeGuard
 import com.smassistant.app.media.MediaCache
@@ -32,6 +32,7 @@ import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
 import com.smassistant.app.prompt.loadPromptAsset
 import java.io.File
+import kotlin.math.roundToInt
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -53,8 +54,6 @@ class Infographics(
     val reviewer: ImageReviewer? = null,
     val retries: Int = 1,
     val templates: Templates? = null,
-    /** Writes the carousel pages when the Layout setting is Carousel (docs/requirements/18, SV-5); null never makes one. */
-    val carousel: CarouselWriter? = null,
 )
 
 /**
@@ -185,13 +184,13 @@ class GenerateImagesUseCase(
                         null
                     }
                     if (painted != null) {
-                        Outcome.Ok(listOf(labelImage(painted, paintBrief!!.template.id, paintBrief.format, painted = true)))
+                        // More than one poster is a numbered series (AC-6), kept together and in order.
+                        val labelled = painted.map { labelImage(it, paintBrief!!.template.id, paintBrief.format, painted = true) }
+                        val id = System.currentTimeMillis()
+                        Outcome.Ok(if (labelled.size > 1) labelled.mapIndexed { i, file -> labelSeriesPart(file, id, i + 1) } else labelled)
                     } else {
-                        // A painted image that couldn't be made is drawn instead. Only the Carousel layout splits
-                        // (docs/requirements/18, SV-5); Auto condenses content too long for one poster.
-                        if (layout == ImageLayout.CAROUSEL) {
-                            carousel(parts, writer, topic, content, illustrator, brief)?.let { return@async Outcome.Ok(it) }
-                        }
+                        // A painted image that couldn't be made is drawn instead. Auto condenses content too
+                        // dense for one poster (AC-4); images are never a carousel (AC-5).
                         infographic(parts, writer, topic, idea, content, illustrator, brief, condense = layout == ImageLayout.AUTO)
                     }
                 }
@@ -199,32 +198,6 @@ class GenerateImagesUseCase(
         }
         val files = outcomes.filterIsInstance<Outcome.Ok<List<File>>>().flatMap { it.value }
         return if (files.isNotEmpty()) Outcome.Ok(files) else outcomes.first() as Outcome.Failed
-    }
-
-    /**
-     * The content as a carousel, made only when the Layout setting is Carousel (docs/requirements/18,
-     * SV-5): the carousel writer plans the pages, then each is drawn and labelled in order. The
-     * pages, or null when no carousel writer is set up or fewer than 2 could be made, so a single
-     * image is drawn instead.
-     */
-    private suspend fun carousel(
-        parts: Infographics,
-        writer: TextAgent,
-        topic: String,
-        content: String,
-        illustrator: ImageAgent?,
-        brief: ImageBrief?,
-    ): List<File>? {
-        val carousels = parts.carousel ?: return null
-        return when (val result = carousels.write(writer, topic, content, brief, parts.pipeline::fits)) {
-            is ApiResult.Failed -> null
-            is ApiResult.Ok -> {
-                val id = System.currentTimeMillis()
-                parts.pipeline.drawPages(result.value.numbered(), illustrator)
-                    .takeIf { it.size >= 2 }
-                    ?.mapIndexed { i, file -> labelCarouselPage(file, id, i + 1) }
-            }
-        }
     }
 
     /**
@@ -253,10 +226,12 @@ class GenerateImagesUseCase(
                 is ApiResult.Failed -> return best?.let { Outcome.Ok(listOf(it.first)) } ?: Outcome.Failed(result.error, writer.service.displayName)
                 is ApiResult.Ok -> result.value
             }
-            // Too long for one poster: asked once for a shorter one; the longer one is drawn smaller when that fails.
-            if (condensing && !parts.pipeline.fits(spec)) {
+            // Too dense for one readable poster: the writer gets the measured numbers and decides itself
+            // what to merge (AC-4); the denser one is drawn smaller when that fails.
+            val fit = if (condensing) parts.pipeline.measure(spec) else null
+            if (fit != null && !fit.fits) {
                 condensing = false
-                val shorter = parts.writer.write(writer, topic, idea, content, feedback + CONDENSE_FEEDBACK, brief)
+                val shorter = parts.writer.write(writer, topic, idea, content, feedback + condenseFeedback(fit), brief)
                 if (shorter is ApiResult.Ok) spec = shorter.value
             }
             val file = parts.pipeline.draw(spec, illustrator)?.let { drawn -> brief?.let { labelImage(drawn, it.template.id, spec.format.image) } ?: drawn }
@@ -274,13 +249,15 @@ class GenerateImagesUseCase(
     }
 
     /**
-     * One AI-painted image (docs/design/image-templates.md §6): painted from the filled template,
-     * checked for blank or tiny pixels, upscaled and reviewed. One the review scores too low is
-     * painted again with the review's problems, up to [Infographics.retries] times, and the
-     * best-scored is kept. Null when no image passed the pixel checks.
+     * One AI-painted poster, or a numbered poster series when the content is longer than the image
+     * agent's prompt budget (docs/design/image-templates.md §6; AC-6): painted from the filled
+     * template, each poster checked for blank or tiny pixels, upscaled and reviewed. A series passes
+     * only when every poster does, and its score is its worst poster's. One the review scores too low
+     * is painted again with the review's problems, up to [Infographics.retries] times, and the
+     * best-scored is kept. Null when no poster passed the pixel checks.
      *
-     * In Auto mode (docs/requirements/18, SV-6) only a painted image the review passes is kept, so
-     * one with misspelt, missing or invented text is drawn by the app instead. Without a review the
+     * In Auto mode (docs/requirements/18, SV-6) only painted posters the review passes are kept, so
+     * ones with misspelt, missing or invented text are drawn by the app instead. Without a review the
      * text can't be checked, so nothing is painted and the image is drawn.
      */
     private suspend fun painted(
@@ -290,28 +267,34 @@ class GenerateImagesUseCase(
         topic: String,
         illustrator: ImageAgent,
         brief: ImageBrief,
-    ): File? {
+    ): List<File>? {
         val reviewer = parts.reviewer
         val strict = brief.style.mode == ImageMode.AUTO
         if (strict && reviewer == null) return null
         var feedback = emptyList<String>()
-        var best: Pair<File, Int>? = null
+        var best: Pair<List<File>, Int>? = null
         val filled = if (brief.content.isBlank()) brief.copy(content = topic) else brief
         repeat(parts.retries + 1) {
-            val prompt = painter.prompt(writer, illustrator, filled, feedback)
-            val image = when (val result = illustrator.generate(prompt, 1, brief.format)) {
-                is ApiResult.Failed -> return best?.first.takeUnless { strict }
-                is ApiResult.Ok -> result.value.firstOrNull()
-            }?.takeIf { file -> inspector?.let { imageProblem(it.facts(file), MIN_PAINTED_SIDE) == null } ?: true }
-            if (image == null) {
+            val prompts = painter.prompts(writer, illustrator, filled, feedback)
+            val posters = mutableListOf<File>()
+            for (prompt in prompts) {
+                val image = when (val result = illustrator.generate(prompt, 1, brief.format)) {
+                    is ApiResult.Failed -> return best?.first.takeUnless { strict }
+                    is ApiResult.Ok -> result.value.firstOrNull()
+                }?.takeIf { file -> inspector?.let { imageProblem(it.facts(file), MIN_PAINTED_SIDE) == null } ?: true }
+                if (image == null) break
+                posters += upscaler?.upscale(image) ?: image
+            }
+            if (posters.size < prompts.size) {
                 feedback = listOf("the image came out blank or too small")
                 return@repeat
             }
-            val file = upscaler?.upscale(image) ?: image
-            val review = reviewer?.reviewPainted(writer, topic, file, brief.template) ?: return file.takeUnless { strict }
-            if (reviewer.passes(review)) return file
-            if (best == null || review.score > best!!.second) best = file to review.score
-            feedback = review.problems.ifEmpty { listOf("it scored ${review.score}/10; make it clearer and closer to the topic") }
+            // No review, or a model that can't see images: the text can't be checked.
+            val reviews = posters.map { reviewer?.reviewPainted(writer, topic, it, brief.template) ?: return posters.takeUnless { strict } }
+            if (reviews.all { reviewer!!.passes(it) }) return posters
+            val score = reviews.minOf { it.score }
+            if (best == null || score > best!!.second) best = posters to score
+            feedback = reviews.flatMap { it.problems }.distinct().ifEmpty { listOf("it scored $score/10; make it clearer and closer to the topic") }
         }
         return best?.first.takeUnless { strict }
     }
@@ -338,9 +321,14 @@ class GenerateImagesUseCase(
         .replace("{{prompt}}", prompt)
 }
 
-/** What the writer is told when its definition is too long for one poster (docs/requirements/18, SV-5). */
-internal const val CONDENSE_FEEDBACK =
-    "it is too long for one image at full text size; keep every topic but use at most 11 sections and shorter items, about 6 words each"
+/**
+ * What the writer is told when its definition is too dense for one readable poster (AC-4): the
+ * measured numbers, not a fixed card count, so the AI decides what to merge. Nothing may be left out.
+ */
+internal fun condenseFeedback(fit: PosterFit): String =
+    "it is too dense for one readable poster: its ${fit.cards} cards need ${fit.neededHeight} units of height and the " +
+        "format holds ${fit.availableHeight}, so text would shrink below ${fit.feedTextPx.roundToInt()} px at LinkedIn's feed width; " +
+        "keep every point but merge related cards and shorten items (about 6 words each) so it fits"
 
 /** The request for [prompt] with the template and format last picked on the image screens. */
 fun pickedImageRequest(context: Context, prompt: String): ImageRequest {
@@ -389,7 +377,6 @@ internal fun appInfographics(context: Context, cache: MediaCache, examples: List
         reviewer = if (checks.visionReview) ImageReviewer(loadPromptAsset(context, "image/image_review"), ::reviewJpeg, checks.minScore) else null,
         retries = if (checks.visionReview) checks.retries else 0,
         templates = appTemplates(context),
-        carousel = CarouselWriter(loadPromptAsset(context, "image/carousel"), examples),
     )
 }
 
@@ -400,7 +387,7 @@ internal fun appTemplates(context: Context): Templates {
         all,
         TemplateChooser(loadPromptAsset(context, "image/choose_image_template"), all),
         ImageStyleStore(context)::load,
-        ImagePainter(loadPromptAsset(context, "image/condense_image_prompt")),
+        ImagePainter(loadPromptAsset(context, "image/split_image_prompt"), AppConfig.imagePromptBudgets(context)::of),
     )
 }
 

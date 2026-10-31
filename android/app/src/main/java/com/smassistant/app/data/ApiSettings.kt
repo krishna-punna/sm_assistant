@@ -29,6 +29,11 @@ object AppConfig {
 
     @Volatile private var cachedImageStyle: ImageStyle? = null
 
+    @Volatile private var cachedPromptBudgets: ImagePromptBudgets? = null
+
+    fun imagePromptBudgets(context: Context): ImagePromptBudgets =
+        cachedPromptBudgets ?: context.assets.open("app.yml").use(::parseImagePromptBudgets).also { cachedPromptBudgets = it }
+
     fun imageStyle(context: Context): ImageStyle =
         cachedImageStyle ?: context.assets.open("app.yml").use(::parseImageStyle).also { cachedImageStyle = it }
 

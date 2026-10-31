@@ -60,6 +60,13 @@ image_checks:
   min_score: 7
   retries: 1
 
+# The longest prompt each image agent reads, in characters (0: no limit). Content longer than an agent's
+# budget is never cut: the text agent splits it over a numbered poster series (1/N, 2/N...).
+image_prompt_budgets:
+  gemini: 0
+  cloudflare: 2000
+  pollinations: 1500
+
 # Inputs for the image prompt templates (docs/design/image-templates.md).
 # audience: who the images are for. brand_name: drawn small on each image when set.
 # style_guide: colours, fonts and layout to keep, e.g. "navy and teal, rounded cards"; empty: a restrained professional style.
@@ -67,7 +74,7 @@ image_checks:
 # format: auto (the app picks per image), portrait (2:3), square (1:1) or landscape (3:2).
 # mode: auto (the image agent paints the poster; the app draws it instead when the review finds its text wrong),
 #   drawn (the app draws the text), painted (the image agent paints the whole image) or both (two of each).
-# layout: auto (one poster; content too long is written shorter), single (one image, smaller text) or carousel (square pages).
+# layout: auto (one poster; content too dense is merged to fit) or single (one image, smaller text). Images are never a carousel.
 image_style:
   audience: "developers, senior engineers and architects"
   brand_name: ""
