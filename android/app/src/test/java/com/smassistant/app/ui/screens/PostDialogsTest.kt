@@ -2,6 +2,7 @@ package com.smassistant.app.ui.screens
 
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.smassistant.app.linkedin.PostState
@@ -38,7 +39,7 @@ class PostDialogsTest {
     @Test
     fun confirmShowsAddedHashtagsAndCount() {
         compose.setContent { ConfirmPostContent(PostState.Confirm("Hello\n\n#java", listOf("#java"))) { events += "text" } }
-        compose.onNodeWithText("Default hashtags added: #java").assertExists()
+        compose.onNodeWithText("Default hashtags added at the end: #java (5 characters, counted above)").assertExists()
         compose.onNodeWithText("12 / 3000 characters").assertExists()
     }
 
@@ -79,5 +80,23 @@ class PostDialogsTest {
         show(PostState.Failed("LinkedIn token expired or invalid.", openSettings = true))
         compose.onNodeWithText("LinkedIn settings").performClick()
         assertEquals(listOf("dismiss", "settings"), events)
+    }
+
+    @Test
+    fun countWarnsNearTheLimit() {
+        compose.setContent { ConfirmPostContent(PostState.Confirm("a".repeat(2_800), emptyList())) { events += "text" } }
+        compose.onNodeWithText("2800 / 3000 characters · 200 left").assertExists()
+    }
+
+    @Test
+    fun previewShowsWhereTheFeedFolds() {
+        val text = "Hook line\nSecond line\nThird line\nFourth line #java"
+        compose.setContent { ConfirmPostContent(PostState.Confirm(text, listOf("#java"))) { events += "text" } }
+        compose.onNodeWithTag("previewToggle").performClick()
+        compose.onNodeWithTag("feedPreview").assertExists()
+        compose.onNodeWithTag("feedFold").assertExists()
+        compose.onNodeWithTag("postText").assertDoesNotExist()
+        compose.onNodeWithTag("previewToggle").performClick()
+        compose.onNodeWithTag("postText").assertExists()
     }
 }
