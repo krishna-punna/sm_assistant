@@ -22,6 +22,7 @@ Status: proposed 2026-10-31, waiting for Krishna's review. One PR per implementa
 | ID | Task | Req | Depends on | Status |
 |----|------|-----|-----------|--------|
 | SV-I1 | Show the true shape: thumbnails use `ContentScale.Fit` in a box at the image's ratio; each image and video result shows ratio and pixels ("Workflow · 2:3 · 2160×3240", "9:16 · 1080×1920"). | SV-10 | — | todo |
+| SV-I1b | Text fixes from the phone test: keep the space between words in `highlightedLine` (space outside the `<tspan>` or `xml:space="preserve"`); trace and fix code losing `<`, `>` and `->`. | SV-13 | — | todo |
 | SV-I2 | Single poster by default: Layout Auto never splits or switches format. Too-long content is condensed by the infographic writer (shorter card text, at most 11 cards, asked again with the overflow) instead of the carousel. Carousel only when Layout is Carousel. Update app.yml comments and the Image Style screen. | SV-3, SV-5 | SV-I1 | todo |
 | SV-I3 | Separate size types: `image/ImageSize` (PORTRAIT 2:3, SQUARE 1:1, LANDSCAPE 3:2) and `video/VideoSize` (VERTICAL 9:16, SQUARE 1:1, LANDSCAPE 16:9). The renderer takes a `PageSize(width, height)`. Remove VERTICAL and WIDE from `InfographicFormat` and delete `InfographicFormat.image`. | SV-2 | SV-I2 | todo |
 | SV-I4 | Always send a size: Auto is resolved to a concrete `ImageSize` (portrait default, landscape for architecture/comparison/data flows, square for a grid of ≤ 6 cards) before any agent call, on every path including the no-text-agent fallback and scheduled posts. | SV-4, SV-8 | SV-I3 | todo |
@@ -41,6 +42,7 @@ Status: proposed 2026-10-31, waiting for Krishna's review. One PR per implementa
 | SV-T3 | unit | A 9:16 picture through the image guard comes out 2:3; a 2:3 picture through the video guard comes out 9:16 (`SizeGuardTest`). | todo |
 | SV-T4 | unit | Painted poster that fails the text review falls back to the drawn poster (`GenerateImagesTest`). | todo |
 | SV-T5 | unit | The `image` package imports nothing from `video` and back (`PipelineBoundaryTest`, reads the source tree). | todo |
+| SV-T7 | unit | A two-colour title keeps its spaces, and a code card with `Mono<List<T>>` and `->` keeps every character in the SVG and in the drawn PNG (`InfographicRendererTest`, `InfographicFillTest`). | todo |
 | SV-T6 | unit | Drawn 2:3 poster with 11 cards fits at full text size (`InfographicRendererTest`). | todo |
 
 ## Validation (on the phone)

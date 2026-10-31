@@ -23,6 +23,17 @@ Build checked: CI run #361 (PR #98, f-mobile-app at 79eba54), the APK installed 
 - Image and video share one renderer size list (2:3, 1:1, 3:2, 9:16, 16:9), one template type, one template chooser
   prompt, one set of few-shot examples and one agent setting. A change for one medium silently affects the other.
 
+### Test evidence (Krishna's phone, 2026-10-31)
+
+Generate Image on "CompletableFuture vs Reactive architecture" gave an **8-page square carousel**, not one image:
+
+- Each page holds a single card with 4 bullets, centred on a mostly empty square. It looks like a video slide.
+- The cover is a title on an empty dark square.
+- Words in two-colour titles run together: "Completablevs", "StackExecution", "ErrorFaultTolerance", "KeyTakeaways",
+  "RESTAPI". The space at the start of each highlighted `<tspan>` is dropped when the SVG is drawn.
+- Code loses characters: `Mono<ResponseEntity<OrderDto>>` shows as "MonoResponseEntityOrderDto", and `tuple ->` as
+  "tuple -". The cause is not yet traced; it could be the writer's output or the drawing.
+
 ## The samples
 
 All 22 samples Krishna sent (the 16 in `prompts/image_examples.md` plus six more in project files: Stream API,
@@ -55,6 +66,7 @@ panels and icon bullets; a footer strip with a takeaway or tip. Text is small bu
 | SV-10 | Results show their true shape: thumbnails are not cropped, and each result shows its size, e.g. "Workflow · 2:3 · 2160×3240" or "9:16 · 1080×1920". |
 | SV-11 | Settings name the agents by purpose: "Image agent" and "Video slide agent", each with its own model. |
 | SV-12 | The video pipeline keeps working as today (slides at the video's size, MP4 slideshow, video templates). |
+| SV-13 | Text is drawn exactly: spaces between title words are kept in two-colour titles, and code keeps every character (`<`, `>`, `->`, generics). |
 
 ## Out of scope
 
