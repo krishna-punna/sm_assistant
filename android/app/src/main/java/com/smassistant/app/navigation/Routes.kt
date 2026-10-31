@@ -36,6 +36,7 @@ object Routes {
     const val SCHEDULERS = "schedulers"
     const val SCHEDULER_EDIT = "schedulers/{id}"
     const val NEW_SCHEDULER_ID = "new"
+    const val POST_HISTORY = "history"
 
     fun agentSettings(agent: AiAgent) = "settings/agents/${agent.name}"
     fun feature(feature: Feature) = "hub/${feature.name}"
