@@ -53,6 +53,7 @@ class NavigationTest {
             "AI Agent" to Routes.AI_AGENTS,
             "SM Assistant" to Routes.HUB,
             "Scheduled Posts" to Routes.SCHEDULERS,
+            "Drafts" to Routes.DRAFTS,
             "Post History" to Routes.POST_HISTORY,
             "Default Hash Tags" to Routes.DEFAULT_HASHTAGS,
             "Image Style" to Routes.IMAGE_STYLE,

@@ -5,6 +5,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.smassistant.app.chat.Outcome
 import com.smassistant.app.data.ApiService
+import com.smassistant.app.drafts.Draft
+import com.smassistant.app.drafts.DraftSaver
+import com.smassistant.app.drafts.DraftStore
 import com.smassistant.app.data.ApiSettingsStore
 import com.smassistant.app.data.AppConfig
 import com.smassistant.app.generate.PostCut
@@ -41,6 +44,8 @@ class PostToLinkedInUseCase(
     /** Called with each post that went out, for the post history (improvement #7). */
     private val onPublished: (PublishedPost) -> Unit = {},
     private val now: () -> Long = System::currentTimeMillis,
+    /** Where Save draft in the confirm dialog keeps posts for later (improvement #8); null hides it. */
+    val drafts: DraftSaver? = null,
 ) {
     /** The text that would be posted for [markdown], with the default hashtags when they're on. */
     fun prepare(markdown: String): PostText =
@@ -95,6 +100,8 @@ sealed interface PostState {
         /** Who made the post and its title, for the post history. */
         val source: PostSource = PostSource.MANUAL,
         val title: String? = null,
+        /** The draft this post was opened from: Save draft updates it, and posting removes it. */
+        val draftId: String? = null,
     ) : PostState {
         val length get() = postLength(text)
         val overLimitBy get() = (length - limit).coerceAtLeast(0)
@@ -102,6 +109,9 @@ sealed interface PostState {
     }
 
     data object Posting : PostState
+
+    /** Save draft kept the post for later. */
+    data object DraftSaved : PostState
     data class Posted(val post: LinkedInPost) : PostState
 
     /** [openSettings] offers a way to the LinkedIn settings screen (LP-3). */
@@ -138,6 +148,25 @@ class PostViewModel(
         } else {
             failure(ApiError.NotConfigured)
         }
+    }
+
+    /** Opens a saved draft in the confirm dialog to edit, post, or save again. */
+    fun openDraft(draft: Draft) {
+        if (_state.value == PostState.Posting) return
+        _state.value = PostState.Confirm(draft.text, emptyList(), draft.files, useCase.limit, title = draft.title, draftId = draft.id)
+    }
+
+    val canSaveDraft get() = useCase.drafts != null
+
+    /** Save draft (improvement #8): keeps the dialog's text and media to finish later, over the draft it came from. */
+    fun saveDraft() {
+        val confirm = _state.value as? PostState.Confirm ?: return
+        val drafts = useCase.drafts ?: return
+        if (confirm.trimming || (confirm.text.isBlank() && confirm.images.isEmpty())) return
+        // Scheduler titles are kept; a manual post's draft is titled by its text.
+        val title = confirm.title.takeIf { confirm.source == PostSource.SCHEDULED || confirm.draftId != null }
+        _state.value = runCatching { drafts.save(confirm.text, confirm.images, confirm.draftId, title) }
+            .fold({ PostState.DraftSaved }, { PostState.Failed("Couldn't save the draft: ${it.message}", openSettings = false) })
     }
 
     /** The text [markdown] would post as, with the default hashtags, for the length note under a result (PL-7). */
@@ -196,7 +225,10 @@ class PostViewModel(
         _state.value = PostState.Posting
         viewModelScope.launch {
             _state.value = when (val result = useCase.post(confirm.text, confirm.images, confirm.source, confirm.title)) {
-                is ApiResult.Ok -> PostState.Posted(result.value)
+                is ApiResult.Ok -> {
+                    confirm.draftId?.let { id -> runCatching { useCase.drafts?.delete(id) } }
+                    PostState.Posted(result.value)
+                }
                 is ApiResult.Failed -> failure(result.error)
             }
         }
@@ -233,5 +265,6 @@ fun appPostToLinkedIn(context: Context): PostToLinkedInUseCase {
         publish = client::createPost,
         limit = AppConfig.postRules(context).maxCharacters,
         onPublished = PostHistoryStore(context)::add,
+        drafts = DraftStore(context),
     )
 }

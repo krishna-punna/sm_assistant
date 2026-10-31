@@ -134,6 +134,7 @@ fun SchedulersScreen(onAdd: () -> Unit, onEdit: (String) -> Unit, onSignIn: () -
         state = postState,
         onTextChange = postViewModel::onTextChange,
         onConfirm = postViewModel::confirm,
+        onSaveDraft = if (postViewModel.canSaveDraft) postViewModel::saveDraft else null,
         onDismiss = postViewModel::dismiss,
         onOpenSettings = onSignIn,
         onTrimWithAi = postViewModel::trimWithAi,

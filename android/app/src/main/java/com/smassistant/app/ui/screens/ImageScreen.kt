@@ -85,6 +85,7 @@ fun ImageScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToH
         onTrimWithAi = postViewModel::trimWithAi,
         onCutToFit = postViewModel::cutToFit,
         onConfirm = postViewModel::confirm,
+        onSaveDraft = if (postViewModel.canSaveDraft) postViewModel::saveDraft else null,
         onDismiss = postViewModel::dismiss,
         onOpenSettings = onSetUpLinkedIn,
     )
