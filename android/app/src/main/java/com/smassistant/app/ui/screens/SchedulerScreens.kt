@@ -122,7 +122,11 @@ fun SchedulersScreen(onAdd: () -> Unit, onEdit: (String) -> Unit, onSignIn: () -
         onEnabledChange = viewModel::setEnabled,
         onRunNow = viewModel::runNow,
         onDelete = viewModel::delete,
-        onReview = { id -> viewModel.review(id)?.let { (text, files) -> postViewModel.review(text, files) } },
+        onReview = { id ->
+            viewModel.review(id)?.let { (text, files) ->
+                postViewModel.review(text, files, title = state.schedulers.firstOrNull { it.id == id }?.pending?.title)
+            }
+        },
         onDiscard = viewModel::discard,
         onBackToHome = onBackToHome,
     )
@@ -130,6 +134,7 @@ fun SchedulersScreen(onAdd: () -> Unit, onEdit: (String) -> Unit, onSignIn: () -
         state = postState,
         onTextChange = postViewModel::onTextChange,
         onConfirm = postViewModel::confirm,
+        onSaveDraft = if (postViewModel.canSaveDraft) postViewModel::saveDraft else null,
         onDismiss = postViewModel::dismiss,
         onOpenSettings = onSignIn,
         onTrimWithAi = postViewModel::trimWithAi,
