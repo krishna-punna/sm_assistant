@@ -3,11 +3,13 @@ package com.smassistant.app.generate
 import com.smassistant.app.agents.ImageAgent
 import com.smassistant.app.agents.TextAgent
 import com.smassistant.app.chat.Outcome
+import com.smassistant.app.data.ImageFormat
 import com.smassistant.app.infographic.InfographicComposer
 import com.smassistant.app.infographic.InfographicFormat
 import com.smassistant.app.infographic.InfographicPipeline
 import com.smassistant.app.infographic.InfographicRenderer
 import com.smassistant.app.media.FrameBlender
+import com.smassistant.app.media.SizeGuard
 import com.smassistant.app.media.SlideshowMaker
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
@@ -93,7 +95,32 @@ class GenerateVideoTest {
     @Test
     fun `video slide asset keeps its placeholders`() {
         val text = File("src/main/assets/prompts/video.md").readText()
-        listOf("{{prompt}}", "{{slide}}", "{{slides}}").forEach { assertTrue(it, text.contains(it)) }
+        listOf("{{prompt}}", "{{slide}}", "{{slides}}", "{{format}}").forEach { assertTrue(it, text.contains(it)) }
+        assertTrue(!text.contains("Square format"))
+    }
+
+    @Test
+    fun `without a text agent each slide is painted 2 by 3 for the 9 by 16 video and every frame goes through the guard`() = runTest {
+        val asked = mutableListOf<ImageFormat?>()
+        val painter = object : ImageAgent {
+            override suspend fun generate(prompt: String, count: Int) = generate(prompt, count, null)
+            override suspend fun generate(prompt: String, count: Int, format: ImageFormat?): ApiResult<List<File>> {
+                synchronized(asked) { asked += format; prompts += prompt }
+                return ApiResult.Ok(listOf(File("p${asked.size}.png")))
+            }
+        }
+        val guarded = mutableListOf<Pair<File, List<Pair<Int, Int>>>>()
+        val guard = SizeGuard { file, ratios -> synchronized(guarded) { guarded += file to ratios }; File("fit-${file.name}") }
+
+        val outcome = GenerateVideoUseCase("{{format}} slide {{slide}}: {{prompt}}", { painter }, maker, { File("out.mp4") }, sizeGuard = guard)("x")
+
+        assertEquals(List(4) { ImageFormat.PORTRAIT }, asked)
+        assertTrue(prompts.all { it.startsWith("vertical 9:16 slide") })
+        assertEquals(4, guarded.size)
+        assertTrue(guarded.all { it.second == listOf(1080 to 1920) })
+        assertTrue(encoded!!.all { it.name.startsWith("fit-") })
+        assertEquals(1080 to 1920, size)
+        assertEquals(VideoFormat.VERTICAL, (outcome as Outcome.Ok).value.format)
     }
 
     private var undrawable = setOf<String>()

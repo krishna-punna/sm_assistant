@@ -17,11 +17,14 @@ import com.smassistant.app.infographic.revealSteps
 import com.smassistant.app.media.AndroidFrameBlender
 import com.smassistant.app.media.AndroidImageInspector
 import com.smassistant.app.media.AndroidInfographicComposer
+import com.smassistant.app.media.AndroidSizeGuard
 import com.smassistant.app.media.FrameBlender
 import com.smassistant.app.media.Media3SlideshowMaker
 import com.smassistant.app.media.MediaCache
 import com.smassistant.app.media.PaintTextMeasurer
+import com.smassistant.app.media.SizeGuard
 import com.smassistant.app.media.SlideshowMaker
+import com.smassistant.app.media.nearestImageFormat
 import com.smassistant.app.media.reviewJpeg
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
@@ -114,6 +117,7 @@ class GenerateVideoUseCase(
     private val seconds: () -> Int = { DEFAULT_VIDEO_SECONDS },
     private val decks: SlideDecks? = null,
     private val blender: FrameBlender? = null,
+    private val sizeGuard: SizeGuard? = null,
 ) {
     suspend operator fun invoke(prompt: String): Outcome<GeneratedVideo> {
         val topic = prompt.trim()
@@ -122,11 +126,12 @@ class GenerateVideoUseCase(
         val drawn = decks?.let { parts -> parts.textAgent()?.let { writer -> deckSlides(parts, writer, topic, slides, length) } }
             ?: paintedSlides(topic, slides)
             ?: return Outcome.NoAgent
-        val video = when (drawn) {
+        val made = when (drawn) {
             is Outcome.Ok -> drawn.value
             is Outcome.Failed -> return drawn
             Outcome.NoAgent -> return Outcome.NoAgent
         }
+        val video = sizeGuard?.let { guard -> guarded(made, guard) } ?: made
         val images = video.slides.map { it.file }
         val (frames, millis) = timeline(video, sceneMillis(video.slides.map { it.seconds }, length))
         // A video made from a template carries it and its size in the file name, so saved results keep them.
@@ -240,21 +245,36 @@ class GenerateVideoUseCase(
         }
     }
 
-    /** The fallback without a text agent; null when there's no video agent either. */
+    /**
+     * The last step: every frame has the video's ratio, padded when it is off by more than 2%
+     * (docs/requirements/18, SV-9), so the encoder never stretches a picture.
+     */
+    private suspend fun guarded(video: DrawnVideo, guard: SizeGuard): DrawnVideo {
+        val ratio = listOf(video.format.width to video.format.height)
+        return video.copy(slides = video.slides.map { slide -> slide.copy(frames = slide.frames.map { guard.fit(it, ratio) }) })
+    }
+
+    /**
+     * The fallback without a text agent; null when there's no video agent either. Each slide is
+     * painted at the image size closest to the video's (2:3 for 9:16) and padded to it by the guard.
+     */
     private suspend fun paintedSlides(topic: String, slides: Int): Outcome<DrawnVideo>? {
         val selected = agent() ?: return null
+        val format = DEFAULT_VIDEO_FORMAT
+        val paintAt = nearestImageFormat(format.width.toFloat(), format.height.toFloat())
         val results = coroutineScope {
-            (1..slides).map { slide -> async { selected.generate(slidePrompt(topic, slide, slides), 1) } }.awaitAll()
+            (1..slides).map { slide -> async { selected.generate(slidePrompt(topic, slide, slides, format), 1, paintAt) } }.awaitAll()
         }
         val images = results.filterIsInstance<ApiResult.Ok<List<File>>>().flatMap { it.value }
-        if (images.size >= MIN_SLIDES) return Outcome.Ok(DrawnVideo(images.map { DrawnSlide(it) }, DEFAULT_VIDEO_FORMAT))
+        if (images.size >= MIN_SLIDES) return Outcome.Ok(DrawnVideo(images.map { DrawnSlide(it) }, format))
         val error = results.filterIsInstance<ApiResult.Failed>().firstOrNull()?.error
             ?: ApiError.BadResponse("only ${images.size} slide came back")
         return Outcome.Failed(error, selected.service.displayName)
     }
 
-    private fun slidePrompt(prompt: String, slide: Int, slides: Int) = slideTemplate
+    private fun slidePrompt(prompt: String, slide: Int, slides: Int, format: VideoFormat) = slideTemplate
         .replace("{{prompt}}", prompt)
+        .replace("{{format}}", format.words)
         .replace("{{slide}}", slide.toString())
         .replace("{{slides}}", slides.toString())
 }
@@ -273,6 +293,7 @@ fun appGenerateVideo(context: Context): GenerateVideoUseCase {
         agent = selector::imageAgent,
         maker = Media3SlideshowMaker(context.applicationContext),
         blender = AndroidFrameBlender(cache),
+        sizeGuard = AndroidSizeGuard,
         newVideoFile = { cache.newFile("mp4") },
         seconds = AgentPreferences(context)::videoSeconds,
         decks = SlideDecks(

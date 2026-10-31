@@ -20,8 +20,11 @@ import com.smassistant.app.infographic.numbered
 import com.smassistant.app.media.AndroidImageInspector
 import com.smassistant.app.media.AndroidImageUpscaler
 import com.smassistant.app.media.AndroidInfographicComposer
+import com.smassistant.app.media.AndroidSizeGuard
 import com.smassistant.app.media.MediaCache
 import com.smassistant.app.media.PaintTextMeasurer
+import com.smassistant.app.media.SizeGuard
+import com.smassistant.app.media.ratio
 import com.smassistant.app.media.reviewJpeg
 import com.smassistant.app.prompt.loadPromptAsset
 import com.smassistant.app.net.ApiError
@@ -106,6 +109,7 @@ class GenerateImagesUseCase(
     private val infographics: Infographics? = null,
     private val inspector: ImageInspector? = null,
     private val upscaler: ImageUpscaler? = null,
+    private val sizeGuard: SizeGuard? = null,
 ) {
     suspend operator fun invoke(prompt: String): Outcome<List<File>> = generate(ImageRequest(prompt))
 
@@ -114,11 +118,20 @@ class GenerateImagesUseCase(
      * one the chooser picks for the content) and the format the user picked shape every infographic.
      */
     suspend fun generate(request: ImageRequest): Outcome<List<File>> {
+        val outcome = make(request)
+        val guard = sizeGuard ?: return outcome
+        // The last step: every image is 2:3, 1:1 or 3:2, padded when it is off by more than 2% (docs/requirements/18, SV-9).
+        return if (outcome is Outcome.Ok) Outcome.Ok(outcome.value.map { guard.fit(it, IMAGE_RATIOS) }) else outcome
+    }
+
+    private suspend fun make(request: ImageRequest): Outcome<List<File>> {
         val topic = request.prompt.trim()
         infographics?.let { parts -> parts.textAgent()?.let { writer -> return infographics(parts, writer, topic, request) } }
         val selected = agent() ?: return Outcome.NoAgent
-        return when (val result = selected.generate(imagePrompt(topic), count, request.format)) {
-            is ApiResult.Ok -> painted(selected, topic, result.value, request.format)
+        // Auto is resolved before the agent is asked, so the model never picks the shape (docs/requirements/18, SV-8).
+        val format = request.format ?: infographics?.templates?.style()?.format ?: ImageFormat.PORTRAIT
+        return when (val result = selected.generate(imagePrompt(topic), count, format)) {
+            is ApiResult.Ok -> painted(selected, topic, result.value, format)
             is ApiResult.Failed -> Outcome.Failed(result.error, selected.service.displayName)
         }
     }
@@ -342,8 +355,12 @@ fun appGenerateImages(context: Context): GenerateImagesUseCase {
         infographics = appInfographics(context, cache, examples),
         inspector = AndroidImageInspector,
         upscaler = AndroidImageUpscaler,
+        sizeGuard = AndroidSizeGuard,
     )
 }
+
+/** The ratios an image may have: 2:3, 1:1 and 3:2. */
+private val IMAGE_RATIOS = ImageFormat.entries.map { it.ratio }
 
 /**
  * The pipeline's real parts: the default text agent, the no-limit content and infographic
