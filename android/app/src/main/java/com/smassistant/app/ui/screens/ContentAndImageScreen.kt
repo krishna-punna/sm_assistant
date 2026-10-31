@@ -14,6 +14,7 @@ import com.smassistant.app.chat.ChatItem
 import com.smassistant.app.chat.ContentAndMediaSaver
 import com.smassistant.app.chat.ImagesSaver
 import com.smassistant.app.chat.sessionChatViewModel
+import com.smassistant.app.data.MediaPurpose
 import com.smassistant.app.generate.ContentAndImages
 import com.smassistant.app.generate.GenerateContentAndMediaUseCase
 import com.smassistant.app.generate.appGenerateTechnicalContent
@@ -65,6 +66,7 @@ fun ContentAndImageScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit,
         onBackToHome = onBackToHome,
         header = {
             TextAgentDropdown(label = "Text agent", showModel = true)
+            TextAgentDropdown(showModel = true, purpose = MediaPurpose.IMAGE)
             MediaAgentDropdown()
             ImageTemplatePickers()
         },

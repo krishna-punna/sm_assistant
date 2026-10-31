@@ -59,6 +59,16 @@ class ApiSettingsStore(context: Context, private val cipher: SecretCipher = Keys
         )
     }
 
+    /**
+     * [load] with the text model chosen for writing image or video content ([purpose], SP-12): each
+     * keeps its own, and until one is chosen it is the agent's text model. A null [purpose] is [load].
+     */
+    fun loadForText(service: ApiService, purpose: MediaPurpose?): ApiConfig {
+        val config = load(service)
+        if (purpose == null) return config
+        return prefs.getString(textModelPref(service, purpose), null)?.let { config.copy(model = it) } ?: config
+    }
+
     /** Saves the chosen models. A blank one removes the override so the app.yml default applies again. */
     fun saveModels(service: ApiService, model: String, imageModel: String = "", videoModel: String = "") {
         prefs.edit().apply {
@@ -68,9 +78,10 @@ class ApiSettingsStore(context: Context, private val cipher: SecretCipher = Keys
         }.apply()
     }
 
-    /** Saves just the text model, e.g. from the text model picker on the image and video screens. */
-    fun saveTextModel(service: ApiService, model: String) {
-        prefs.edit().apply { if (model.isBlank()) remove(modelPref(service)) else putString(modelPref(service), model.trim()) }.apply()
+    /** Saves just the text model: the agent's own, or the image or video one ([purpose]) from the pickers on those screens. */
+    fun saveTextModel(service: ApiService, model: String, purpose: MediaPurpose? = null) {
+        val pref = purpose?.let { textModelPref(service, it) } ?: modelPref(service)
+        prefs.edit().apply { if (model.isBlank()) remove(pref) else putString(pref, model.trim()) }.apply()
     }
 
     /** Saves just the image or video model, e.g. from the picker on the image and video screens. */
@@ -147,6 +158,7 @@ class ApiSettingsStore(context: Context, private val cipher: SecretCipher = Keys
 
     private fun apiPref(service: ApiService) = "${service.name}.api"
     private fun modelPref(service: ApiService) = "${service.name}.model"
+    private fun textModelPref(service: ApiService, purpose: MediaPurpose) = "${service.name}.${purpose.name.lowercase()}_text_model"
     private fun imageModelPref(service: ApiService) = "${service.name}.image_model"
     private fun accountIdPref(service: ApiService) = "${service.name}.account_id"
     private fun videoModelPref(service: ApiService) = "${service.name}.video_model"

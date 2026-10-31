@@ -61,7 +61,7 @@ fun VideoScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToH
         onSetUpAgent = onSetUpAgent,
         onBackToHome = onBackToHome,
         header = {
-            TextAgentDropdown(label = "Text agent", showModel = true)
+            TextAgentDropdown(showModel = true, purpose = MediaPurpose.VIDEO)
             MediaAgentDropdown(MediaPurpose.VIDEO)
             VideoLengthDropdown()
         },

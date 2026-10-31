@@ -139,6 +139,23 @@ class AgentPreferencesTest {
     }
 
     @Test
+    fun `image and video text agents follow the text agent until each is chosen`() {
+        val context: Context = ApplicationProvider.getApplicationContext()
+        val prefs = AgentPreferences(context)
+        prefs.defaultTextAgent = ApiService.GROQ
+        assertEquals(ApiService.GROQ, prefs.defaultTextAgentFor(MediaPurpose.IMAGE))
+        assertEquals(ApiService.GROQ, prefs.defaultTextAgentFor(MediaPurpose.VIDEO))
+
+        prefs.setDefaultTextAgent(MediaPurpose.IMAGE, ApiService.GEMINI)
+        prefs.setDefaultTextAgent(MediaPurpose.VIDEO, ApiService.CLOUDFLARE)
+        val again = AgentPreferences(context)
+        assertEquals(ApiService.GEMINI, again.defaultTextAgentFor(MediaPurpose.IMAGE))
+        assertEquals(ApiService.CLOUDFLARE, again.defaultTextAgentFor(MediaPurpose.VIDEO))
+        assertEquals(ApiService.GROQ, again.defaultTextAgentFor(null))
+        assertEquals(ApiService.GROQ, again.defaultTextAgent)
+    }
+
+    @Test
     fun `a saved Claude default is ignored now that Claude is gone`() {
         val context: Context = ApplicationProvider.getApplicationContext()
         context.getSharedPreferences("agent_settings", Context.MODE_PRIVATE).edit()
