@@ -2,6 +2,7 @@ package com.smassistant.app.data
 
 import java.io.File
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -134,6 +135,18 @@ class AppConfigTest {
         assertEquals(ImageCheckRules(), parseImageCheckRules("apis: {}".byteInputStream()))
         assertEquals(ImageCheckRules(), parseImageCheckRules("image_checks:\n  vision_review: maybe\n  min_score: 11\n  retries: 9".byteInputStream()))
         assertEquals(ImageCheckRules(), File("src/main/assets/app.yml").inputStream().use(::parseImageCheckRules))
+    }
+
+    @Test
+    fun `image prompt budgets come from app yml, 0 meaning no limit (AC-6)`() {
+        val shipped = File("src/main/assets/app.yml").inputStream().use(::parseImagePromptBudgets)
+        assertNull(shipped.of(ApiService.GEMINI))
+        assertEquals(2000, shipped.of(ApiService.CLOUDFLARE))
+        assertEquals(1500, shipped.of(ApiService.POLLINATIONS))
+        val custom = parseImagePromptBudgets("image_prompt_budgets:\n  pollinations: 900\n  cloudflare: nope".byteInputStream())
+        assertEquals(900, custom.of(ApiService.POLLINATIONS))
+        assertEquals(2000, custom.of(ApiService.CLOUDFLARE))
+        assertEquals(ImagePromptBudgets(), parseImagePromptBudgets("other: 1".byteInputStream()))
     }
 
     @Test

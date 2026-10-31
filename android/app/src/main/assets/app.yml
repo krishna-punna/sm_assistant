@@ -60,6 +60,13 @@ image_checks:
   min_score: 7
   retries: 1
 
+# The longest prompt each image agent reads, in characters (0: no limit). Content longer than an agent's
+# budget is never cut: the text agent splits it over a numbered poster series (1/N, 2/N...).
+image_prompt_budgets:
+  gemini: 0
+  cloudflare: 2000
+  pollinations: 1500
+
 # Inputs for the image prompt templates (docs/design/image-templates.md).
 # audience: who the images are for. brand_name: drawn small on each image when set.
 # style_guide: colours, fonts and layout to keep, e.g. "navy and teal, rounded cards"; empty: a restrained professional style.
