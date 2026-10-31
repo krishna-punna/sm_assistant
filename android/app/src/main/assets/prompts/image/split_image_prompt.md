@@ -5,7 +5,7 @@ Never leave content out to make it fit. If everything fits in one prompt of at m
 Each prompt keeps what decides the picture:
 - The kind of image (for example a workflow diagram, an architecture diagram, a comparison), its aspect ratio and its layout from top to bottom or left to right.
 - The title, and on a series the poster's number written as "1/3", "2/3" and so on after the title.
-- At most 6 short labels the poster must show, copied exactly from the content, each in double quotes. Fewer words in the image means fewer misspelt words. Normal spacing between words.
+- At most 6 short labels the poster must show, copied exactly from the content, each in double quotes. Fewer words in the image means fewer misspelt words. Normal spacing between words, never run together; title case for the title, sentence case for other labels, no ALL CAPS except acronyms.
 - The visual style: clean flat vector infographic, white or light background, a limited colour palette, high contrast, generous spacing, readable sans-serif text. Every poster of a series uses the same style, palette and title treatment.
 - Any brand name or style preferences the template names.
 - Any problems the template lists to avoid.

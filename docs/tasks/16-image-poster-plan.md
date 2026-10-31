@@ -26,8 +26,8 @@ Decisions:
 | AC-5 | Remove the image carousel (Layout = Carousel, `carousel.md`, `CarouselWriter`, PDF posting); keep the multi-image post. Shared grouping becomes "series" (`SeriesFiles`, `SeriesPager`, `RunRecord.seriesParts`), ready for AC-7. | PR #146 |
 | AC-6 | Painted series: `split_image_prompt.md` replaces `condense_image_prompt.md`; per-agent prompt budgets in app.yml. A series passes the review only when every poster does. | PR #147 |
 | AC-7 | Drawn series: the writer may return N posters; results, scheduled posts and history handle N images. Series posters are not sent to the image review (each is drawn from a checked definition). | PR #148 |
-| AC-8 | AI-decided clip art: an optional `art` picture on any card, `MAX_ILLUSTRATIONS` 2 → 12. | PR (this) |
-| AC-10 | Text standard: shared text writer, typography rules, word-gap test, prompt rules, review text check. | todo |
+| AC-8 | AI-decided clip art: an optional `art` picture on any card, `MAX_ILLUSTRATIONS` 2 → 12. | PR #149 |
+| AC-10 | Text standard: shared text writer, typography rules, word-gap test, prompt rules, review text check. The word-gap test checks the SVG the renderer writes (a non-breaking space before every later title word); a real pixel check needs a device, so it is in the phone checks. | PR (this) |
 | AC-9 | Richer header and footer: ribbon, badges, highlight pill, breakout hero, takeaway card, recap strip, handle, 1/N. | todo |
 
 ## Validation (on a phone and a desktop)
