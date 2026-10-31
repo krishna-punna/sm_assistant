@@ -36,19 +36,35 @@ class InfographicPipeline(
     private val inspector: ImageInspector? = null,
     private val minSide: Int = MIN_INFOGRAPHIC_SIDE,
 ) {
-    suspend fun draw(spec: InfographicSpec, illustrator: ImageAgent?, maxIllustrations: Int = this.maxIllustrations): File? {
-        val rendered = renderer.render(spec)
+    suspend fun draw(spec: InfographicSpec, illustrator: ImageAgent?, maxIllustrations: Int = this.maxIllustrations): File? =
+        drawSteps(spec, listOf(spec), illustrator, maxIllustrations).singleOrNull()
+
+    /**
+     * Draws each of [steps], versions of [spec] that show less of it (a video's step-by-step reveal,
+     * [revealSteps]), with the illustrations of [spec] painted once and reused in every step, so a
+     * picture doesn't change as the slide fills in. Steps that can't be drawn are left out.
+     */
+    suspend fun drawSteps(
+        spec: InfographicSpec,
+        steps: List<InfographicSpec>,
+        illustrator: ImageAgent?,
+        maxIllustrations: Int = this.maxIllustrations,
+    ): List<File> {
+        val whole = renderer.render(spec)
+        val slots = whole.slots.take(maxIllustrations)
         val painted = if (illustrator == null) {
             emptyList()
         } else {
             coroutineScope {
-                rendered.slots.take(maxIllustrations).map { slot ->
-                    async { illustrate(illustrator, illustrationPrompt(slot.prompt, spec.palette)) }
-                }.awaitAll()
+                slots.map { slot -> async { illustrate(illustrator, illustrationPrompt(slot.prompt, spec.palette)) } }.awaitAll()
             }
         }
-        val png = composer.compose(rendered, rendered.slots.indices.map { painted.getOrNull(it) }) ?: return null
-        return png.takeIf { usable(it, minSide) }
+        val pictures = slots.map { it.prompt }.zip(painted).toMap()
+        return steps.mapNotNull { step ->
+            val rendered = if (step == spec) whole else renderer.render(step)
+            val png = composer.compose(rendered, rendered.slots.map { pictures[it.prompt] }) ?: return@mapNotNull null
+            png.takeIf { usable(it, minSide) }
+        }
     }
 
     /** One illustration, asked for once more when the first one comes back unusable. */

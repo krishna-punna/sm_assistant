@@ -10,6 +10,7 @@ import com.smassistant.app.chat.Outcome
 import com.smassistant.app.data.MediaPurpose
 import com.smassistant.app.infographic.InfographicPipeline
 import com.smassistant.app.infographic.InfographicRenderer
+import com.smassistant.app.infographic.revealSteps
 import com.smassistant.app.media.AndroidImageInspector
 import com.smassistant.app.media.AndroidInfographicComposer
 import com.smassistant.app.media.Media3SlideshowMaker
@@ -47,8 +48,19 @@ data class GeneratedVideo(
     val format: VideoFormat = DEFAULT_VIDEO_FORMAT,
 )
 
-/** A slide ready for the video, and the seconds its scene asked for (null: an equal share). */
-internal data class DrawnSlide(val file: File, val seconds: Int? = null)
+/**
+ * A slide ready for the video: its pictures in order ([frames], several for a step-by-step
+ * reveal, the last one the whole slide), and the seconds its scene asked for (null: an equal share).
+ */
+internal data class DrawnSlide(val frames: List<File>, val seconds: Int? = null) {
+    constructor(file: File, seconds: Int? = null) : this(listOf(file), seconds)
+
+    /** The whole slide. */
+    val file: File get() = frames.last()
+}
+
+/** [millis] split into [parts] equal shares, the remainder on the last. */
+private fun split(millis: Long, parts: Int): List<Long> = List(parts) { i -> millis / parts + if (i == parts - 1) millis % parts else 0 }
 
 /** The slides of a video and the size they were drawn for. */
 internal data class DrawnVideo(val slides: List<DrawnSlide>, val format: VideoFormat)
@@ -77,9 +89,10 @@ class SlideDecks(
  * The video is as long as the length picked on the screen ([seconds], read on each submit,
  * Requirement 9): that sets how many slides are planned ([slidesFor]), and the slides that
  * come back share the time by the seconds each scene asked for ([sceneMillis], at least
- * [MIN_SCENE_SECONDS] each), or equally when the storyboard gives none. With video templates the chooser picks one for the technical
- * content (the prompt when there is none), and the deck follows it; a failed choice gives the
- * Universal Master.
+ * [MIN_SCENE_SECONDS] each), or equally when the storyboard gives none. A `reveal` scene is shown
+ * in steps, one more section each ([revealSteps]), the steps sharing its time. With video
+ * templates the chooser picks one for the technical content (the prompt when there is none), and
+ * the deck follows it; a failed choice gives the Universal Master.
  */
 class GenerateVideoUseCase(
     private val slideTemplate: String,
@@ -102,8 +115,10 @@ class GenerateVideoUseCase(
             Outcome.NoAgent -> return Outcome.NoAgent
         }
         val images = video.slides.map { it.file }
-        val millis = sceneMillis(video.slides.map { it.seconds }, length)
-        return maker.make(images, newVideoFile(), millis, video.format.width, video.format.height).fold(
+        // A revealed scene's frames share its time equally.
+        val frames = video.slides.flatMap { it.frames }
+        val millis = sceneMillis(video.slides.map { it.seconds }, length).zip(video.slides).flatMap { (scene, slide) -> split(scene, slide.frames.size) }
+        return maker.make(frames, newVideoFile(), millis, video.format.width, video.format.height).fold(
             onSuccess = { Outcome.Ok(GeneratedVideo(it, images, length, video.format)) },
             onFailure = { Outcome.Failed(ApiError.BadResponse(it.message ?: "couldn't encode the video"), VIDEO_MAKER) },
         )
@@ -136,7 +151,12 @@ class GenerateVideoUseCase(
             deck.slides.zip(deck.scenes).map { (slide, scene) ->
                 // Every slide is drawn at the video's size, whatever the deck said.
                 val sized = slide.copy(format = format.infographic)
-                async { parts.pipeline.draw(sized, illustrator, ILLUSTRATIONS_PER_SLIDE)?.let { DrawnSlide(it, scene.seconds) } }
+                val steps = if (scene.reveal) sized.revealSteps() else listOf(sized)
+                async {
+                    parts.pipeline.drawSteps(sized, steps, illustrator, ILLUSTRATIONS_PER_SLIDE)
+                        .takeIf { it.isNotEmpty() }
+                        ?.let { DrawnSlide(it, scene.seconds) }
+                }
             }.awaitAll()
         }.filterNotNull()
         return if (images.size >= MIN_SLIDES) {
