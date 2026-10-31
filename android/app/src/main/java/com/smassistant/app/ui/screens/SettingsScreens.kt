@@ -34,8 +34,10 @@ import com.smassistant.app.agents.AgentPreferences
 import com.smassistant.app.agents.IMAGE_AGENTS
 import com.smassistant.app.agents.TEXT_AGENTS
 import com.smassistant.app.data.AiModel
+import com.smassistant.app.data.ApiConnectionCheck
 import com.smassistant.app.data.ApiService
 import com.smassistant.app.data.ApiSettingsStore
+import com.smassistant.app.data.ConnectionStatus
 import com.smassistant.app.data.MediaPurpose
 import com.smassistant.app.data.ModelCatalog
 import com.smassistant.app.linkedin.LinkedInAuthStore
@@ -256,7 +258,12 @@ fun AgentSettingsScreen(agent: AiAgent, onBackToHome: () -> Unit) {
 private fun apiSettingsViewModel(service: ApiService): ApiSettingsViewModel {
     val appContext = LocalContext.current.applicationContext
     return viewModel(key = service.name) {
-        ApiSettingsViewModel(service, ApiSettingsStore(appContext), catalog = if (service in TEXT_AGENTS) ModelCatalog() else null)
+        ApiSettingsViewModel(
+            service,
+            ApiSettingsStore(appContext),
+            catalog = if (service in TEXT_AGENTS) ModelCatalog() else null,
+            check = ApiConnectionCheck()::check,
+        )
     }
 }
 
@@ -279,7 +286,8 @@ private fun ColumnScope.ApiSettingsForm(service: ApiService, viewModel: ApiSetti
         onApiChange = viewModel::onApiChange,
         onKeyChange = viewModel::onKeyChange,
         onAccountIdChange = viewModel::onAccountIdChange,
-        onSave = viewModel::onSave,
+        onSave = { viewModel.onSave() },
+        onTest = viewModel::test,
         onModelChange = viewModel::onModelChange,
         onImageModelChange = viewModel::onImageModelChange,
         onVideoModelChange = viewModel::onVideoModelChange,
@@ -300,6 +308,7 @@ fun ColumnScope.ApiSettingsFields(
     onImageModelChange: (String) -> Unit = {},
     onVideoModelChange: (String) -> Unit = {},
     onRefreshModels: () -> Unit = {},
+    onTest: () -> Unit = {},
 ) {
     val apiError = state.apiError
     val keyError = state.keyError
@@ -349,6 +358,41 @@ fun ColumnScope.ApiSettingsFields(
         ModelPickers(state, onModelChange, onImageModelChange, onVideoModelChange, onRefreshModels)
     }
     PrimaryButton("SAVE", onClick = onSave)
+    if (state.canTest) TestRow(state.testStatus, onTest)
+}
+
+/** Test (AS-7): checks the key with the API Status request and says what it found, next to SAVE. */
+@Composable
+private fun TestRow(status: ConnectionStatus?, onTest: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        val (text, ok) = when (status) {
+            null -> "Check the key works with a quick read-only request." to null
+            ConnectionStatus.Checking -> "Testing…" to null
+            ConnectionStatus.Connected -> "✓ Connected: the key works" to true
+            ConnectionStatus.NotConfigured -> "Save the API and key first" to false
+            ConnectionStatus.InvalidKey -> "✗ Invalid key: the API rejected it" to false
+            ConnectionStatus.NoPermission -> "⚠ No access: the key works but lacks permission for this check" to false
+            is ConnectionStatus.Unreachable -> "✗ Unreachable: ${status.reason}" to false
+            is ConnectionStatus.Error -> "✗ Error: unexpected response (HTTP ${status.httpCode})" to false
+        }
+        Text(
+            text,
+            style = MaterialTheme.typography.bodySmall,
+            color = when (ok) {
+                true -> MaterialTheme.colorScheme.primary
+                false -> MaterialTheme.colorScheme.error
+                null -> MaterialTheme.colorScheme.onSurfaceVariant
+            },
+            modifier = Modifier
+                .weight(1f)
+                .testTag("testStatus"),
+        )
+        TextButton(
+            onClick = onTest,
+            enabled = status != ConnectionStatus.Checking,
+            modifier = Modifier.testTag("testButton"),
+        ) { Text("Test") }
+    }
 }
 
 /** Model dropdowns (Q-04) with the list's status and a Refresh that fetches it again. */

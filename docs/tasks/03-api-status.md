@@ -13,7 +13,7 @@ Current code: `ApiStatusScreen.kt`, `data/ApiConnectionCheck.kt` (PR #4).
 | AS-4 | Status mapping: Connected / Not set up / Invalid key / No access / Unreachable / Error(code) | done | |
 | AS-5 | Test again resets to Checking and re-runs | done | Previous round is cancelled |
 | AS-6 | Keys never shown | done | |
-| AS-7 *(new, Q-22)* | Test button on each settings screen | todo (optional) | Waiting on Q-22 |
+| AS-7 *(new, Q-22)* | Test button on each settings screen | done | Improvement #10 ([12-app-improvements.md](12-app-improvements.md)) |
 
 ## Implementation
 
@@ -22,7 +22,7 @@ Current code: `ApiStatusScreen.kt`, `data/ApiConnectionCheck.kt` (PR #4).
 | AS-5-I | Move checks into `ApiStatusViewModel`; cancel the previous round's jobs when Test again is tapped; disable the button while any card is Checking. | — | done — `ApiStatusViewModel` |
 | AS-I2 | Port `ApiConnectionCheck` to the shared HTTP layer and error model (FND-5/6) with injectable base URL. | FND-5, FND-6 | done |
 | AS-3-I | If Q-21/Q-03 changes the LinkedIn auth, switch the LinkedIn check endpoint (e.g. token introspection or `/rest/me`). | Q-21 | blocked |
-| AS-7-I | Reuse the check on settings screens: "Test" next to SAVE shows the status inline. | Q-22, LI-2-I | todo (optional) |
+| AS-7-I | Reuse the check on settings screens: "Test" next to SAVE shows the status inline. | Q-22, LI-2-I | done |
 
 ## Validation
 

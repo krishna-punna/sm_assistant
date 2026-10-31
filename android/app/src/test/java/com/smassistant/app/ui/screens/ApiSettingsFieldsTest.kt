@@ -2,12 +2,14 @@ package com.smassistant.app.ui.screens
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import com.smassistant.app.data.AiModel
+import com.smassistant.app.data.ConnectionStatus
 import com.smassistant.app.data.ModelLists
 import com.smassistant.app.settings.ApiSettingsUiState
 import org.junit.Assert.assertEquals
@@ -119,5 +121,31 @@ class ApiSettingsFieldsTest {
         compose.onNodeWithTag("accountIdField").performTextInput("abc")
         compose.onNodeWithText("Enter your Cloudflare account ID").assertExists()
         assertEquals("abc", typed)
+    }
+
+    @Test
+    fun testButtonShowsTheResult() {
+        var tests = 0
+        compose.setContent {
+            Column {
+                ApiSettingsFields(
+                    serviceName = "Groq",
+                    state = ApiSettingsUiState(key = "gsk", canTest = true, testStatus = ConnectionStatus.InvalidKey),
+                    onApiChange = {},
+                    onKeyChange = {},
+                    onSave = {},
+                    onTest = { tests++ },
+                )
+            }
+        }
+        compose.onNodeWithTag("testStatus").assertTextContains("Invalid key", substring = true)
+        compose.onNodeWithTag("testButton").performClick()
+        assertEquals(1, tests)
+    }
+
+    @Test
+    fun noTestButtonWithoutACheck() {
+        compose.setContent { Column { ApiSettingsFields("Groq", ApiSettingsUiState(), {}, {}, {}) } }
+        compose.onNodeWithTag("testButton").assertDoesNotExist()
     }
 }
