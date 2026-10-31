@@ -179,18 +179,22 @@ enum class ImageMode(val key: String) {
 }
 
 /**
- * Whether a request's content is made into one image or a carousel (docs/requirements/18, SV-5):
- * Auto makes one poster and has content that doesn't fit written shorter, Single always makes one
- * image (smaller text when it is long), Carousel always makes a carousel.
+ * How a request's content is fitted to images (docs/requirements/18, SV-5; AC-5): Auto makes one
+ * poster and has content that doesn't fit written denser, Single always makes one image (smaller
+ * text when it is long). Images are never a carousel: a saved or configured "carousel" reads as Auto.
  */
 enum class ImageLayout(val key: String) {
     AUTO("auto"),
     SINGLE("single"),
-    CAROUSEL("carousel"),
     ;
 
     companion object {
-        fun of(key: String?): ImageLayout? = entries.firstOrNull { it.key.equals(key?.trim(), ignoreCase = true) }
+        fun of(key: String?): ImageLayout? = key?.trim()?.let { k ->
+            if (k.equals(REMOVED_CAROUSEL, ignoreCase = true)) AUTO else entries.firstOrNull { it.key.equals(k, ignoreCase = true) }
+        }
+
+        /** The removed carousel layout's key (AC-5). */
+        private const val REMOVED_CAROUSEL = "carousel"
     }
 }
 

@@ -1,6 +1,5 @@
 package com.smassistant.app.image
 
-import com.smassistant.app.image.render.numbered
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

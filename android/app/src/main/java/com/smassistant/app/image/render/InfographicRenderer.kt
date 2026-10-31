@@ -111,16 +111,13 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
 
         val svg = Svg()
         svg.rect(0f, 0f, pageWidth, height, fill = palette.background)
-        // A carousel's cover has no cards: its header fills the page above the footer, the title centred in it.
-        val band = if (spec.page != null && spec.sections.isEmpty()) height - (footer?.height ?: 0f) else header.height
+        val band = header.height
         svg.rect(0f, 0f, pageWidth, band, fill = palette.header)
         svg.rect(0f, band - 6, pageWidth, 6f, fill = palette.highlight)
         header.draw(svg, dx, (band - header.height) / 2)
-        // A carousel page's label sits in the top padding, above the title and the art.
+        // A series poster's label ("2 / 3", AC-7) sits in the top padding, above the title and the art.
         spec.page?.let { svg.text(it, dx + width - MARGIN, HEADER_PAD - 12, 20f, palette.headerText, bold = true, anchor = "end", opacity = 0.75f) }
-        // A carousel page's few cards sit in the middle of the space below the header, not at its top.
-        val spare = height - header.height - 2 * GAP - (footer?.height ?: 0f) - bodyHeight
-        val bodyTop = header.height + GAP + if (spec.page != null && fits) max(0f, spare / 2) else 0f
+        val bodyTop = header.height + GAP
         // A reveal step draws only its first sections, where the whole layout puts them, and the footer once all are shown.
         val shown = spec.revealed ?: spec.sections.size
         placements.filter { it.index < shown }.forEach { it.block.draw(svg, dx + it.x, bodyTop + it.top) }

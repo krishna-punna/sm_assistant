@@ -48,14 +48,6 @@ class InfographicPipeline(
         drawSteps(spec, listOf(spec), illustrator, maxIllustrations).singleOrNull()
 
     /**
-     * Draws a carousel's pages in parallel, each with at most one illustration (two on the cover),
-     * keeping their order. Pages that can't be drawn are left out.
-     */
-    suspend fun drawPages(carousel: Carousel, illustrator: ImageAgent?): List<File> = coroutineScope {
-        carousel.pages.mapIndexed { i, page -> async { draw(page, illustrator, if (i == 0) maxIllustrations else 1) } }.awaitAll().filterNotNull()
-    }
-
-    /**
      * Draws each of [steps], versions of [spec] that show less of it (a video's step-by-step reveal,
      * [revealSteps]), with the illustrations of [spec] painted once and reused in every step, so a
      * picture doesn't change as the slide fills in. Steps that can't be drawn are left out.

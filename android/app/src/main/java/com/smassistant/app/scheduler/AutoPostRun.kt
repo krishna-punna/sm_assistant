@@ -13,7 +13,7 @@ import com.smassistant.app.history.PostSource
 import com.smassistant.app.image.ImageRequest
 import com.smassistant.app.image.appGenerateImages
 import com.smassistant.app.image.imageLabel
-import com.smassistant.app.image.isCarousel
+import com.smassistant.app.image.isSeries
 import com.smassistant.app.linkedin.PostToLinkedInUseCase
 import com.smassistant.app.linkedin.SignInExpiry
 import com.smassistant.app.linkedin.appPostToLinkedIn
@@ -144,7 +144,7 @@ class AutoPostRun(
         }
 
         val template = files.firstNotNullOfOrNull { imageLabel(it)?.templateId ?: videoLabel(it)?.templateId }
-        val pages = files.size.takeIf { isCarousel(files) }
+        val parts = files.size.takeIf { isSeries(files) }
         reportStage(StageId.CHECK_LENGTH, StageStatus.RUNNING)
         val post = linkedIn.prepare(markdown)
         if (post.text.isBlank()) return failed("The agent wrote an empty post, so nothing was posted.", title)
@@ -157,7 +157,7 @@ class AutoPostRun(
         if (scheduler.reviewFirst) {
             reportStage(StageId.HOLD, StageStatus.RUNNING)
             return RunOutcome(
-                RunRecord(now(), ok = true, message = "Ready for your review: “$title”", awaitingReview = true, template = template, carouselPages = pages),
+                RunRecord(now(), ok = true, message = "Ready for your review: “$title”", awaitingReview = true, template = template, seriesParts = parts),
                 title,
                 held = PendingPost(title, post.text, files.map { it.path }, now(), template),
             )
@@ -167,10 +167,10 @@ class AutoPostRun(
         return when (val result = linkedIn.post(post.text, files, PostSource.SCHEDULED, title)) {
             is ApiResult.Ok -> {
                 reportStage(StageId.POST, StageStatus.DONE)
-                RunOutcome(RunRecord(now(), ok = true, message = "Posted “$title”", postUrl = result.value.url, template = template, carouselPages = pages), title)
+                RunOutcome(RunRecord(now(), ok = true, message = "Posted “$title”", postUrl = result.value.url, template = template, seriesParts = parts), title)
             }
             is ApiResult.Failed -> RunOutcome(
-                RunRecord(now(), ok = false, message = linkedInErrorMessage(result.error), template = template, carouselPages = pages),
+                RunRecord(now(), ok = false, message = linkedInErrorMessage(result.error), template = template, seriesParts = parts),
                 title,
                 retry = isTransient(result.error),
             )

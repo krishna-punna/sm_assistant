@@ -161,11 +161,11 @@ class AutoPostRunTest {
     }
 
     @Test
-    fun `a carousel run records its page count`() = runTest {
-        images = Outcome.Ok((1..5).map { File("carousel-3-p0$it-page.png") })
-        assertEquals(5, run(scheduler(PostType.IMAGE)).record.carouselPages)
+    fun `a poster series run records its poster count`() = runTest {
+        images = Outcome.Ok((1..3).map { File("series-3-p0$it-poster.png") })
+        assertEquals(3, run(scheduler(PostType.IMAGE)).record.seriesParts)
         images = Outcome.Ok(listOf(File("a.png"), File("b.png")))
-        assertNull(run(scheduler(PostType.IMAGE)).record.carouselPages)
+        assertNull(run(scheduler(PostType.IMAGE)).record.seriesParts)
     }
 
     @Test
