@@ -22,13 +22,16 @@ import com.smassistant.app.linkedin.PostViewModel
 import com.smassistant.app.linkedin.appPostToLinkedIn
 import com.smassistant.app.media.sizeText
 import com.smassistant.app.navigation.Feature
+import com.smassistant.app.pipeline.Pipelines
 import com.smassistant.app.prompt.loadPromptAsset
+import com.smassistant.app.ui.components.LocalChatInputId
 import com.smassistant.app.ui.components.MediaActions
 import com.smassistant.app.ui.components.MediaAgentDropdown
 import com.smassistant.app.ui.components.PostDialogs
 import com.smassistant.app.ui.components.PostInLinkedInButton
 import com.smassistant.app.ui.components.PromptCard
 import com.smassistant.app.ui.components.TextAgentDropdown
+import com.smassistant.app.ui.components.TrackPostStage
 import com.smassistant.app.ui.components.VideoLengthDropdown
 import com.smassistant.app.ui.components.VideoPlayer
 import com.smassistant.app.video.GeneratedVideo
@@ -44,7 +47,7 @@ fun VideoScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToH
     val appContext = LocalContext.current.applicationContext
     val viewModel = viewModel {
         val useCase = appGenerateVideo(appContext)
-        sessionChatViewModel(appContext, Feature.VIDEO.name, createSavedStateHandle(), VideoSaver) { prompt -> useCase(prompt) }
+        sessionChatViewModel(appContext, Feature.VIDEO.name, createSavedStateHandle(), VideoSaver, pipeline = Pipelines.video) { prompt -> useCase(prompt) }
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val postViewModel = viewModel { PostViewModel(appPostToLinkedIn(appContext), appSmartTrim(appContext)) }
@@ -67,10 +70,12 @@ fun VideoScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToH
         },
         inputContent = { PromptCard("Your prompt", it, collapsedLines = 4) },
         resultContent = { video ->
-            VideoResult(video, posting = postState == PostState.Posting, onPost = { postViewModel.start("", listOf(video.file)) })
+            val inputId = LocalChatInputId.current
+            VideoResult(video, posting = postState == PostState.Posting, onPost = { postViewModel.start("", listOf(video.file), inputId) })
         },
         noAgentMessage = GenerateContentAndMediaUseCase.VIDEO_NOT_SET_UP,
     )
+    TrackPostStage(postState, postViewModel.key, viewModel::markStage)
     PostDialogs(
         state = postState,
         onTextChange = postViewModel::onTextChange,
