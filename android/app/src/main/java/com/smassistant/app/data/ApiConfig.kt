@@ -227,6 +227,7 @@ enum class ImageLayout(val key: String) {
  * image_style:
  *   audience: "developers, senior engineers and architects"
  *   brand_name: ""
+ *   handle: ""
  *   style_guide: ""
  *   series: false
  *   format: auto
@@ -244,6 +245,8 @@ data class ImageStyle(
     val format: ImageSize? = null,
     val mode: ImageMode = ImageMode.AUTO,
     val layout: ImageLayout = ImageLayout.AUTO,
+    /** The user's social handle, e.g. "@krishna", drawn beside the brand in the footer (AC-9). */
+    val handle: String = "",
 )
 
 /**
@@ -281,6 +284,7 @@ fun parseImageStyle(input: InputStream): ImageStyle {
     return ImageStyle(
         audience = entry["audience"]?.toString()?.trim() ?: defaults.audience,
         brandName = entry["brand_name"]?.toString()?.trim() ?: defaults.brandName,
+        handle = entry["handle"]?.toString()?.trim() ?: defaults.handle,
         styleGuide = entry["style_guide"]?.toString()?.trim() ?: defaults.styleGuide,
         series = entry["series"]?.toString()?.toBooleanStrictOrNull() ?: defaults.series,
         format = ImageSize.of(entry["format"]?.toString()),

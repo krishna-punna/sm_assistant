@@ -91,8 +91,7 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
         val contentWidth = width - 2 * MARGIN
 
         val header = header(spec, width)
-        val brand = spec.brand?.trim()?.takeIf { it.isNotEmpty() }
-        val footer = if (spec.takeaway != null || brand != null) footer(spec.takeaway, brand, width, palette) else null
+        val footer = footer(spec, width)
         // The format's ratio: the sample images' sizes (2:3, 1:1, 3:2).
         val ratioHeight = when (spec.format) {
             InfographicFormat.PORTRAIT -> width * 1.5f
@@ -113,19 +112,15 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
 
         val svg = Svg()
         svg.rect(0f, 0f, pageWidth, height, fill = palette.background)
-        val band = header.height
-        svg.rect(0f, 0f, pageWidth, band, fill = palette.header)
-        svg.rect(0f, band - 6, pageWidth, 6f, fill = palette.highlight)
-        header.draw(svg, dx, (band - header.height) / 2)
-        // A series poster's label ("2 / 3", AC-7) sits in the top padding, above the title and the art.
-        spec.page?.let { svg.text(it, dx + width - MARGIN, HEADER_PAD - 12, 20f, palette.headerText, bold = true, anchor = "end", opacity = 0.75f) }
+        headerBand(svg, pageWidth, header.height - header.overhang, palette)
+        header.draw(svg, dx, 0f)
         val bodyTop = header.height + GAP
         // A reveal step draws only its first sections, where the whole layout puts them, and the footer once all are shown.
         val shown = spec.revealed ?: spec.sections.size
         placements.filter { it.index < shown }.forEach { it.block.draw(svg, dx + it.x, bodyTop + it.top) }
         if (footer != null && shown >= spec.sections.size) {
             val top = height - footer.height
-            svg.rect(0f, top, pageWidth, footer.height, fill = palette.header)
+            footerBand(svg, pageWidth, top, footer.height, palette)
             footer.draw(svg, dx, top)
         }
         val rendered = RenderedInfographic(
@@ -212,63 +207,212 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
 
     // ---- Header and footer ----
 
-    private fun header(spec: InfographicSpec, width: Float): Block {
+    /** The header (AC-9): its height, how far its art breaks out below the band, and how it is drawn. */
+    private class Header(val height: Float, val overhang: Float, val draw: (Svg, Float, Float) -> Unit)
+
+    /** The header band (AC-9): a diagonal gradient with soft circles and a dot grid, and a highlight rule at its foot. */
+    private fun headerBand(svg: Svg, width: Float, band: Float, palette: Palette) {
+        svg.linearGradient("band", palette.header, mix(palette.header, palette.accent(0), 0.4f))
+        svg.rect(0f, 0f, width, band, fill = "url(#band)")
+        svg.circle(width - 70, 60f, 170f, fill = palette.headerText, opacity = 0.06f)
+        svg.circle(width * 0.58f, band - 70, 64f, fill = palette.headerText, opacity = 0.05f)
+        svg.dots(width * 0.42f, 16f, columns = 8, rows = 2, step = 16f, color = palette.headerText, opacity = 0.18f)
+        svg.rect(0f, band - 6, width, 6f, fill = palette.highlight)
+    }
+
+    /** The footer band (AC-9): a gradient that rises from the page in a wave. */
+    private fun footerBand(svg: Svg, width: Float, top: Float, height: Float, palette: Palette) {
+        svg.linearGradient("foot", mix(palette.header, palette.accent(0), 0.35f), palette.header, vertical = true)
+        svg.wave(width, top, height, WAVE, "url(#foot)")
+    }
+
+    /**
+     * The header (AC-9) in one of three layouts ([HeaderStyle]): a category ribbon, the title with
+     * its key words on a highlight pill, the subtitle, technology badges, and the hero picture or
+     * icon. Every word goes through the shared word writer and the text standard (AC-10).
+     */
+    private fun header(spec: InfographicSpec, width: Float): Header {
         val palette = spec.palette
+        val centered = spec.headerStyle == HeaderStyle.CENTERED
+        val breakout = spec.headerStyle == HeaderStyle.BREAKOUT && spec.hero != null
         val art = when {
-            spec.hero != null -> if (spec.format.isWide) 260f else 230f
+            centered -> if (spec.hero != null || spec.icon != null) CENTERED_ART else 0f
+            spec.hero != null -> if (breakout) BREAKOUT_ART else if (spec.format.isWide) 260f else 230f
             spec.icon != null -> 132f
             else -> 0f
         }
-        val textWidth = width - 2 * MARGIN - if (art > 0) art + GAP else 0f
+        val overhang = if (breakout) BREAKOUT_OVERHANG else 0f
+        val textWidth = width - 2 * MARGIN - if (!centered && art > 0) art + GAP else 0f
+        val ribbon = spec.category?.let { wrapText(it, textWidth - 2 * RIBBON_PAD, RIBBON_SIZE, measurer, bold = true, maxLines = 1).first() }
+        val ribbonHeight = if (ribbon != null) RIBBON + 18 else 0f
         var titleSize = 64f
         var title = wrapText(spec.title, textWidth, titleSize, measurer, bold = true)
         if (title.size > 2) {
             titleSize = 52f
             title = wrapText(spec.title, textWidth, titleSize, measurer, bold = true, maxLines = 3)
         }
-        val titleLine = titleSize * 1.16f
+        val titleLine = titleSize * 1.2f
         val subtitle = spec.subtitle?.let { wrapText(it, textWidth, 28f, measurer, maxLines = 3) }.orEmpty()
-        val textHeight = title.size * titleLine + if (subtitle.isEmpty()) 0f else 14 + subtitle.size * 38f
-        val height = HEADER_PAD * 2 + max(textHeight, art)
-        return Block(height) { svg, x, y ->
-            val textTop = y + HEADER_PAD + max(0f, (art - textHeight) / 2)
-            val highlight = spec.highlight?.lowercase()?.split(' ')?.filter { it.isNotBlank() }?.toSet().orEmpty()
-            title.forEachIndexed { i, line ->
-                svg.highlightedLine(line, highlight, x + MARGIN, baseline(textTop + i * titleLine, titleLine, titleSize),
-                    titleSize, palette.headerText, palette.highlight)
-            }
-            svg.lines(subtitle, x + MARGIN, textTop + title.size * titleLine + 14, 28f, 38f, palette.headerText, opacity = 0.82f)
-            if (art > 0) {
-                val artX = x + width - MARGIN - art
-                val artY = y + (height - art) / 2
+        val badgeRows = pillRows(spec.badges, textWidth, BADGE_SIZE)
+        val badgesHeight = if (badgeRows.isEmpty()) 0f else 20 + badgeRows.size * PILL + (badgeRows.size - 1) * 10
+        val textHeight = ribbonHeight + title.size * titleLine + (if (subtitle.isEmpty()) 0f else 14 + subtitle.size * 38f) + badgesHeight
+        val content = if (centered) art + (if (art > 0) 24f else 0f) + textHeight else max(textHeight, art - overhang)
+        val band = HEADER_PAD * 2 + content
+        val highlight = spec.highlight?.lowercase()?.split(' ')?.map { word -> word.trim { !it.isLetterOrDigit() } }?.filter { it.isNotBlank() }?.toSet().orEmpty()
+        return Header(band + overhang, overhang) { svg, x, y ->
+            val left = if (centered) x + width / 2 else x + MARGIN
+            var top = y + HEADER_PAD + if (centered) 0f else max(0f, (art - overhang - textHeight) / 2)
+            if (centered && art > 0) {
+                val cx = x + width / 2
+                svg.circle(cx, top + art / 2, art / 2 + 8, fill = palette.highlight, opacity = 0.25f)
                 if (spec.hero != null) {
+                    svg.illustration(spec.hero, cx - art / 2, top, art, art, art / 2, spec.icon ?: "idea",
+                        tint = mix(palette.highlight, palette.header, 0.75f), iconColor = palette.highlight)
+                } else {
+                    svg.circle(cx, top + art / 2, art / 2, fill = mix(palette.highlight, palette.header, 0.8f))
+                    svg.icon(spec.icon!!, cx - art * 0.28f, top + art * 0.22f, art * 0.56f, palette.highlight)
+                }
+                top += art + 24
+            }
+            if (ribbon != null) {
+                pill(svg, ribbon, left, top, RIBBON, RIBBON_SIZE, RIBBON_PAD, fill = palette.highlight, text = palette.header, centered = centered)
+                top += ribbonHeight
+            }
+            title.forEachIndexed { i, line ->
+                titleLine(svg, line, highlight, left, baseline(top + i * titleLine, titleLine, titleSize), titleSize, palette, centered)
+            }
+            top += title.size * titleLine
+            if (subtitle.isNotEmpty()) {
+                svg.lines(subtitle, left, top + 14, 28f, 38f, palette.headerText, anchor = if (centered) "middle" else "start", opacity = 0.85f)
+                top += 14 + subtitle.size * 38f
+            }
+            if (badgeRows.isNotEmpty()) top += 20
+            badgeRows.forEach { row ->
+                val widths = row.map { pillWidth(it, BADGE_SIZE, BADGE_PAD) }
+                var px = if (centered) left - (widths.sum() + (row.size - 1) * 10) / 2 else left
+                row.forEachIndexed { i, badge ->
+                    svg.rect(px, top, widths[i], PILL, fill = palette.headerText, rx = PILL / 2, opacity = 0.12f)
+                    svg.rect(px, top, widths[i], PILL, fill = "none", stroke = palette.highlight, strokeWidth = 2f, rx = PILL / 2)
+                    svg.text(badge, px + widths[i] / 2, baseline(top, PILL, BADGE_SIZE), BADGE_SIZE, palette.headerText, bold = true, anchor = "middle")
+                    px += widths[i] + 10
+                }
+                top += PILL + 10
+            }
+            if (!centered && art > 0) {
+                val artX = x + width - MARGIN - art
+                val artY = if (breakout) y + band + overhang - art else y + (band - art) / 2
+                if (spec.hero != null) {
+                    // A breakout picture sits on a page-coloured frame, so it reads as stepping out of the band.
+                    if (breakout) svg.rect(artX - 10, artY - 10, art + 20, art + 20, fill = palette.background, rx = 38f)
                     svg.illustration(spec.hero, artX, artY, art, art, 28f, spec.icon ?: "idea",
                         tint = mix(palette.highlight, palette.header, 0.75f), iconColor = palette.highlight)
                 } else {
                     svg.circle(artX + art / 2, artY + art / 2, art / 2, fill = mix(palette.highlight, palette.header, 0.8f))
                     svg.icon(spec.icon!!, artX + art * 0.22f, artY + art * 0.22f, art * 0.56f, palette.highlight)
                 }
+                // Sparkles beside the art, like the trending infographic headers.
+                svg.icon("star", artX - 34, artY + 6, 26f, palette.highlight, 2.4f)
+                svg.icon("star", artX + art - 6, max(y + 8, artY - 22), 20f, palette.headerText, 2f)
             }
         }
     }
 
-    /** The takeaway with its light bulb, and the [brand] name small on the right; either may be missing. */
-    private fun footer(takeaway: String?, brand: String?, width: Float, palette: Palette): Block {
-        val iconSize = 44f
-        val brandLines = brand?.let { wrapText(it, width / 4, 22f, measurer, bold = true, maxLines = 2) }.orEmpty()
-        val brandWidth = if (brandLines.isEmpty()) 0f else brandLines.maxOf { measurer.width(it, 22f, true, FontFamily.SANS) } + GAP
-        val lines = takeaway?.let {
-            wrapText(it, width - 2 * MARGIN - iconSize - 20 - brandWidth, 26f, measurer, bold = true, maxLines = 4)
-        }.orEmpty()
-        val height = 2 * 30f + maxOf(if (lines.isEmpty()) 0f else iconSize, lines.size * 36f, brandLines.size * 30f)
-        return Block(height) { svg, x, y ->
-            if (lines.isNotEmpty()) {
-                svg.icon("idea", x + MARGIN, y + (height - iconSize) / 2, iconSize, palette.highlight)
-                svg.lines(lines, x + MARGIN + iconSize + 20, y + (height - lines.size * 36f) / 2, 26f, 36f, palette.headerText, bold = true)
+    /** A title line with its [highlight] words on a pill in the highlight colour (AC-9), written by the shared word writer (AC-10). */
+    private fun titleLine(svg: Svg, line: String, highlight: Set<String>, x: Float, baseline: Float, size: Float, palette: Palette, centered: Boolean) {
+        val words = line.split(' ').filter { it.isNotEmpty() }
+        val gap = measurer.width(" ", size, true, FontFamily.SANS)
+        val widths = words.map { measurer.width(it, size, true, FontFamily.SANS) }
+        val start = if (centered) x - (widths.sum() + gap * (words.size - 1)) / 2 else x
+        var cursor = start
+        words.forEachIndexed { i, word ->
+            if (word.lowercase().trim { !it.isLetterOrDigit() } in highlight) {
+                svg.rect(cursor - 10, baseline - size * 0.84f, widths[i] + 20, size * 1.08f, fill = palette.highlight, rx = size * 0.2f)
             }
-            brandLines.forEachIndexed { i, line ->
-                val top = y + (height - brandLines.size * 30f) / 2 + i * 30f
-                svg.text(line, x + width - MARGIN, baseline(top, 30f, 22f), 22f, palette.headerText, bold = true, anchor = "end", opacity = 0.8f)
+            cursor += widths[i] + gap
+        }
+        svg.highlightedLine(line, highlight, start, baseline, size, palette.headerText, palette.header)
+    }
+
+    /** A rounded label (a ribbon or badge) [height] tall, its left edge at [x] or centred on it. */
+    private fun pill(svg: Svg, label: String, x: Float, y: Float, height: Float, size: Float, pad: Float, fill: String, text: String, centered: Boolean = false) {
+        val w = pillWidth(label, size, pad)
+        val left = if (centered) x - w / 2 else x
+        svg.rect(left, y, w, height, fill = fill, rx = height / 2)
+        svg.text(label, left + w / 2, baseline(y, height, size), size, text, bold = true, anchor = "middle")
+    }
+
+    private fun pillWidth(label: String, size: Float, pad: Float) = measurer.width(label, size, true, FontFamily.SANS) + 2 * pad
+
+    /** [labels] as pills broken into rows no wider than [width]. */
+    private fun pillRows(labels: List<String>, width: Float, size: Float): List<List<String>> {
+        val rows = mutableListOf<MutableList<String>>()
+        var used = 0f
+        labels.forEach { label ->
+            val w = min(pillWidth(label, size, BADGE_PAD), width)
+            if (rows.isEmpty() || used + 10 + w > width) {
+                rows += mutableListOf(label)
+                used = w
+            } else {
+                rows.last() += label
+                used += 10 + w
+            }
+        }
+        return rows
+    }
+
+    /**
+     * The footer (AC-9): a recap strip of icon chips, the takeaway on a card with a label ribbon and
+     * clip art, and a bottom line with the brand, the handle and a series poster's "2 / 3". Null when
+     * there is nothing to show.
+     */
+    private fun footer(spec: InfographicSpec, width: Float): Block? {
+        val palette = spec.palette
+        val signature = listOfNotNull(spec.brand?.trim()?.takeIf { it.isNotEmpty() }, spec.handle?.trim()?.takeIf { it.isNotEmpty() })
+            .joinToString(" · ").takeIf { it.isNotEmpty() }
+        val takeaway = spec.takeaway
+        if (takeaway == null && signature == null && spec.recap.isEmpty() && spec.page == null) return null
+        val inner = width - 2 * MARGIN
+        val chipWidth = if (spec.recap.isEmpty()) 0f else (inner - (spec.recap.size - 1) * 12) / spec.recap.size
+        val chips = spec.recap.map { wrapText(it.label, chipWidth - CHIP_ICON - 30, 20f, measurer, bold = true, maxLines = 2) }
+        val recapHeight = if (chips.isEmpty()) 0f else CHIP + 14
+        val art = if (takeaway != null) TAKEAWAY_ART else 0f
+        val lines = takeaway?.let { wrapText(it, inner - 2 * CARD_PAD - art - 20, 26f, measurer, bold = true, maxLines = 4) }.orEmpty()
+        val cardHeight = if (takeaway == null) 0f else max(art, lines.size * 36f) + 2 * 16f + RIBBON / 2 + 4
+        val label = (spec.takeawayLabel ?: "Key takeaway").uppercase()
+        val bottomHeight = if (signature != null || spec.page != null) PILL else 0f
+        val height = WAVE + 14 + recapHeight + (if (cardHeight > 0) RIBBON / 2 + cardHeight else 0f) +
+            (if (bottomHeight > 0) 10 + bottomHeight else 0f) + 18
+        return Block(height) { svg, x, y ->
+            var top = y + WAVE + 14
+            chips.forEachIndexed { i, chip ->
+                val cx = x + MARGIN + i * (chipWidth + 12)
+                svg.rect(cx, top, chipWidth, CHIP, fill = palette.headerText, rx = 18f, opacity = 0.1f)
+                svg.circle(cx + 12 + CHIP_ICON / 2, top + CHIP / 2, CHIP_ICON / 2, fill = palette.highlight)
+                svg.icon(spec.recap[i].icon, cx + 12 + CHIP_ICON * 0.2f, top + CHIP / 2 - CHIP_ICON * 0.3f, CHIP_ICON * 0.6f, palette.header, 2.4f)
+                svg.lines(chip, cx + 24 + CHIP_ICON, top + (CHIP - chip.size * 24f) / 2, 20f, 24f, palette.headerText, bold = true)
+            }
+            top += recapHeight
+            if (takeaway != null) {
+                top += RIBBON / 2
+                val card = cardHeight - RIBBON / 2
+                svg.rect(x + MARGIN, top, inner, card, fill = palette.card, rx = 22f)
+                svg.rect(x + MARGIN, top, 10f, card, fill = palette.highlight, rx = 5f)
+                pill(svg, label, x + MARGIN + CARD_PAD, top - RIBBON / 2, RIBBON, RIBBON_SIZE, RIBBON_PAD, fill = palette.highlight, text = palette.header)
+                val artX = x + MARGIN + CARD_PAD
+                val artY = top + RIBBON / 2 + (card - RIBBON / 2 - art) / 2
+                if (spec.footerArt != null) {
+                    svg.illustration(spec.footerArt, artX, artY, art, art, 18f, "idea", tint = mix(palette.highlight, palette.card, 0.75f), iconColor = palette.accent(0))
+                } else {
+                    svg.circle(artX + art / 2, artY + art / 2, art / 2, fill = mix(palette.highlight, palette.card, 0.7f))
+                    svg.icon("idea", artX + art * 0.22f, artY + art * 0.22f, art * 0.56f, palette.accent(0), 2.4f)
+                }
+                svg.lines(lines, artX + art + 20, top + RIBBON / 2 + (card - RIBBON / 2 - lines.size * 36f) / 2, 26f, 36f, palette.text, bold = true)
+                top += card
+            }
+            if (bottomHeight > 0) {
+                top += 10
+                signature?.let { svg.text(it, x + MARGIN, baseline(top, PILL, 22f), 22f, palette.headerText, bold = true, opacity = 0.85f) }
+                spec.page?.let { pill(svg, it, x + width - MARGIN - pillWidth(it, BADGE_SIZE, BADGE_PAD), top, PILL, BADGE_SIZE, BADGE_PAD, fill = palette.highlight, text = palette.header) }
             }
         }
     }
@@ -626,6 +770,21 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
         const val CARD_ART_GAP = 16f
         const val MIN_SIDE_ART_CARD = 420f
 
+        /** Header and footer parts (AC-9): ribbon and pill heights, label sizes, art sizes, the breakout and the wave. */
+        const val RIBBON = 40f
+        const val RIBBON_SIZE = 18f
+        const val RIBBON_PAD = 18f
+        const val PILL = 40f
+        const val BADGE_SIZE = 20f
+        const val BADGE_PAD = 18f
+        const val CENTERED_ART = 132f
+        const val BREAKOUT_ART = 300f
+        const val BREAKOUT_OVERHANG = 56f
+        const val TAKEAWAY_ART = 72f
+        const val CHIP = 56f
+        const val CHIP_ICON = 36f
+        const val WAVE = 26f
+
         /** Narrowest diagram box when the layers are laid out side by side. */
         const val MIN_DIAGRAM_NODE = 150f
 
@@ -698,16 +857,18 @@ private class Svg {
         """<svg xmlns="http://www.w3.org/2000/svg" width="$width" height="$height" viewBox="0 0 $width $height">""" +
             out + "</svg>"
 
-    fun rect(x: Float, y: Float, w: Float, h: Float, fill: String, stroke: String? = null, strokeWidth: Float = 0f, rx: Float = 0f) {
+    fun rect(x: Float, y: Float, w: Float, h: Float, fill: String, stroke: String? = null, strokeWidth: Float = 0f, rx: Float = 0f, opacity: Float = 1f) {
         out.append("""<rect x="${n(x)}" y="${n(y)}" width="${n(w)}" height="${n(h)}"""")
         if (rx > 0) out.append(""" rx="${n(rx)}"""")
         out.append(""" fill="$fill"""")
+        if (opacity < 1f) out.append(""" fill-opacity="${n3(opacity)}"""")
         if (stroke != null) out.append(""" stroke="$stroke" stroke-width="${n(max(strokeWidth, 1f))}"""")
         out.append("/>")
     }
 
-    fun circle(cx: Float, cy: Float, r: Float, fill: String, stroke: String? = null) {
+    fun circle(cx: Float, cy: Float, r: Float, fill: String, stroke: String? = null, opacity: Float = 1f) {
         out.append("""<circle cx="${n(cx)}" cy="${n(cy)}" r="${n(r)}" fill="$fill"""")
+        if (opacity < 1f) out.append(""" fill-opacity="${n3(opacity)}"""")
         if (stroke != null) out.append(""" stroke="$stroke" stroke-width="2"""")
         out.append("/>")
     }
@@ -730,6 +891,31 @@ private class Svg {
         if (opacity < 1f) out.append(""" opacity="${n(opacity)}"""")
         // Code keeps its own spacing; every other line goes through the text standard's spacing (AC-10).
         out.append(">").append(textContent(if (family == FontFamily.MONO) content else Typography.clean(content))).append("</text>")
+    }
+
+    /** A linear gradient [id] from [from] to [to], left to right (or top to bottom), filled with `url(#id)`. */
+    fun linearGradient(id: String, from: String, to: String, vertical: Boolean = false) {
+        val end = if (vertical) """x2="0" y2="1"""" else """x2="1" y2="1""""
+        out.append("""<defs><linearGradient id="$id" x1="0" y1="0" $end><stop offset="0" stop-color="$from"/><stop offset="1" stop-color="$to"/></linearGradient></defs>""")
+    }
+
+    /** A grid of small dots, a decoration for the header band (AC-9). */
+    fun dots(x: Float, y: Float, columns: Int, rows: Int, step: Float, color: String, opacity: Float) {
+        for (row in 0 until rows) for (column in 0 until columns) circle(x + column * step, y + row * step, 2.5f, fill = color, opacity = opacity)
+    }
+
+    /** A band from [top] to [top] + [height] across [width] whose top edge is a gentle wave [amplitude] high (AC-9). */
+    fun wave(width: Float, top: Float, height: Float, amplitude: Float, fill: String) {
+        val waves = max(2, (width / 270f).roundToInt())
+        val step = width / waves
+        val d = StringBuilder("M0 ${n(top + amplitude)}")
+        for (i in 0 until waves) {
+            val x0 = i * step
+            d.append(" Q${n(x0 + step / 4)} ${n(top)} ${n(x0 + step / 2)} ${n(top + amplitude / 2)}")
+            d.append(" T${n(x0 + step)} ${n(top + amplitude)}")
+        }
+        d.append(" L${n(width)} ${n(top + height)} L0 ${n(top + height)} Z")
+        out.append("""<path d="$d" fill="$fill"/>""")
     }
 
     /** One line per entry, the first line box starting at [top]. */

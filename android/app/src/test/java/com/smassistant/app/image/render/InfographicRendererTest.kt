@@ -36,7 +36,9 @@ class InfographicRendererTest {
         assertTrue(rendered.svg.endsWith("</svg>"))
         assertTrue(rendered.width >= 1080)
         assertEquals(rendered.width * 3 / 2f, rendered.height.toFloat(), 1f)
-        assertTrue(rendered.svg.contains("<tspan fill=\"#FACC15\">\u00A0Internals</tspan>"))
+        // The highlighted word sits on a pill in the highlight colour, drawn in the header colour (AC-9).
+        assertTrue(rendered.svg.contains("<tspan fill=\"#0F1E3D\">\u00A0Internals</tspan>"))
+        assertTrue(Regex("""<rect [^>]*fill="#FACC15"/>""").containsMatchIn(rendered.svg))
         assertTrue(rendered.svg.contains("<![CDATA[List<String>"))
         assertTrue(rendered.svg.contains("Pre-size the list"))
         assertEquals(listOf("a coffee cup on a stack of boxes", "boxes in a row growing"), rendered.slots.map { it.prompt })
