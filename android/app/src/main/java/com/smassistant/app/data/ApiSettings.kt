@@ -107,13 +107,26 @@ class ApiSettingsStore(context: Context, private val cipher: SecretCipher = Keys
         AiModel(pair[0].jsonPrimitive.content, pair[1].jsonPrimitive.content)
     }
 
-    /** Saves both values, trimmed. A blank [api] removes the override so the app.yml default applies again. */
+    /**
+     * Saves both values, trimmed. A blank [api] removes the override so the app.yml default applies again.
+     * The last connection check no longer applies to the new values, so it's forgotten.
+     */
     fun save(service: ApiService, api: String, key: String) {
         prefs.edit().apply {
             if (api.isBlank()) remove(apiPref(service)) else putString(apiPref(service), api.trim())
             putString(encryptedKeyPref(service), cipher.encrypt(key.trim()))
             remove(legacyKeyPref(service))
+            remove(lastStatusPref(service))
         }.apply()
+    }
+
+    /** The result of the last connection check (API Status or a settings Test), or null when there's none since the last save. */
+    fun lastStatus(service: ApiService): ConnectionStatus? = decodeStatus(prefs.getString(lastStatusPref(service), null))
+
+    /** Remembers [status] for the agent warnings (GEN-6); Checking is never stored. */
+    fun saveLastStatus(service: ApiService, status: ConnectionStatus) {
+        val encoded = encodeStatus(status) ?: return
+        prefs.edit().putString(lastStatusPref(service), encoded).apply()
     }
 
     private fun savedKey(service: ApiService): String? {
@@ -135,6 +148,29 @@ class ApiSettingsStore(context: Context, private val cipher: SecretCipher = Keys
     private fun modelsPref(service: ApiService) = "${service.name}.models"
     private fun encryptedKeyPref(service: ApiService) = "${service.name}.key_enc"
     private fun legacyKeyPref(service: ApiService) = "${service.name}.key"
+    private fun lastStatusPref(service: ApiService) = "${service.name}.last_status"
+}
+
+/** A [ConnectionStatus] as a short string for storage; null for Checking, which is never stored. */
+fun encodeStatus(status: ConnectionStatus): String? = when (status) {
+    ConnectionStatus.Checking -> null
+    ConnectionStatus.NotConfigured -> "not_configured"
+    ConnectionStatus.Connected -> "connected"
+    ConnectionStatus.InvalidKey -> "invalid_key"
+    ConnectionStatus.NoPermission -> "no_permission"
+    is ConnectionStatus.Unreachable -> "unreachable:${status.reason}"
+    is ConnectionStatus.Error -> "error:${status.httpCode}"
+}
+
+fun decodeStatus(text: String?): ConnectionStatus? = when {
+    text == null -> null
+    text == "not_configured" -> ConnectionStatus.NotConfigured
+    text == "connected" -> ConnectionStatus.Connected
+    text == "invalid_key" -> ConnectionStatus.InvalidKey
+    text == "no_permission" -> ConnectionStatus.NoPermission
+    text.startsWith("unreachable:") -> ConnectionStatus.Unreachable(text.removePrefix("unreachable:"))
+    text.startsWith("error:") -> text.removePrefix("error:").toIntOrNull()?.let { ConnectionStatus.Error(it) }
+    else -> null
 }
 
 data class CachedModels(val lists: ModelLists, val fetchedAt: Long)
