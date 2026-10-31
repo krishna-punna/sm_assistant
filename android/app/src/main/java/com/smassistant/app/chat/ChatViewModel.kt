@@ -6,6 +6,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.userMessage
+import com.smassistant.app.pipeline.Pipeline
+import com.smassistant.app.pipeline.StageId
+import com.smassistant.app.pipeline.StageReporter
+import com.smassistant.app.pipeline.StageStatus
 import java.util.WeakHashMap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -16,6 +20,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -55,6 +60,8 @@ class ChatSession<R> {
     internal var started = false
     internal var nextId = 0L
     internal var job: Job? = null
+    /** The running generation's stages, so Cancel changes the same pipeline the generation reports to. */
+    internal var tracking: StageReporter.Tracking? = null
     internal var persist: ((before: ChatUiState<R>, after: ChatUiState<R>) -> Unit)? = null
 }
 
@@ -79,8 +86,10 @@ fun <R> sessionChatViewModel(
     key: String,
     handle: SavedStateHandle,
     saver: ResultSaver<R>,
+    pipeline: Pipeline? = null,
+    finished: (R, Pipeline) -> Pipeline = { _, p -> p.finishGeneration() },
     generate: suspend (String) -> Outcome<R>,
-) = ChatViewModel(handle, saver, ChatSessions.get(context, key), ChatSessions.scope, generate)
+) = ChatViewModel(handle, saver, ChatSessions.get(context, key), ChatSessions.scope, pipeline, finished, generate)
 
 /** The input an item belongs to: its own id for an input, otherwise the input it answers. */
 private val ChatItem<*>.inputId: Long
@@ -95,6 +104,8 @@ private val ChatItem<*>.inputId: Long
 data class ChatUiState<R>(
     val items: List<ChatItem<R>> = emptyList(),
     val input: String = "",
+    /** Each input's stages from the prompt to LinkedIn, by the input's id (docs/requirements/20). */
+    val pipelines: Map<Long, Pipeline> = emptyMap(),
 ) {
     val busy get() = items.any { it is ChatItem.Loading }
 }
@@ -116,6 +127,10 @@ class ChatViewModel<R>(
     private val saver: ResultSaver<R>? = null,
     private val session: ChatSession<R> = ChatSession(),
     private val scope: CoroutineScope? = null,
+    /** The feature's stages; null shows none (docs/requirements/20, PS-1). */
+    private val pipeline: Pipeline? = null,
+    /** The stages once a generation came back with a result, e.g. a Content & Image half that failed. */
+    private val finished: (R, Pipeline) -> Pipeline = { _, p -> p.finishGeneration() },
     private val generate: suspend (String) -> Outcome<R>,
 ) : ViewModel() {
     private val _state = session.state
@@ -169,18 +184,52 @@ class ChatViewModel<R>(
                 if (it is ChatItem.Loading) ChatItem.Failure(it.id, it.forInput, "Cancelled") else it
             })
         }
+        session.tracking?.update { it.failGeneration("Cancelled") }
+        session.tracking = null
+    }
+
+    /** Sets stage [id] of [inputId]'s pipeline, e.g. the Post stage from the Post in LinkedIn flow (PS-5). */
+    fun markStage(inputId: Long, id: StageId, status: StageStatus, note: String? = null) = edit { s ->
+        val p = s.pipelines[inputId] ?: return@edit s
+        s.copy(pipelines = s.pipelines + (inputId to p.set(id, status, note)))
+    }
+
+    private fun setPipeline(inputId: Long, p: Pipeline) = edit { s ->
+        // A pipeline whose input was dropped (an old exchange trimmed away) isn't brought back.
+        if (s.items.none { it is ChatItem.Input && it.id == inputId }) s else s.copy(pipelines = s.pipelines + (inputId to p))
+    }
+
+    /** Tracks [inputId]'s stages from [start], on the main thread whatever thread the generation reports from. */
+    private fun tracking(inputId: Long, start: Pipeline): StageReporter.Tracking {
+        lateinit var tracking: StageReporter.Tracking
+        tracking = StageReporter.Tracking(start) { jobScope.launch { setPipeline(inputId, tracking.pipeline) } }
+        setPipeline(inputId, start)
+        return tracking
     }
 
     /**
      * Reworks part of an existing result in place, e.g. retrying the half of a combined
      * result that failed (CI-I1). [pending] is shown at once; [work] gets the input text.
      */
-    fun updateResult(id: Long, pending: (R) -> R = { it }, work: suspend (input: String, value: R) -> R) {
+    fun updateResult(
+        id: Long,
+        pending: (R) -> R = { it },
+        restart: Set<StageId> = emptySet(),
+        work: suspend (input: String, value: R) -> R,
+    ) {
         val item = _state.value.items.firstOrNull { it.id == id } as? ChatItem.Result<R> ?: return
         val input = _state.value.items.filterIsInstance<ChatItem.Input>().firstOrNull { it.id == item.forInput } ?: return
         val started = pending(item.value)
         replaceResult(id, started)
-        jobScope.launch { replaceResult(id, work(input.text, started)) }
+        // The stages being done again start over; the rest keep where they are.
+        val tracking = _state.value.pipelines[input.id]?.let { p ->
+            tracking(input.id, restart.fold(p) { acc, stage -> acc.reset(stage) }.let { acc -> restart.firstOrNull()?.let(acc::start) ?: acc })
+        }
+        jobScope.launch {
+            val value = if (tracking == null) work(input.text, started) else withContext(tracking.reporter) { work(input.text, started) }
+            tracking?.update { finished(value, it) }
+            replaceResult(id, value)
+        }
     }
 
     private fun replaceResult(id: Long, value: R) = edit { s ->
@@ -190,8 +239,21 @@ class ChatViewModel<R>(
     private fun run(input: ChatItem.Input) {
         val loading = ChatItem.Loading(nextId++, input.id)
         edit { it.copy(items = it.items + loading) }
+        // A fresh row for every run (a Retry starts over): the prompt is in, the first step starts.
+        val tracking = pipeline?.let { template ->
+            val start = template.done(StageId.PROMPT)
+            tracking(input.id, start.generation.firstOrNull { it.status == StageStatus.WAITING }?.let { start.start(it.id) } ?: start)
+        }
+        session.tracking = tracking
         session.job = jobScope.launch {
-            val outcome = generate(input.text)
+            val outcome = if (tracking == null) generate(input.text) else withContext(tracking.reporter) { generate(input.text) }
+            tracking?.update { p ->
+                when (outcome) {
+                    is Outcome.Ok -> finished(outcome.value, p)
+                    is Outcome.Failed -> p.failGeneration(outcome.error.userMessage(outcome.serviceName))
+                    Outcome.NoAgent -> p.failGeneration(NO_AGENT)
+                }
+            }
             val replacement: ChatItem<R> = when (outcome) {
                 is Outcome.Ok -> ChatItem.Result(loading.id, input.id, outcome.value)
                 is Outcome.Failed -> ChatItem.Failure(loading.id, input.id, outcome.error.userMessage(outcome.serviceName))
@@ -210,7 +272,7 @@ class ChatViewModel<R>(
     private fun persist(before: ChatUiState<R>, after: ChatUiState<R>) {
         handle[INPUT] = after.input
         // Typing changes only the input, so the conversation is written again only when it changes.
-        if (after.items !== before.items) saveItems(after)
+        if (after.items !== before.items || after.pipelines !== before.pipelines) saveItems(after)
     }
 
     /**
@@ -221,21 +283,24 @@ class ChatViewModel<R>(
     private fun saveItems(state: ChatUiState<R>) {
         val saver = saver ?: return
         var items = state.items
-        var json = encode(items, saver)
+        var json = encode(items, saver, state.pipelines)
         while (json.length > MAX_SAVED_CHARS && items.isNotEmpty()) {
             val oldest = items.first().inputId
             items = items.filterNot { it.inputId == oldest }
-            json = encode(items, saver)
+            json = encode(items, saver, state.pipelines)
         }
         handle[ITEMS] = json
     }
 
-    private fun encode(items: List<ChatItem<R>>, saver: ResultSaver<R>): String =
+    private fun encode(items: List<ChatItem<R>>, saver: ResultSaver<R>, pipelines: Map<Long, Pipeline>): String =
         JsonArray(items.map { item ->
             buildJsonObject {
                 put("id", item.id)
                 when (item) {
-                    is ChatItem.Input -> put("text", item.text)
+                    is ChatItem.Input -> {
+                        put("text", item.text)
+                        pipelines[item.id]?.let { put("stages", it.toJson()) }
+                    }
                     is ChatItem.Loading -> { put("for", item.forInput); put("failed", STOPPED) }
                     is ChatItem.Failure -> { put("for", item.forInput); put("failed", item.message) }
                     is ChatItem.NoAgent -> { put("for", item.forInput); put("noAgent", true) }
@@ -249,8 +314,14 @@ class ChatViewModel<R>(
         val saver = saver
         val saved = handle.get<String>(ITEMS)
         if (saver == null || saved == null) return ChatUiState(input = input)
-        val items = runCatching { Json.parseToJsonElement(saved).jsonArray.map { restoreItem(it as JsonObject, saver) } }
-        return ChatUiState(items.getOrDefault(emptyList()), input)
+        val json = runCatching { Json.parseToJsonElement(saved).jsonArray.map { it as JsonObject } }.getOrDefault(emptyList())
+        val items = runCatching { json.map { restoreItem(it, saver) } }.getOrDefault(emptyList())
+        // A stage that was running when the app was stopped didn't finish (PS-6).
+        val pipelines = json.mapNotNull { o ->
+            val stages = Pipeline.fromJson(o["stages"]) ?: return@mapNotNull null
+            o.getValue("id").jsonPrimitive.long to stages.stopped()
+        }.toMap()
+        return ChatUiState(items, input, if (items.isEmpty()) emptyMap() else pipelines)
     }
 
     private fun restoreItem(json: JsonObject, saver: ResultSaver<R>): ChatItem<R> {
@@ -269,6 +340,7 @@ class ChatViewModel<R>(
     companion object {
         private const val INPUT = "input"
         private const val ITEMS = "items"
+        const val NO_AGENT = "No AI agent is set up"
 
         /** About 200 KB as saved; leaves room in the 1 MB limit for the other screens on the back stack. */
         const val MAX_SAVED_CHARS = 100_000
