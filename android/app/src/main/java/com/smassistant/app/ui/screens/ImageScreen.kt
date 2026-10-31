@@ -20,7 +20,7 @@ import com.smassistant.app.generate.GenerateContentAndMediaUseCase
 import com.smassistant.app.generate.appSmartTrim
 import com.smassistant.app.image.appGenerateImages
 import com.smassistant.app.image.imageLabel
-import com.smassistant.app.image.isCarousel
+import com.smassistant.app.image.isSeries
 import com.smassistant.app.image.parseImageTemplates
 import com.smassistant.app.image.pickedImageRequest
 import com.smassistant.app.image.text
@@ -32,7 +32,7 @@ import com.smassistant.app.media.sizeText
 import com.smassistant.app.navigation.Feature
 import com.smassistant.app.prompt.loadPromptAsset
 import com.smassistant.app.ui.components.BackToHomeButton
-import com.smassistant.app.ui.components.CarouselPager
+import com.smassistant.app.ui.components.SeriesPager
 import com.smassistant.app.ui.components.ImagePreview
 import com.smassistant.app.ui.components.ImageStrip
 import com.smassistant.app.ui.components.ImageTemplatePickers
@@ -100,8 +100,8 @@ fun ImageScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToH
 /**
  * One generation: the strip, then Post in LinkedIn for the selected images (IM-4, IM-5),
  * then Share and Save to Gallery for the same selection. The preview acts on the image it shows.
- * Content & Image also posts its text through [onPost]. A carousel's pages are shown one at a time
- * and always posted, shared and saved together (SC-I5).
+ * Content & Image also posts its text through [onPost]. A poster series' parts (AC-7) are shown one
+ * at a time and always posted, shared and saved together.
  */
 @Composable
 fun ImageResult(
@@ -111,7 +111,7 @@ fun ImageResult(
     onBackToHome: () -> Unit,
     canPostWithoutImages: Boolean = false,
 ) {
-    val carousel = remember(images) { isCarousel(images) }
+    val series = remember(images) { isSeries(images) }
     var selected by rememberSaveable(images) { mutableStateOf(images.indices.toSet()) }
     var previewIndex by rememberSaveable(images) { mutableStateOf<Int?>(null) }
     val appContext = LocalContext.current.applicationContext
@@ -128,8 +128,13 @@ fun ImageResult(
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (carousel) {
-            CarouselPager(images, onOpen = { previewIndex = it }, sizes = pixels.map { size -> size?.let { (w, h) -> sizeText(w, h) } })
+        if (series) {
+            SeriesPager(
+                images,
+                onOpen = { previewIndex = it },
+                sizes = pixels.map { size -> size?.let { (w, h) -> sizeText(w, h) } },
+                ratio = pixels.firstNotNullOfOrNull { it }?.let { (w, h) -> w.toFloat() / h } ?: 1f,
+            )
         } else {
             ImageStrip(
                 images = images,
@@ -141,21 +146,21 @@ fun ImageResult(
             )
         }
         PostInLinkedInButton(
-            onClick = { onPost(if (carousel) images else images.filterIndexed { index, _ -> index in selected }) },
-            enabled = carousel || canPostWithoutImages || selected.isNotEmpty(),
+            onClick = { onPost(if (series) images else images.filterIndexed { index, _ -> index in selected }) },
+            enabled = series || canPostWithoutImages || selected.isNotEmpty(),
             busy = posting,
         )
         MediaActions(
-            files = { if (carousel) images else images.filterIndexed { index, _ -> index in selected } },
-            enabled = carousel || selected.isNotEmpty(),
+            files = { if (series) images else images.filterIndexed { index, _ -> index in selected } },
+            enabled = series || selected.isNotEmpty(),
         )
     }
     previewIndex?.let { start ->
-        ImagePreview(images, start, onDismiss = { previewIndex = null }, noun = if (carousel) "Page" else "Image") { current ->
+        ImagePreview(images, start, onDismiss = { previewIndex = null }, noun = if (series) "Part" else "Image") { current ->
             PostInLinkedInButton(
                 onClick = {
                     previewIndex = null
-                    onPost(if (carousel) images else listOf(images[current]))
+                    onPost(if (series) images else listOf(images[current]))
                 },
                 busy = posting,
             )

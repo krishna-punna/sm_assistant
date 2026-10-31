@@ -8,6 +8,9 @@ import kotlin.math.sqrt
 /** Fewest cards a Generate Image infographic may have; fewer reads as an unfinished image. */
 const val MIN_SECTIONS = 3
 
+/** Most cards one poster definition may have ([Limits.SECTIONS], AC-2). */
+val MAX_CARDS: Int get() = Limits.SECTIONS
+
 /** Smallest side an AI illustration may have before it is painted into its slot. */
 const val MIN_ILLUSTRATION_SIDE = 256
 
@@ -23,6 +26,9 @@ const val MIN_INFOGRAPHIC_SIDE = 1024
 fun infographicProblems(spec: InfographicSpec, subject: String, minSections: Int = MIN_SECTIONS): List<String> = buildList {
     if (spec.sections.size < minSections) {
         add("it has ${spec.sections.size} sections; write at least $minSections cards that cover the topic")
+    }
+    if (spec.droppedSections > 0) {
+        add("it has ${spec.sections.size + spec.droppedSections} cards, more than the $MAX_CARDS one poster can hold; merge related cards so every point is kept in at most $MAX_CARDS")
     }
     if (subject.isNotBlank() && !sharesAWord(spec.title, subject)) {
         add("the title \"${spec.title}\" doesn't name the topic; use the topic's own words in the title")
@@ -76,39 +82,6 @@ private val NUMBER_IN_TEXT = Regex("""\d+(?:\.\d+)?""")
 
 /** [text] without spaces, lower case, so code compares however it was indented or spaced. */
 private fun squash(text: String) = text.lowercase().filterNot { it.isWhitespace() }
-
-/** Most sections a carousel's content page holds, so it reads at a glance on a phone. */
-const val CAROUSEL_PAGE_SECTIONS = 2
-
-/**
- * The checks on a carousel (docs/design/single-image-carousel.md): between [MIN_CAROUSEL_PAGES] and
- * [MAX_CAROUSEL_PAGES] pages, a cover titled with the topic's words ([subject]), content pages of at
- * most [CAROUSEL_PAGE_SECTIONS] sections, nothing repeated or left as a placeholder, and every page
- * [fits] its square at full text size.
- */
-fun carouselProblems(carousel: Carousel, subject: String, fits: (InfographicSpec) -> Boolean = { true }): List<String> = buildList {
-    val pages = carousel.pages
-    if (pages.size < MIN_CAROUSEL_PAGES) add("it has ${pages.size} pages; write a cover, at least 2 content pages and a summary")
-    pages.firstOrNull()?.let { cover ->
-        if (subject.isNotBlank() && !sharesAWord(cover.title, subject)) {
-            add("the cover's title \"${cover.title}\" doesn't name the topic; use the topic's own words in the title")
-        }
-    }
-    pages.forEachIndexed { i, page ->
-        val name = "page ${i + 1}"
-        if (page.sections.isEmpty() && page.hero == null && page.takeaway == null && page.subtitle == null) {
-            add("$name (\"${page.title}\") has nothing on it but its title")
-        }
-        if (i in 1 until pages.lastIndex && page.sections.size > CAROUSEL_PAGE_SECTIONS) {
-            add("$name has ${page.sections.size} sections; a content page holds at most $CAROUSEL_PAGE_SECTIONS, so move the rest to another page")
-        }
-        if (!fits(page)) add("$name is too full to read on a square page; shorten it or split it over two pages")
-        addAll(sectionProblems(page, "$name: "))
-    }
-    pages.groupBy { it.title.lowercase() }.filterValues { it.size > 1 }.keys.forEach {
-        add("more than one page is titled \"$it\"; every page should move the story on")
-    }
-}
 
 private fun sectionProblems(spec: InfographicSpec, prefix: String): List<String> = buildList {
     spec.sections.forEachIndexed { i, section ->
