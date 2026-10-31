@@ -118,7 +118,8 @@ fun parseCarousel(reply: String): Result<Carousel> = jsonObjectIn(reply).mapCatc
 
 /** Upper limits that keep a definition drawable, whatever the model wrote. */
 internal object Limits {
-    const val SECTIONS = 8
+    /** Up to 11 cards, like the densest samples (docs/requirements/18, SV-7). */
+    const val SECTIONS = 11
     const val ITEMS = 7
     const val CODE_LINES = 14
     const val TABLE_COLUMNS = 4

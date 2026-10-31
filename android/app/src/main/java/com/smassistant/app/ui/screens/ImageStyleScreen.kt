@@ -75,7 +75,8 @@ data class ImageStyleActions(
 
 /** How each mode reads in its picker. */
 fun ImageMode.label(): String = when (this) {
-    ImageMode.BOTH -> "App-drawn (default)"
+    ImageMode.AUTO -> "Auto: AI-painted, app-drawn if its text is wrong"
+    ImageMode.BOTH -> "Both: two of each"
     ImageMode.DRAWN -> "App-drawn"
     ImageMode.PAINTED -> "AI-painted"
 }
@@ -130,7 +131,9 @@ fun ImageStyleContent(state: ImageStyleUiState, actions: ImageStyleActions, onBa
         SelectDropdown("Images", style.mode, ImageMode.entries, { it.label() }, actions.onMode, "styleMode")
         Text(
             when (style.mode) {
-                ImageMode.BOTH, ImageMode.DRAWN -> "The app draws the image, so text, code and numbers are exact."
+                ImageMode.AUTO -> "The image agent paints a poster like the samples; if the review finds misspelt, missing or invented text, the app draws it instead."
+                ImageMode.BOTH -> "Half the images are painted by the image agent and half drawn by the app."
+                ImageMode.DRAWN -> "The app draws the image, so text, code and numbers are exact."
                 ImageMode.PAINTED -> "The image agent paints the image from the template, always as one image."
             },
             style = MaterialTheme.typography.bodySmall,

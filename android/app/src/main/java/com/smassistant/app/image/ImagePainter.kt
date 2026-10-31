@@ -12,10 +12,13 @@ import com.smassistant.app.net.ApiResult
  */
 const val SHORT_IMAGE_PROMPT = 1500
 
-/** Whether image [index] of a submit is AI-painted in [mode]: Both paints images 2 and 4. */
+/**
+ * Whether image [index] of a submit is AI-painted in [mode]: Both paints images 2 and 4, Auto tries
+ * to paint every one (and draws it when the painted one fails its review).
+ */
 fun paints(mode: ImageMode, index: Int): Boolean = when (mode) {
     ImageMode.DRAWN -> false
-    ImageMode.PAINTED -> true
+    ImageMode.PAINTED, ImageMode.AUTO -> true
     ImageMode.BOTH -> index % 2 == 1
 }
 

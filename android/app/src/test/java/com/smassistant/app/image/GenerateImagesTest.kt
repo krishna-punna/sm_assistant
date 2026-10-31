@@ -479,6 +479,54 @@ class GenerateImagesTest {
     }
 
     @Test
+    fun `auto mode keeps a painted poster the review passes`() = runTest {
+        val writer = ScriptedTextAgent(ApiResult.Ok("1. Request flow"))
+        val seeing = object : TextAgent by writer {
+            override suspend fun see(system: String, user: String, jpeg: ByteArray): ApiResult<String> = ApiResult.Ok("""{"score": 9}""")
+        }
+        val gemini = PaintingAgent()
+        val useCase = GenerateImagesUseCase(
+            "{{prompt}}", { gemini }, 1,
+            infographics = templated(seeing, ImageStyle(mode = ImageMode.AUTO), ImagePainter("C."), ImageReviewer("R.", { byteArrayOf(1) })),
+        )
+
+        assertEquals(Outcome.Ok(listOf(File("painted-1.png"))), useCase.generate(ImageRequest("Caching", template = "concept")))
+        assertTrue(drawn.isEmpty())
+    }
+
+    @Test
+    fun `auto mode draws the poster when the painted one's text keeps failing the review`() = runTest {
+        val writer = ScriptedTextAgent(ApiResult.Ok("1. Request flow"), ApiResult.Ok(caching()))
+        val scores = ArrayDeque(listOf("""{"score": 3, "problems": ["The word Cahce is misspelt"]}""", """{"score": 5}""", """{"score": 9}"""))
+        val seeing = object : TextAgent by writer {
+            override suspend fun see(system: String, user: String, jpeg: ByteArray): ApiResult<String> =
+                ApiResult.Ok(synchronized(scores) { scores.removeFirst() })
+        }
+        val gemini = PaintingAgent()
+        val useCase = GenerateImagesUseCase(
+            "{{prompt}}", { gemini }, 1,
+            infographics = templated(seeing, ImageStyle(mode = ImageMode.AUTO), ImagePainter("C."), ImageReviewer("R.", { byteArrayOf(1) })),
+        )
+
+        assertEquals(Outcome.Ok(listOf(File("Caching.png"))), useCase.generate(ImageRequest("Caching", template = "concept")))
+        assertEquals(2, gemini.painted.size)
+        assertEquals(listOf("Caching"), drawn)
+    }
+
+    @Test
+    fun `auto mode without a review draws the poster, since its text can't be checked`() = runTest {
+        val writer = ScriptedTextAgent(ApiResult.Ok("1. Request flow"), ApiResult.Ok(caching()))
+        val gemini = PaintingAgent()
+
+        val outcome = GenerateImagesUseCase("{{prompt}}", { gemini }, 1, infographics = templated(writer, ImageStyle(mode = ImageMode.AUTO), ImagePainter("C.")))
+            .generate(ImageRequest("Caching", template = "concept"))
+
+        assertEquals(Outcome.Ok(listOf(File("Caching.png"))), outcome)
+        assertTrue(gemini.painted.isEmpty())
+        assertEquals(listOf("Caching"), drawn)
+    }
+
+    @Test
     fun `a painted image the review scores too low is painted again with the review's problems`() = runTest {
         val writer = ScriptedTextAgent(ApiResult.Ok("1. Request flow"))
         val scores = ArrayDeque(listOf("""{"score": 3, "problems": ["The word Cahce is misspelt"]}""", """{"score": 9}"""))

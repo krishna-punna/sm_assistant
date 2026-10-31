@@ -10,6 +10,7 @@ import com.smassistant.app.agents.appImageAgentSelector
 import com.smassistant.app.chat.Outcome
 import com.smassistant.app.data.AppConfig
 import com.smassistant.app.data.ImageLayout
+import com.smassistant.app.data.ImageMode
 import com.smassistant.app.data.ImageSize
 import com.smassistant.app.data.ImageStyle
 import com.smassistant.app.data.MediaPurpose
@@ -277,6 +278,10 @@ class GenerateImagesUseCase(
      * checked for blank or tiny pixels, upscaled and reviewed. One the review scores too low is
      * painted again with the review's problems, up to [Infographics.retries] times, and the
      * best-scored is kept. Null when no image passed the pixel checks.
+     *
+     * In Auto mode (docs/requirements/18, SV-6) only a painted image the review passes is kept, so
+     * one with misspelt, missing or invented text is drawn by the app instead. Without a review the
+     * text can't be checked, so nothing is painted and the image is drawn.
      */
     private suspend fun painted(
         parts: Infographics,
@@ -287,13 +292,15 @@ class GenerateImagesUseCase(
         brief: ImageBrief,
     ): File? {
         val reviewer = parts.reviewer
+        val strict = brief.style.mode == ImageMode.AUTO
+        if (strict && reviewer == null) return null
         var feedback = emptyList<String>()
         var best: Pair<File, Int>? = null
         val filled = if (brief.content.isBlank()) brief.copy(content = topic) else brief
         repeat(parts.retries + 1) {
             val prompt = painter.prompt(writer, illustrator, filled, feedback)
             val image = when (val result = illustrator.generate(prompt, 1, brief.format)) {
-                is ApiResult.Failed -> return best?.first
+                is ApiResult.Failed -> return best?.first.takeUnless { strict }
                 is ApiResult.Ok -> result.value.firstOrNull()
             }?.takeIf { file -> inspector?.let { imageProblem(it.facts(file), MIN_PAINTED_SIDE) == null } ?: true }
             if (image == null) {
@@ -301,12 +308,12 @@ class GenerateImagesUseCase(
                 return@repeat
             }
             val file = upscaler?.upscale(image) ?: image
-            val review = reviewer?.reviewPainted(writer, topic, file, brief.template) ?: return file
+            val review = reviewer?.reviewPainted(writer, topic, file, brief.template) ?: return file.takeUnless { strict }
             if (reviewer.passes(review)) return file
             if (best == null || review.score > best!!.second) best = file to review.score
             feedback = review.problems.ifEmpty { listOf("it scored ${review.score}/10; make it clearer and closer to the topic") }
         }
-        return best?.first
+        return best?.first.takeUnless { strict }
     }
 
     /**

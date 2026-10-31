@@ -64,6 +64,7 @@ class ImagePainterTest {
     fun `Both paints images 2 and 4, painted all, drawn none`() {
         assertEquals(listOf(false, true, false, true), List(4) { paints(ImageMode.BOTH, it) })
         assertTrue(List(4) { paints(ImageMode.PAINTED, it) }.all { it })
+        assertTrue(List(4) { paints(ImageMode.AUTO, it) }.all { it })
         assertFalse(List(4) { paints(ImageMode.DRAWN, it) }.any { it })
     }
 
