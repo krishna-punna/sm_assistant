@@ -15,7 +15,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.core.app.ApplicationProvider
 import com.smassistant.app.agents.AgentPreferences
-import com.smassistant.app.data.ImageFormat
+import com.smassistant.app.data.ImageSize
 import com.smassistant.app.ui.components.ImageStrip
 import com.smassistant.app.ui.components.ImageTemplatePickers
 import java.io.File
@@ -51,7 +51,7 @@ class ImageTemplatePickersTest {
 
         val preferences = AgentPreferences(context)
         assertEquals("workflow", preferences.imageTemplate)
-        assertEquals(ImageFormat.LANDSCAPE, preferences.imageFormat)
+        assertEquals(ImageSize.LANDSCAPE, preferences.imageFormat)
     }
 
     /**

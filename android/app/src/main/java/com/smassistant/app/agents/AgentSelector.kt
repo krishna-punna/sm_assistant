@@ -4,13 +4,13 @@ import android.content.Context
 import com.smassistant.app.data.ApiConfig
 import com.smassistant.app.data.ApiService
 import com.smassistant.app.data.ApiSettingsStore
-import com.smassistant.app.data.ImageFormat
+import com.smassistant.app.data.ImageSize
 import com.smassistant.app.data.MediaPurpose
 import com.smassistant.app.data.forMedia
-import com.smassistant.app.generate.DEFAULT_VIDEO_SECONDS
-import com.smassistant.app.generate.VIDEO_LENGTHS
 import com.smassistant.app.media.MediaCache
 import com.smassistant.app.prompt.PromptType
+import com.smassistant.app.video.DEFAULT_VIDEO_SECONDS
+import com.smassistant.app.video.VIDEO_LENGTHS
 
 /** Agents that can generate text, in fallback order. */
 val TEXT_AGENTS = listOf(
@@ -90,8 +90,8 @@ class AgentPreferences(context: Context) {
         }
 
     /** The image format last picked on the image screens; null is Auto (the app picks per image). */
-    var imageFormat: ImageFormat?
-        get() = ImageFormat.of(prefs.getString(KEY_IMAGE_FORMAT, null))
+    var imageFormat: ImageSize?
+        get() = ImageSize.of(prefs.getString(KEY_IMAGE_FORMAT, null))
         set(value) {
             prefs.edit().putString(KEY_IMAGE_FORMAT, value?.key).apply()
         }

@@ -1,5 +1,7 @@
 package com.smassistant.app.generate
 
+import com.smassistant.app.image.parseImageExamples
+import com.smassistant.app.image.parseImageTemplates
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

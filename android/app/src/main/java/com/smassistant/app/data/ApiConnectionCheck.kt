@@ -2,11 +2,11 @@ package com.smassistant.app.data
 
 import com.smassistant.app.net.Http
 import com.smassistant.app.net.await
-import java.io.IOException
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.io.IOException
 
 /** Result of testing one service with its current settings. */
 sealed interface ConnectionStatus {

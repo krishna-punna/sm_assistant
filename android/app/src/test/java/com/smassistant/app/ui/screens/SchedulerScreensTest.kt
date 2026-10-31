@@ -1,20 +1,20 @@
 package com.smassistant.app.ui.screens
 
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.assertIsOff
-import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
-import com.smassistant.app.data.ImageFormat
-import com.smassistant.app.generate.ImageTemplate
+import com.smassistant.app.data.ImageSize
+import com.smassistant.app.image.ImageTemplate
 import com.smassistant.app.scheduler.AutoPostScheduler
 import com.smassistant.app.scheduler.Frequency
 import com.smassistant.app.scheduler.PostType
@@ -130,7 +130,7 @@ class SchedulerScreensTest {
         pick("Auto (AI picks)")
         compose.onNodeWithTag("scheduleFormatDropdown").assertTextEquals("Auto ▾").performClick()
         pick("Square 1:1")
-        assertEquals(listOf("template:null", "format:${ImageFormat.SQUARE}"), calls)
+        assertEquals(listOf("template:null", "format:${ImageSize.SQUARE}"), calls)
     }
 
     @Test

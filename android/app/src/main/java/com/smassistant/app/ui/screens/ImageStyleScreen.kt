@@ -21,9 +21,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.smassistant.app.data.ImageLayout
 import com.smassistant.app.data.ImageMode
-import com.smassistant.app.generate.ImageStyleStore
-import com.smassistant.app.generate.ImageStyleUiState
-import com.smassistant.app.generate.ImageStyleViewModel
+import com.smassistant.app.image.ImageStyleStore
+import com.smassistant.app.image.ImageStyleUiState
+import com.smassistant.app.image.ImageStyleViewModel
 import com.smassistant.app.ui.components.MenuButton
 import com.smassistant.app.ui.components.SelectDropdown
 import com.smassistant.app.ui.components.SmScreen

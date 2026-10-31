@@ -8,6 +8,8 @@ import com.smassistant.app.net.Http
 import com.smassistant.app.net.path
 import com.smassistant.app.net.postJson
 import com.smassistant.app.net.textOrNull
+import okhttp3.OkHttpClient
+import java.util.Base64
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.addJsonObject
@@ -15,8 +17,6 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
-import java.util.Base64
-import okhttp3.OkHttpClient
 
 /** An AI agent that turns a system prompt and a user message into text (docs/tasks AGC-1). */
 interface TextAgent {

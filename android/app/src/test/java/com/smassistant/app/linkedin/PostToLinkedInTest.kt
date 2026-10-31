@@ -2,15 +2,17 @@ package com.smassistant.app.linkedin
 
 import com.smassistant.app.agents.TextAgent
 import com.smassistant.app.data.ApiService
-import com.smassistant.app.generate.SmartTrimUseCase
 import com.smassistant.app.drafts.Draft
 import com.smassistant.app.drafts.DraftSaver
+import com.smassistant.app.generate.SmartTrimUseCase
 import com.smassistant.app.hashtags.postLength
 import com.smassistant.app.history.PostMedia
 import com.smassistant.app.history.PostSource
 import com.smassistant.app.history.PublishedPost
+import com.smassistant.app.image.shortened
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
+import java.io.File
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -25,7 +27,6 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import java.io.File
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class PostToLinkedInTest {

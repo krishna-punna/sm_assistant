@@ -152,7 +152,7 @@ fun parseImageCheckRules(input: InputStream): ImageCheckRules {
 }
 
 /** An image shape the app allows (docs/design/image-templates.md): never 4:5, 9:16 or 16:9. */
-enum class ImageFormat(val key: String, val words: String) {
+enum class ImageSize(val key: String, val words: String) {
     PORTRAIT("portrait", "portrait 2:3"),
     SQUARE("square", "square 1:1"),
     LANDSCAPE("landscape", "landscape 3:2"),
@@ -160,7 +160,7 @@ enum class ImageFormat(val key: String, val words: String) {
 
     companion object {
         /** The format with [key], or null for "auto" and anything unknown. */
-        fun of(key: String?): ImageFormat? = entries.firstOrNull { it.key.equals(key?.trim(), ignoreCase = true) }
+        fun of(key: String?): ImageSize? = entries.firstOrNull { it.key.equals(key?.trim(), ignoreCase = true) }
     }
 }
 
@@ -213,10 +213,38 @@ data class ImageStyle(
     val brandName: String = "",
     val styleGuide: String = "",
     val series: Boolean = false,
-    val format: ImageFormat? = null,
+    val format: ImageSize? = null,
     val mode: ImageMode = ImageMode.BOTH,
     val layout: ImageLayout = ImageLayout.AUTO,
 )
+
+/**
+ * The inputs the video templates take besides the content (docs/requirements/19, SP-15), from
+ * app.yml's own `video_style`, apart from the images' `image_style`:
+ *
+ * ```yaml
+ * video_style:
+ *   audience: "developers, senior engineers and architects"
+ *   brand_name: ""
+ *   style_guide: ""
+ * ```
+ */
+data class VideoStyle(
+    val audience: String = "developers, senior engineers and architects",
+    val brandName: String = "",
+    val styleGuide: String = "",
+)
+
+fun parseVideoStyle(input: InputStream): VideoStyle {
+    val root = Yaml().load<Any?>(input) as? Map<*, *> ?: emptyMap<String, Any?>()
+    val entry = root["video_style"] as? Map<*, *> ?: emptyMap<String, Any?>()
+    val defaults = VideoStyle()
+    return VideoStyle(
+        audience = entry["audience"]?.toString()?.trim() ?: defaults.audience,
+        brandName = entry["brand_name"]?.toString()?.trim() ?: defaults.brandName,
+        styleGuide = entry["style_guide"]?.toString()?.trim() ?: defaults.styleGuide,
+    )
+}
 
 fun parseImageStyle(input: InputStream): ImageStyle {
     val root = Yaml().load<Any?>(input) as? Map<*, *> ?: emptyMap<String, Any?>()
@@ -227,7 +255,7 @@ fun parseImageStyle(input: InputStream): ImageStyle {
         brandName = entry["brand_name"]?.toString()?.trim() ?: defaults.brandName,
         styleGuide = entry["style_guide"]?.toString()?.trim() ?: defaults.styleGuide,
         series = entry["series"]?.toString()?.toBooleanStrictOrNull() ?: defaults.series,
-        format = ImageFormat.of(entry["format"]?.toString()),
+        format = ImageSize.of(entry["format"]?.toString()),
         mode = ImageMode.of(entry["mode"]?.toString()) ?: defaults.mode,
         layout = ImageLayout.of(entry["layout"]?.toString()) ?: defaults.layout,
     )

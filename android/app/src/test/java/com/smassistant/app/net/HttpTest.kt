@@ -1,10 +1,10 @@
 package com.smassistant.app.net
 
-import java.io.IOException
-import java.net.SocketTimeoutException
 import okhttp3.Request
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import java.io.IOException
+import java.net.SocketTimeoutException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

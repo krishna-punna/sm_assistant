@@ -6,7 +6,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import com.smassistant.app.generate.GenerateContentAndMediaUseCase
-import com.smassistant.app.generate.GeneratedVideo
+import com.smassistant.app.video.GeneratedVideo
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Rule

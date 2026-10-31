@@ -1,7 +1,7 @@
 package com.smassistant.app.scheduler
 
 import androidx.lifecycle.ViewModel
-import com.smassistant.app.data.ImageFormat
+import com.smassistant.app.data.ImageSize
 import java.io.File
 import java.time.DayOfWeek
 import java.time.Instant
@@ -129,7 +129,7 @@ class SchedulerEditorViewModel(
 
     fun onPostType(type: PostType) = draft { it.copy(postType = type) }
     fun onImageTemplate(id: String?) = draft { it.copy(imageTemplate = id) }
-    fun onImageFormat(format: ImageFormat?) = draft { it.copy(imageFormat = format) }
+    fun onImageFormat(format: ImageSize?) = draft { it.copy(imageFormat = format) }
     fun onFrequency(frequency: Frequency) = schedule { it.copy(frequency = frequency) }
     fun onTime(time: LocalTime) = schedule { it.copy(time = time) }
     fun onEveryHours(hours: Int) = schedule { it.copy(everyHours = hours) }

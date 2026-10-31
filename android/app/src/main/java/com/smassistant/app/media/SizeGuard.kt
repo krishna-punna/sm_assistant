@@ -4,30 +4,30 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.util.Log
-import com.smassistant.app.data.ImageFormat
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import com.smassistant.app.data.ImageSize
 import java.io.File
 import kotlin.math.abs
 import kotlin.math.ln
 import kotlin.math.roundToInt
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /** How far a result's ratio may be from its size before it is padded (docs/requirements/18, SV-9). */
 const val SIZE_TOLERANCE = 0.02f
 
 /** The ratio of each image size, width to height. */
-val ImageFormat.ratio: Pair<Int, Int>
+val ImageSize.ratio: Pair<Int, Int>
     get() = when (this) {
-        ImageFormat.PORTRAIT -> 2 to 3
-        ImageFormat.SQUARE -> 1 to 1
-        ImageFormat.LANDSCAPE -> 3 to 2
+        ImageSize.PORTRAIT -> 2 to 3
+        ImageSize.SQUARE -> 1 to 1
+        ImageSize.LANDSCAPE -> 3 to 2
     }
 
 /** The image size closest in shape to [width] x [height]: what an illustration slot or a video frame is painted at. */
-fun nearestImageFormat(width: Float, height: Float): ImageFormat {
-    if (width <= 0f || height <= 0f) return ImageFormat.SQUARE
+fun nearestImageFormat(width: Float, height: Float): ImageSize {
+    if (width <= 0f || height <= 0f) return ImageSize.SQUARE
     val shape = ln(width / height)
-    return ImageFormat.entries.minBy { abs(ln(it.ratio.first.toFloat() / it.ratio.second) - shape) }
+    return ImageSize.entries.minBy { abs(ln(it.ratio.first.toFloat() / it.ratio.second) - shape) }
 }
 
 /**

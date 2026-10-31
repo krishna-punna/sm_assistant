@@ -14,8 +14,8 @@ import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.smassistant.app.agents.AgentPreferences
 import com.smassistant.app.agents.appAgentSelector
-import com.smassistant.app.chat.sessionChatViewModel
 import com.smassistant.app.chat.PromptSetSaver
+import com.smassistant.app.chat.sessionChatViewModel
 import com.smassistant.app.navigation.Feature
 import com.smassistant.app.prompt.CONTENT_PROMPT_LABEL
 import com.smassistant.app.prompt.POST_PROMPT_LABEL

@@ -9,14 +9,14 @@ import com.smassistant.app.net.Http
 import com.smassistant.app.net.path
 import com.smassistant.app.net.sendJson
 import com.smassistant.app.net.textOrNull
-import java.security.MessageDigest
-import java.security.SecureRandom
-import java.util.Base64
 import okhttp3.FormBody
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.security.MessageDigest
+import java.security.SecureRandom
+import java.util.Base64
 
 /**
  * The member's LinkedIn developer app (Q-03): typed in on the LinkedIn settings screen.

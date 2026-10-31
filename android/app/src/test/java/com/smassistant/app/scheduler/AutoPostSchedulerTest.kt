@@ -1,6 +1,6 @@
 package com.smassistant.app.scheduler
 
-import com.smassistant.app.data.ImageFormat
+import com.smassistant.app.data.ImageSize
 import java.time.DayOfWeek
 import java.time.LocalTime
 import org.junit.Assert.assertEquals
@@ -60,7 +60,7 @@ class AutoPostSchedulerTest {
             pending = PendingPost("Kafka Partitions", "Kafka partitions explained\n\n#java", listOf("/cache/generated/a.png"), 1_700_000_000_000, "workflow"),
             nextRunAt = 1_700_000_360_000,
             imageTemplate = "comparison",
-            imageFormat = ImageFormat.LANDSCAPE,
+            imageFormat = ImageSize.LANDSCAPE,
         )
         assertEquals(listOf(s, AutoPostScheduler(id = "b")), SchedulerJson.decode(SchedulerJson.encode(listOf(s, AutoPostScheduler(id = "b")))))
     }

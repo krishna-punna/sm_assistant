@@ -2,6 +2,7 @@ package com.smassistant.app.generate
 
 import com.smassistant.app.chat.Outcome
 import com.smassistant.app.net.userMessage
+import com.smassistant.app.video.GeneratedVideo
 import java.io.File
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope

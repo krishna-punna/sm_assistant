@@ -1,7 +1,6 @@
 package com.smassistant.app.ui.theme
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material.icons.filled.Build as FilledBuild
 import androidx.compose.material.icons.filled.CheckCircle as FilledCheckCircle
 import androidx.compose.material.icons.filled.Create as FilledCreate
@@ -57,6 +56,7 @@ import androidx.compose.material.icons.twotone.Home as TwoToneHome
 import androidx.compose.material.icons.twotone.Refresh as TwoToneRefresh
 import androidx.compose.material.icons.twotone.Share as TwoToneShare
 import androidx.compose.material.icons.twotone.Star as TwoToneStar
+import androidx.compose.ui.graphics.vector.ImageVector
 
 /** How a theme draws button icons. The Classic theme keeps the original text-only buttons. */
 enum class IconStyle(val label: String) {

@@ -38,24 +38,23 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextOverflow
-import com.smassistant.app.data.ImageFormat
-import com.smassistant.app.generate.ImageTemplate
-import com.smassistant.app.generate.appSmartTrim
-import com.smassistant.app.generate.parseImageTemplates
-import com.smassistant.app.linkedin.PostState
-import com.smassistant.app.linkedin.PostViewModel
-import com.smassistant.app.linkedin.appPostToLinkedIn
-import com.smassistant.app.prompt.loadPromptAsset
-import com.smassistant.app.scheduler.PendingPost
-import com.smassistant.app.ui.components.PostDialogs
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.smassistant.app.data.ImageSize
+import com.smassistant.app.generate.appSmartTrim
+import com.smassistant.app.image.ImageTemplate
+import com.smassistant.app.image.parseImageTemplates
+import com.smassistant.app.linkedin.PostState
+import com.smassistant.app.linkedin.PostViewModel
+import com.smassistant.app.linkedin.appPostToLinkedIn
+import com.smassistant.app.prompt.loadPromptAsset
 import com.smassistant.app.scheduler.AutoPostScheduler
 import com.smassistant.app.scheduler.Frequency
+import com.smassistant.app.scheduler.PendingPost
 import com.smassistant.app.scheduler.PostType
 import com.smassistant.app.scheduler.Schedule
 import com.smassistant.app.scheduler.SchedulerEditorUiState
@@ -66,6 +65,7 @@ import com.smassistant.app.scheduler.SchedulersUiState
 import com.smassistant.app.scheduler.SchedulersViewModel
 import com.smassistant.app.scheduler.TechTopics
 import com.smassistant.app.scheduler.formatRunTime
+import com.smassistant.app.ui.components.PostDialogs
 import com.smassistant.app.ui.components.PrimaryButton
 import com.smassistant.app.ui.components.SelectDropdown
 import com.smassistant.app.ui.components.SignInWarningCard
@@ -333,7 +333,7 @@ data class SchedulerEditorActions(
     val onToggleTopic: (String) -> Unit = {},
     val onPostType: (PostType) -> Unit = {},
     val onImageTemplate: (String?) -> Unit = {},
-    val onImageFormat: (ImageFormat?) -> Unit = {},
+    val onImageFormat: (ImageSize?) -> Unit = {},
     val onFrequency: (Frequency) -> Unit = {},
     val onTime: (LocalTime) -> Unit = {},
     val onEveryHours: (Int) -> Unit = {},

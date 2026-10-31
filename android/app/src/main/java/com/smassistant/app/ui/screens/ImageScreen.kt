@@ -13,16 +13,16 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.smassistant.app.chat.sessionChatViewModel
 import com.smassistant.app.chat.ImagesSaver
+import com.smassistant.app.chat.sessionChatViewModel
 import com.smassistant.app.generate.GenerateContentAndMediaUseCase
-import com.smassistant.app.generate.appGenerateImages
-import com.smassistant.app.generate.imageLabel
-import com.smassistant.app.generate.isCarousel
-import com.smassistant.app.generate.parseImageTemplates
-import com.smassistant.app.generate.text
-import com.smassistant.app.generate.pickedImageRequest
 import com.smassistant.app.generate.appSmartTrim
+import com.smassistant.app.image.appGenerateImages
+import com.smassistant.app.image.imageLabel
+import com.smassistant.app.image.isCarousel
+import com.smassistant.app.image.parseImageTemplates
+import com.smassistant.app.image.pickedImageRequest
+import com.smassistant.app.image.text
 import com.smassistant.app.linkedin.PostState
 import com.smassistant.app.linkedin.PostViewModel
 import com.smassistant.app.linkedin.appPostToLinkedIn
@@ -30,17 +30,17 @@ import com.smassistant.app.media.imagePixels
 import com.smassistant.app.media.sizeText
 import com.smassistant.app.navigation.Feature
 import com.smassistant.app.prompt.loadPromptAsset
+import com.smassistant.app.ui.components.BackToHomeButton
 import com.smassistant.app.ui.components.CarouselPager
-import com.smassistant.app.ui.components.ImageTemplatePickers
-import com.smassistant.app.ui.components.MediaAgentDropdown
 import com.smassistant.app.ui.components.ImagePreview
 import com.smassistant.app.ui.components.ImageStrip
+import com.smassistant.app.ui.components.ImageTemplatePickers
 import com.smassistant.app.ui.components.MediaActions
+import com.smassistant.app.ui.components.MediaAgentDropdown
 import com.smassistant.app.ui.components.PostDialogs
 import com.smassistant.app.ui.components.PostInLinkedInButton
 import com.smassistant.app.ui.components.PromptCard
 import com.smassistant.app.ui.components.TextAgentDropdown
-import com.smassistant.app.ui.components.BackToHomeButton
 import java.io.File
 
 /** S10 Generate Image (docs/requirements/06 §6.2): prompt card, image strip, full preview. */
