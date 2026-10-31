@@ -48,10 +48,11 @@ class InfographicFillTest {
             assertEquals(rendered.width * 2, png.width)
             assertEquals(rendered.height * 2, png.height)
             assertFilled(png, "$format")
-            // The header band runs edge to edge, so its colour must reach the top-right corner.
-            val header = Regex("""<rect x="0" y="0" width="[\d.]+" height="[\d.]+" fill="(#[0-9A-Fa-f]{6})"""")
-                .findAll(rendered.svg).elementAt(1).groupValues[1]
-            assertEquals("$format top-right", Color.parseColor(header), png.getPixel(png.width - 4, 4))
+            // The header band (a gradient since AC-9) runs edge to edge, so the top-right corner is band, not page.
+            assertTrue(rendered.svg.contains("""<rect x="0" y="0" width="${rendered.width}" height="""") && rendered.svg.contains("fill=\"url(#band)\""))
+            val corner = png.getPixel(png.width - 4, 4)
+            assertEquals("$format top-right is opaque", 255, Color.alpha(corner))
+            assertTrue("$format top-right is the dark band, not the light page", Color.red(corner) + Color.green(corner) + Color.blue(corner) < 3 * 128)
         }
     }
 
