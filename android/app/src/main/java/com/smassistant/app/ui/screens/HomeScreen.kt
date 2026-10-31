@@ -21,6 +21,7 @@ fun HomeScreen(onNavigate: (String) -> Unit) {
         MenuButton("AI Agent", SmIcon.AGENT) { onNavigate(Routes.AI_AGENTS) }
         MenuButton("SM Assistant", SmIcon.ASSISTANT) { onNavigate(Routes.HUB) }
         MenuButton("Scheduled Posts", SmIcon.SCHEDULE) { onNavigate(Routes.SCHEDULERS) }
+        MenuButton("Post History", SmIcon.HISTORY) { onNavigate(Routes.POST_HISTORY) }
         MenuButton("Default Hash Tags", SmIcon.HASHTAGS) { onNavigate(Routes.DEFAULT_HASHTAGS) }
         MenuButton("API Status", SmIcon.STATUS) { onNavigate(Routes.API_STATUS) }
         MenuButton("Image Style", SmIcon.IMAGE_STYLE) { onNavigate(Routes.IMAGE_STYLE) }
