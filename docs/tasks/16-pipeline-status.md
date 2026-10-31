@@ -12,7 +12,7 @@ Stacked PRs into `f-mobile-app`, one per task, merged in order.
 | PL-3 | `ChatViewModel` keeps a pipeline per input (submit, Ok, Failed, NoAgent, Cancel, Retry, half retries, save/restore); `ChatScreen` shows it under each prompt; the five screens pass their pipeline. | PS-1, PS-4, PS-6 | PR #138 |
 | PL-4 | Post stage: `PostViewModel` keyed posts; the five screens mark `POST` from the Post in LinkedIn flow. | PS-5 | PR #139 |
 | PL-5 | Real stages from the use cases: `stage {}` in text, image (content, drawing) and video (slides, drawing, encoding). | PS-4 | PR #140 |
-| PL-6 | Scheduler: `AutoPostRun` stages per post type, worker progress, live and last-run pipeline on the scheduler card, `RunRecord.stages`. | PS-7, PS-8 | in progress |
+| PL-6 | Scheduler: `AutoPostRun` stages per post type, worker progress, live and last-run pipeline on the scheduler card, `RunRecord.stages`. | PS-7, PS-8 | PR #141 |
 
 ## Validation (on the phone)
 
