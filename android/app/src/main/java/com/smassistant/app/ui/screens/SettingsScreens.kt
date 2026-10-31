@@ -1,7 +1,10 @@
 package com.smassistant.app.ui.screens
 
 import android.widget.Toast
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -18,6 +21,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -56,6 +60,7 @@ import java.text.DateFormat
 import java.util.Date
 
 /** S2 LinkedIn settings: Sign in with LinkedIn (Q-03), or paste an access token as a fallback. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun LinkedInSettingsScreen(onBackToHome: () -> Unit) {
     val appContext = LocalContext.current.applicationContext
@@ -76,6 +81,8 @@ fun LinkedInSettingsScreen(onBackToHome: () -> Unit) {
     }
     // A pasted token replaces the signed-in one: drop the "Signed in as" line.
     LaunchedEffect(pasted.message) { auth.refreshSession() }
+    val tokenSection = remember { BringIntoViewRequester() }
+    var jumpToToken by remember { mutableIntStateOf(0) }
 
     SmScreen(sectionTitle = "LinkedIn", onBackToHome = onBackToHome) {
         LinkedInSignInFields(
@@ -91,7 +98,11 @@ fun LinkedInSettingsScreen(onBackToHome: () -> Unit) {
             },
         )
         HorizontalDivider(Modifier.padding(vertical = 4.dp))
-        Text("Or paste an access token", style = MaterialTheme.typography.titleSmall)
+        Text(
+            "Or paste an access token",
+            style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.bringIntoViewRequester(tokenSection),
+        )
         Text(
             "Use this if you already have a token with the w_member_social permission, e.g. from LinkedIn's OAuth token tool.",
             style = MaterialTheme.typography.bodySmall,
@@ -99,7 +110,19 @@ fun LinkedInSettingsScreen(onBackToHome: () -> Unit) {
         ApiSettingsForm(ApiService.LINKEDIN, pasteForm)
     }
     state.authorizationUrl?.let { url ->
-        LinkedInSignInDialog(url, onNavigate = auth::onBrowserNavigate, onCancel = auth::cancelSignIn)
+        LinkedInSignInDialog(
+            url,
+            onNavigate = auth::onBrowserNavigate,
+            onCancel = auth::cancelSignIn,
+            onUseToken = {
+                auth.cancelSignIn()
+                jumpToToken++
+            },
+        )
+    }
+    // "Paste a token instead" in the sign-in browser (Google-login accounts): scroll to the token form.
+    LaunchedEffect(jumpToToken) {
+        if (jumpToToken > 0) tokenSection.bringIntoView()
     }
 }
 
@@ -145,6 +168,12 @@ fun ColumnScope.LinkedInSignInFields(
     Text(
         "The Client Secret is stored encrypted on this phone only. Use a LinkedIn app made just for SM Assistant.",
         style = MaterialTheme.typography.bodySmall,
+    )
+    Text(
+        "Sign in with your LinkedIn email and password. If you joined LinkedIn with Google, set a LinkedIn password first " +
+            "or paste an access token below: Google doesn't allow signing in inside apps.",
+        style = MaterialTheme.typography.bodySmall,
+        modifier = Modifier.testTag("googleAccountHint"),
     )
     PrimaryButton(
         when {
