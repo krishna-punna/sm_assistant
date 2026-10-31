@@ -344,16 +344,16 @@ class GenerateImagesTest {
     }
 
     @Test
-    fun `content too long for one image becomes a carousel of pages in order`() = runTest {
-        val writer = ScriptedTextAgent(ApiResult.Ok(tooLong()), ApiResult.Ok(carouselReply()))
+    fun `content too long for one image is condensed into one poster, never a carousel`() = runTest {
+        val writer = ScriptedTextAgent(ApiResult.Ok(tooLong()), ApiResult.Ok(caching()))
         val parts = Infographics({ writer }, InfographicWriter("Plan.{{examples}}"), pipeline, carousel = CarouselWriter("Pages {{pages}}.{{examples}}"))
 
         val outcome = GenerateImagesUseCase("{{prompt}}", { null }, IMAGES_PER_REQUEST, infographics = parts)(" Caching ")
 
-        assertEquals(Outcome.Ok(carouselPages.map { File("$it.png") }), outcome)
-        // Only the pages were drawn, never the long single image.
-        assertEquals(carouselPages.sorted(), drawn.sorted())
-        assertTrue(writer.calls[1].first.startsWith("Pages 10."))
+        assertEquals(Outcome.Ok(listOf(File("Caching.png"))), outcome)
+        assertEquals(2, writer.calls.size)
+        assertTrue(writer.calls[1].second.contains("- $CONDENSE_FEEDBACK"))
+        assertTrue(writer.calls.none { it.first.startsWith("Pages") })
     }
 
     @Test
@@ -374,14 +374,34 @@ class GenerateImagesTest {
     }
 
     @Test
-    fun `when no carousel can be made the long image is drawn as one`() = runTest {
-        val writer = ScriptedTextAgent(ApiResult.Ok(tooLong()), ApiResult.Ok("no JSON here"))
+    fun `a poster still too long after condensing is drawn as one`() = runTest {
+        val writer = ScriptedTextAgent(ApiResult.Ok(tooLong()), ApiResult.Ok(tooLong()))
         val parts = Infographics({ writer }, InfographicWriter("Plan.{{examples}}"), pipeline, carousel = CarouselWriter("Pages."))
 
         val outcome = GenerateImagesUseCase("{{prompt}}", { null }, IMAGES_PER_REQUEST, infographics = parts)(" Caching ")
 
         assertEquals(Outcome.Ok(listOf(File("Caching.png"))), outcome)
-        assertEquals(3, writer.calls.size)
+        assertEquals(2, writer.calls.size)
+    }
+
+    @Test
+    fun `when the Carousel layout can't make pages one image is drawn`() = runTest {
+        val writer = ScriptedTextAgent(
+            ApiResult.Ok("1. Request flow"),
+            ApiResult.Ok("""{"primary": "workflow", "alternates": []}"""),
+            ApiResult.Ok("no JSON here"),
+            ApiResult.Ok("no JSON here"),
+            ApiResult.Ok(caching()),
+        )
+        val parts = templated(writer, ImageStyle(audience = "devs", layout = ImageLayout.CAROUSEL))
+        val withCarousel = Infographics(parts.textAgent, parts.writer, pipeline, parts.content, templates = parts.templates, carousel = CarouselWriter("Pages."))
+
+        val outcome = GenerateImagesUseCase("{{prompt}}", { null }, IMAGES_PER_REQUEST, infographics = withCarousel).generate(ImageRequest("Caching"))
+
+        assertEquals(1, (outcome as Outcome.Ok).value.size)
+        // The carousel was asked for twice before the single image was written.
+        assertEquals(2, writer.calls.count { it.first.startsWith("Pages.") })
+        assertTrue(writer.calls.last().second.contains("Image template: Workflow"))
     }
 
     @Test

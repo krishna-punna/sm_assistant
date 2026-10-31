@@ -66,6 +66,7 @@ image_checks:
 # series: true wraps every image in the Series template, so posts look like one series.
 # format: auto (the app picks per image), portrait (2:3), square (1:1) or landscape (3:2).
 # mode: drawn (the app draws the text), painted (the image agent paints the whole image) or both (two of each).
+# layout: auto (one poster; content too long is written shorter), single (one image, smaller text) or carousel (square pages).
 image_style:
   audience: "developers, senior engineers and architects"
   brand_name: ""

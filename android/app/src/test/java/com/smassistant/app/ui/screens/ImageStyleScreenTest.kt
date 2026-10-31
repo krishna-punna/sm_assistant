@@ -49,7 +49,7 @@ class ImageStyleScreenTest {
         compose.onNodeWithText("SM").assertExists()
         compose.onNodeWithTag("styleSeries").assertIsOff()
         compose.onNodeWithTag("styleMode").assertTextEquals("App-drawn (default) ▾")
-        compose.onNodeWithTag("styleLayout").assertTextEquals("Auto: one image or a carousel ▾")
+        compose.onNodeWithTag("styleLayout").assertTextEquals("Auto: one poster ▾")
 
         compose.onNodeWithTag("styleAudience").performTextReplacement("architects")
         compose.onNodeWithTag("styleSeries").performScrollTo().performClick()

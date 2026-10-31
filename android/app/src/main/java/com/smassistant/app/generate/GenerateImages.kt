@@ -13,10 +13,8 @@ import com.smassistant.app.data.ImageFormat
 import com.smassistant.app.data.ImageLayout
 import com.smassistant.app.data.ImageStyle
 import com.smassistant.app.infographic.ImageInspector
-import com.smassistant.app.infographic.InfographicFormat
 import com.smassistant.app.infographic.InfographicPipeline
 import com.smassistant.app.infographic.InfographicRenderer
-import com.smassistant.app.infographic.InfographicSpec
 import com.smassistant.app.infographic.imageProblem
 import com.smassistant.app.infographic.numbered
 import com.smassistant.app.media.AndroidImageInspector
@@ -50,7 +48,7 @@ class Infographics(
     val reviewer: ImageReviewer? = null,
     val retries: Int = 1,
     val templates: Templates? = null,
-    /** Writes the carousel that content too long for one image is split into (docs/design/single-image-carousel.md); null never splits. */
+    /** Writes the carousel pages when the Layout setting is Carousel (docs/requirements/18, SV-5); null never makes one. */
     val carousel: CarouselWriter? = null,
 )
 
@@ -174,10 +172,12 @@ class GenerateImagesUseCase(
                     if (painted != null) {
                         Outcome.Ok(listOf(labelImage(painted, paintBrief!!.template.id, paintBrief.format, painted = true)))
                     } else {
-                        // A painted image that couldn't be made is drawn instead, or split into a carousel.
-                        val split = splitter(parts, writer, topic, content, illustrator, brief)
-                        if (layout == ImageLayout.CAROUSEL) split?.invoke(null)?.let { return@async Outcome.Ok(it) }
-                        infographic(parts, writer, topic, idea, content, illustrator, brief, split.takeIf { layout == ImageLayout.AUTO })
+                        // A painted image that couldn't be made is drawn instead. Only the Carousel layout splits
+                        // (docs/requirements/18, SV-5); Auto condenses content too long for one poster.
+                        if (layout == ImageLayout.CAROUSEL) {
+                            carousel(parts, writer, topic, content, illustrator, brief)?.let { return@async Outcome.Ok(it) }
+                        }
+                        infographic(parts, writer, topic, idea, content, illustrator, brief, condense = layout == ImageLayout.AUTO)
                     }
                 }
             }.awaitAll()
@@ -187,30 +187,27 @@ class GenerateImagesUseCase(
     }
 
     /**
-     * Splits the content into a carousel (docs/design/single-image-carousel.md): the carousel writer
-     * plans the pages, then each is drawn and labelled in order. It gets the single image's
-     * definition that was too long, or null when the Layout setting asks for a carousel anyway.
-     * The pages, or null when fewer than 2 could be made, so a single image is drawn instead.
-     * Null when no carousel writer is set up.
+     * The content as a carousel, made only when the Layout setting is Carousel (docs/requirements/18,
+     * SV-5): the carousel writer plans the pages, then each is drawn and labelled in order. The
+     * pages, or null when no carousel writer is set up or fewer than 2 could be made, so a single
+     * image is drawn instead.
      */
-    private fun splitter(
+    private suspend fun carousel(
         parts: Infographics,
         writer: TextAgent,
         topic: String,
         content: String,
         illustrator: ImageAgent?,
         brief: ImageBrief?,
-    ): (suspend (InfographicSpec?) -> List<File>?)? {
+    ): List<File>? {
         val carousels = parts.carousel ?: return null
-        return { _ ->
-            when (val result = carousels.write(writer, topic, content, brief, parts.pipeline::fits)) {
-                is ApiResult.Failed -> null
-                is ApiResult.Ok -> {
-                    val id = System.currentTimeMillis()
-                    parts.pipeline.drawPages(result.value.numbered(), illustrator)
-                        .takeIf { it.size >= 2 }
-                        ?.mapIndexed { i, file -> labelCarouselPage(file, id, i + 1) }
-                }
+        return when (val result = carousels.write(writer, topic, content, brief, parts.pipeline::fits)) {
+            is ApiResult.Failed -> null
+            is ApiResult.Ok -> {
+                val id = System.currentTimeMillis()
+                parts.pipeline.drawPages(result.value.numbered(), illustrator)
+                    .takeIf { it.size >= 2 }
+                    ?.mapIndexed { i, file -> labelCarouselPage(file, id, i + 1) }
             }
         }
     }
@@ -218,9 +215,9 @@ class GenerateImagesUseCase(
     /**
      * One infographic: written, drawn and reviewed. One the review scores too low is written again
      * with the review's problems, up to [Infographics.retries] times, and the best-scored is kept.
-     * One made from a [brief] is labelled with its template and the format it was drawn in, which
-     * [fitFormat] may have switched to landscape. A definition too long even for that is given to
-     * [split] once, and its carousel pages are the result when it makes them.
+     * One made from a [brief] is labelled with its template and format; the format is never switched.
+     * With [condense], a definition too long for its format at full text size is written again once,
+     * shorter (docs/requirements/18, SV-5), and drawn with smaller text if it still doesn't fit.
      */
     private suspend fun infographic(
         parts: Infographics,
@@ -230,21 +227,22 @@ class GenerateImagesUseCase(
         content: String,
         illustrator: ImageAgent?,
         brief: ImageBrief? = null,
-        split: (suspend (InfographicSpec?) -> List<File>?)? = null,
+        condense: Boolean = true,
     ): Outcome<List<File>> {
         val reviewer = parts.reviewer
         var feedback = emptyList<String>()
         var best: Pair<File, Int>? = null
-        var splitter = split
+        var condensing = condense
         repeat(parts.retries + 1) {
-            val spec = when (val result = parts.writer.write(writer, topic, idea, content, feedback, brief)) {
+            var spec = when (val result = parts.writer.write(writer, topic, idea, content, feedback, brief)) {
                 is ApiResult.Failed -> return best?.let { Outcome.Ok(listOf(it.first)) } ?: Outcome.Failed(result.error, writer.service.displayName)
-                is ApiResult.Ok -> fitFormat(result.value, brief, parts.pipeline::fits)
+                is ApiResult.Ok -> result.value
             }
-            // Too long for one image even as landscape: split into a carousel, or draw it smaller when that fails.
-            splitter?.takeIf { !parts.pipeline.fits(spec) }?.let { carousel ->
-                splitter = null
-                carousel(spec)?.let { return Outcome.Ok(it) }
+            // Too long for one poster: asked once for a shorter one; the longer one is drawn smaller when that fails.
+            if (condensing && !parts.pipeline.fits(spec)) {
+                condensing = false
+                val shorter = parts.writer.write(writer, topic, idea, content, feedback + CONDENSE_FEEDBACK, brief)
+                if (shorter is ApiResult.Ok) spec = shorter.value
             }
             val file = parts.pipeline.draw(spec, illustrator)?.let { drawn -> brief?.let { labelImage(drawn, it.template.id, spec.format.image) } ?: drawn }
             if (file == null) {
@@ -319,16 +317,9 @@ class GenerateImagesUseCase(
         .replace("{{prompt}}", prompt)
 }
 
-/**
- * [spec], or the same definition as a 3:2 landscape when it doesn't [fit] its portrait or square
- * format at full text size but does fit landscape (docs/design/single-image-carousel.md). A format
- * the user picked is never switched, and neither is a definition written without a brief.
- */
-internal fun fitFormat(spec: InfographicSpec, brief: ImageBrief?, fits: (InfographicSpec) -> Boolean): InfographicSpec {
-    if (brief == null || brief.fixedFormat || spec.format == InfographicFormat.LANDSCAPE || fits(spec)) return spec
-    val landscape = spec.copy(format = InfographicFormat.LANDSCAPE)
-    return if (fits(landscape)) landscape else spec
-}
+/** What the writer is told when its definition is too long for one poster (docs/requirements/18, SV-5). */
+internal const val CONDENSE_FEEDBACK =
+    "it is too long for one image at full text size; keep every topic but use at most 11 sections and shorter items, about 6 words each"
 
 /** The request for [prompt] with the template and format last picked on the image screens. */
 fun pickedImageRequest(context: Context, prompt: String): ImageRequest {
