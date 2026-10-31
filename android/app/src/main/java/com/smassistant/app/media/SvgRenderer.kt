@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.graphics.RectF
 import com.caverock.androidsvg.SVG
 import com.caverock.androidsvg.SVGParseException
+import com.smassistant.app.image.render.fillCanvas
 import java.io.ByteArrayOutputStream
 import kotlin.math.roundToInt
 

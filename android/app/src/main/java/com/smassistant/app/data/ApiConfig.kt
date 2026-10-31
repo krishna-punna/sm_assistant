@@ -152,7 +152,7 @@ fun parseImageCheckRules(input: InputStream): ImageCheckRules {
 }
 
 /** An image shape the app allows (docs/design/image-templates.md): never 4:5, 9:16 or 16:9. */
-enum class ImageFormat(val key: String, val words: String) {
+enum class ImageSize(val key: String, val words: String) {
     PORTRAIT("portrait", "portrait 2:3"),
     SQUARE("square", "square 1:1"),
     LANDSCAPE("landscape", "landscape 3:2"),
@@ -160,12 +160,14 @@ enum class ImageFormat(val key: String, val words: String) {
 
     companion object {
         /** The format with [key], or null for "auto" and anything unknown. */
-        fun of(key: String?): ImageFormat? = entries.firstOrNull { it.key.equals(key?.trim(), ignoreCase = true) }
+        fun of(key: String?): ImageSize? = entries.firstOrNull { it.key.equals(key?.trim(), ignoreCase = true) }
     }
 }
 
 /** How an image is made from its filled template: drawn by the app, painted by the image agent, or both side by side. */
 enum class ImageMode(val key: String) {
+    /** Painted by the image agent, and drawn by the app instead when the review finds its text wrong (SV-6). */
+    AUTO("auto"),
     DRAWN("drawn"),
     PAINTED("painted"),
     BOTH("both"),
@@ -173,6 +175,22 @@ enum class ImageMode(val key: String) {
 
     companion object {
         fun of(key: String?): ImageMode? = entries.firstOrNull { it.key.equals(key?.trim(), ignoreCase = true) }
+    }
+}
+
+/**
+ * Whether a request's content is made into one image or a carousel (docs/requirements/18, SV-5):
+ * Auto makes one poster and has content that doesn't fit written shorter, Single always makes one
+ * image (smaller text when it is long), Carousel always makes a carousel.
+ */
+enum class ImageLayout(val key: String) {
+    AUTO("auto"),
+    SINGLE("single"),
+    CAROUSEL("carousel"),
+    ;
+
+    companion object {
+        fun of(key: String?): ImageLayout? = entries.firstOrNull { it.key.equals(key?.trim(), ignoreCase = true) }
     }
 }
 
@@ -186,7 +204,8 @@ enum class ImageMode(val key: String) {
  *   style_guide: ""
  *   series: false
  *   format: auto
- *   mode: both
+ *   mode: auto
+ *   layout: auto
  * ```
  *
  * A null [format] is Auto: the app picks one per image. Missing or invalid values fall back to the defaults.
@@ -196,9 +215,38 @@ data class ImageStyle(
     val brandName: String = "",
     val styleGuide: String = "",
     val series: Boolean = false,
-    val format: ImageFormat? = null,
-    val mode: ImageMode = ImageMode.BOTH,
+    val format: ImageSize? = null,
+    val mode: ImageMode = ImageMode.AUTO,
+    val layout: ImageLayout = ImageLayout.AUTO,
 )
+
+/**
+ * The inputs the video templates take besides the content (docs/requirements/19, SP-15), from
+ * app.yml's own `video_style`, apart from the images' `image_style`:
+ *
+ * ```yaml
+ * video_style:
+ *   audience: "developers, senior engineers and architects"
+ *   brand_name: ""
+ *   style_guide: ""
+ * ```
+ */
+data class VideoStyle(
+    val audience: String = "developers, senior engineers and architects",
+    val brandName: String = "",
+    val styleGuide: String = "",
+)
+
+fun parseVideoStyle(input: InputStream): VideoStyle {
+    val root = Yaml().load<Any?>(input) as? Map<*, *> ?: emptyMap<String, Any?>()
+    val entry = root["video_style"] as? Map<*, *> ?: emptyMap<String, Any?>()
+    val defaults = VideoStyle()
+    return VideoStyle(
+        audience = entry["audience"]?.toString()?.trim() ?: defaults.audience,
+        brandName = entry["brand_name"]?.toString()?.trim() ?: defaults.brandName,
+        styleGuide = entry["style_guide"]?.toString()?.trim() ?: defaults.styleGuide,
+    )
+}
 
 fun parseImageStyle(input: InputStream): ImageStyle {
     val root = Yaml().load<Any?>(input) as? Map<*, *> ?: emptyMap<String, Any?>()
@@ -209,7 +257,8 @@ fun parseImageStyle(input: InputStream): ImageStyle {
         brandName = entry["brand_name"]?.toString()?.trim() ?: defaults.brandName,
         styleGuide = entry["style_guide"]?.toString()?.trim() ?: defaults.styleGuide,
         series = entry["series"]?.toString()?.toBooleanStrictOrNull() ?: defaults.series,
-        format = ImageFormat.of(entry["format"]?.toString()),
+        format = ImageSize.of(entry["format"]?.toString()),
         mode = ImageMode.of(entry["mode"]?.toString()) ?: defaults.mode,
+        layout = ImageLayout.of(entry["layout"]?.toString()) ?: defaults.layout,
     )
 }

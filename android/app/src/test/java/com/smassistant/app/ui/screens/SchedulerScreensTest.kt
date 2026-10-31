@@ -3,12 +3,18 @@ package com.smassistant.app.ui.screens
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasAnyDescendant
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
+import com.smassistant.app.data.ImageSize
+import com.smassistant.app.image.ImageTemplate
 import com.smassistant.app.scheduler.AutoPostScheduler
 import com.smassistant.app.scheduler.Frequency
 import com.smassistant.app.scheduler.PostType
@@ -16,6 +22,7 @@ import com.smassistant.app.scheduler.RunRecord
 import com.smassistant.app.scheduler.Schedule
 import com.smassistant.app.scheduler.SchedulerEditorUiState
 import com.smassistant.app.scheduler.SchedulersUiState
+import com.smassistant.app.scheduler.formatRunTime
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -44,6 +51,7 @@ class SchedulerScreensTest {
     private fun showList(state: SchedulersUiState, notificationsAllowed: Boolean = true) = compose.setContent {
         SchedulersContent(
             state = state,
+            templateNames = mapOf("workflow" to "Workflow"),
             notificationsAllowed = notificationsAllowed,
             onAllowNotifications = { calls += "allow" },
             onAdd = { calls += "add" },
@@ -81,6 +89,13 @@ class SchedulerScreensTest {
     }
 
     @Test
+    fun theLastRunShowsTheTemplateItsImagesFollowed() {
+        val posted = kafka.copy(lastRun = RunRecord(0, ok = true, message = "Posted “Kafka Partitions”", template = "workflow"))
+        showList(SchedulersUiState(listOf(posted)))
+        compose.onNodeWithTag("lastRun-k").assertTextEquals("✓ ${formatRunTime(0)}: Posted “Kafka Partitions” · Text & Image · Workflow")
+    }
+
+    @Test
     fun deleteAsksFirst() {
         showList(SchedulersUiState(listOf(java)))
         compose.onNodeWithText("Delete").performClick()
@@ -99,10 +114,36 @@ class SchedulerScreensTest {
             actions = SchedulerEditorActions(
                 onToggleTopic = { calls += "topic:$it" },
                 onToggleDay = { calls += "day:$it" },
+                onImageTemplate = { calls += "template:$it" },
+                onImageFormat = { calls += "format:$it" },
                 onSave = { calls += "save" },
             ),
             onBackToHome = { calls += "home" },
+            templates = listOf(ImageTemplate("workflow", "Workflow", "", ""), ImageTemplate("concept", "Concept Explainer", "", "")),
         )
+    }
+
+    @Test
+    fun imagePostsCanFixTheTemplateAndFormat() {
+        showEditor(SchedulerEditorUiState(AutoPostScheduler(postType = PostType.IMAGE, imageTemplate = "workflow")))
+        compose.onNodeWithTag("scheduleTemplateDropdown").assertTextEquals("Workflow ▾").performClick()
+        pick("Auto (AI picks)")
+        compose.onNodeWithTag("scheduleFormatDropdown").assertTextEquals("Auto ▾").performClick()
+        pick("Square 1:1")
+        assertEquals(listOf("template:null", "format:${ImageSize.SQUARE}"), calls)
+    }
+
+    @Test
+    fun textPostsHaveNoImagePickers() {
+        showEditor(SchedulerEditorUiState(AutoPostScheduler(postType = PostType.TEXT)))
+        compose.onNodeWithTag("scheduleTemplateDropdown").assertDoesNotExist()
+        compose.onNodeWithTag("scheduleFormatDropdown").assertDoesNotExist()
+    }
+
+    /** Runs a menu item's click action directly, so a long menu can't put it outside the window. */
+    private fun pick(text: String) {
+        compose.onNode(hasClickAction() and hasAnyDescendant(hasText(text)), useUnmergedTree = true)
+            .performSemanticsAction(SemanticsActions.OnClick)
     }
 
     @Test

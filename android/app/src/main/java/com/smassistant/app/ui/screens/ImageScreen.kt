@@ -13,29 +13,35 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.smassistant.app.chat.sessionChatViewModel
 import com.smassistant.app.chat.ImagesSaver
+import com.smassistant.app.chat.sessionChatViewModel
+import com.smassistant.app.data.MediaPurpose
 import com.smassistant.app.generate.GenerateContentAndMediaUseCase
-import com.smassistant.app.generate.appGenerateImages
-import com.smassistant.app.generate.imageLabel
-import com.smassistant.app.generate.parseImageTemplates
-import com.smassistant.app.generate.text
-import com.smassistant.app.generate.pickedImageRequest
 import com.smassistant.app.generate.appSmartTrim
+import com.smassistant.app.image.appGenerateImages
+import com.smassistant.app.image.imageLabel
+import com.smassistant.app.image.isCarousel
+import com.smassistant.app.image.parseImageTemplates
+import com.smassistant.app.image.pickedImageRequest
+import com.smassistant.app.image.text
 import com.smassistant.app.linkedin.PostState
 import com.smassistant.app.linkedin.PostViewModel
 import com.smassistant.app.linkedin.appPostToLinkedIn
+import com.smassistant.app.media.imagePixels
+import com.smassistant.app.media.sizeText
 import com.smassistant.app.navigation.Feature
 import com.smassistant.app.prompt.loadPromptAsset
-import com.smassistant.app.ui.components.ImageTemplatePickers
-import com.smassistant.app.ui.components.MediaAgentDropdown
+import com.smassistant.app.ui.components.BackToHomeButton
+import com.smassistant.app.ui.components.CarouselPager
 import com.smassistant.app.ui.components.ImagePreview
 import com.smassistant.app.ui.components.ImageStrip
+import com.smassistant.app.ui.components.ImageTemplatePickers
+import com.smassistant.app.ui.components.MediaActions
+import com.smassistant.app.ui.components.MediaAgentDropdown
 import com.smassistant.app.ui.components.PostDialogs
 import com.smassistant.app.ui.components.PostInLinkedInButton
 import com.smassistant.app.ui.components.PromptCard
 import com.smassistant.app.ui.components.TextAgentDropdown
-import com.smassistant.app.ui.components.BackToHomeButton
 import java.io.File
 
 /** S10 Generate Image (docs/requirements/06 §6.2): prompt card, image strip, full preview. */
@@ -63,7 +69,7 @@ fun ImageScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToH
         onSetUpAgent = onSetUpAgent,
         onBackToHome = onBackToHome,
         header = {
-            TextAgentDropdown(label = "Text agent", showModel = true)
+            TextAgentDropdown(showModel = true, purpose = MediaPurpose.IMAGE)
             MediaAgentDropdown()
             ImageTemplatePickers()
         },
@@ -77,6 +83,7 @@ fun ImageScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToH
             )
         },
         noAgentMessage = GenerateContentAndMediaUseCase.IMAGES_NOT_SET_UP,
+        onRegenerate = viewModel::retry,
     )
     PostDialogs(
         state = postState,
@@ -84,14 +91,17 @@ fun ImageScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToH
         onTrimWithAi = postViewModel::trimWithAi,
         onCutToFit = postViewModel::cutToFit,
         onConfirm = postViewModel::confirm,
+        onSaveDraft = if (postViewModel.canSaveDraft) postViewModel::saveDraft else null,
         onDismiss = postViewModel::dismiss,
         onOpenSettings = onSetUpLinkedIn,
     )
 }
 
 /**
- * One generation: the strip, then Post in LinkedIn for the selected images (IM-4, IM-5).
- * The preview posts the image it shows. Content & Image also posts its text through [onPost].
+ * One generation: the strip, then Post in LinkedIn for the selected images (IM-4, IM-5),
+ * then Share and Save to Gallery for the same selection. The preview acts on the image it shows.
+ * Content & Image also posts its text through [onPost]. A carousel's pages are shown one at a time
+ * and always posted, shared and saved together (SC-I5).
  */
 @Composable
 fun ImageResult(
@@ -101,38 +111,55 @@ fun ImageResult(
     onBackToHome: () -> Unit,
     canPostWithoutImages: Boolean = false,
 ) {
+    val carousel = remember(images) { isCarousel(images) }
     var selected by rememberSaveable(images) { mutableStateOf(images.indices.toSet()) }
     var previewIndex by rememberSaveable(images) { mutableStateOf<Int?>(null) }
     val appContext = LocalContext.current.applicationContext
-    // "Workflow · 2:3" under each image made from a template (docs/design/image-templates.md).
+    // Each image's real size, so a wrong shape shows (docs/requirements/18, SV-10).
+    val pixels = remember(images) { images.map { imagePixels(it) } }
+    // "Workflow · 2:3 · 2160×3240" under each image made from a template (docs/design/image-templates.md),
+    // just the size under any other.
     val labels = remember(images) {
-        val templates = runCatching { parseImageTemplates(loadPromptAsset(appContext, "image_templates")) }.getOrDefault(emptyList())
-        images.map { file -> imageLabel(file)?.text(templates) }
+        val templates = runCatching { parseImageTemplates(loadPromptAsset(appContext, "image/image_templates")) }.getOrDefault(emptyList())
+        images.zip(pixels) { file, size ->
+            val words = size?.let { (w, h) -> sizeText(w, h) }
+            imageLabel(file)?.text(templates, words) ?: words
+        }
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        ImageStrip(
-            images = images,
-            selected = selected,
-            onToggle = { index -> selected = if (index in selected) selected - index else selected + index },
-            onOpen = { previewIndex = it },
-            labels = labels,
-        )
+        if (carousel) {
+            CarouselPager(images, onOpen = { previewIndex = it }, sizes = pixels.map { size -> size?.let { (w, h) -> sizeText(w, h) } })
+        } else {
+            ImageStrip(
+                images = images,
+                selected = selected,
+                onToggle = { index -> selected = if (index in selected) selected - index else selected + index },
+                onOpen = { previewIndex = it },
+                labels = labels,
+                ratios = pixels.map { size -> size?.let { (w, h) -> w.toFloat() / h } },
+            )
+        }
         PostInLinkedInButton(
-            onClick = { onPost(images.filterIndexed { index, _ -> index in selected }) },
-            enabled = canPostWithoutImages || selected.isNotEmpty(),
+            onClick = { onPost(if (carousel) images else images.filterIndexed { index, _ -> index in selected }) },
+            enabled = carousel || canPostWithoutImages || selected.isNotEmpty(),
             busy = posting,
+        )
+        MediaActions(
+            files = { if (carousel) images else images.filterIndexed { index, _ -> index in selected } },
+            enabled = carousel || selected.isNotEmpty(),
         )
     }
     previewIndex?.let { start ->
-        ImagePreview(images, start, onDismiss = { previewIndex = null }) { current ->
+        ImagePreview(images, start, onDismiss = { previewIndex = null }, noun = if (carousel) "Page" else "Image") { current ->
             PostInLinkedInButton(
                 onClick = {
                     previewIndex = null
-                    onPost(listOf(images[current]))
+                    onPost(if (carousel) images else listOf(images[current]))
                 },
                 busy = posting,
             )
+            MediaActions(files = { listOf(images[current]) })
             BackToHomeButton(onClick = {
                 previewIndex = null
                 onBackToHome()

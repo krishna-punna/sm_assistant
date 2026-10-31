@@ -31,7 +31,12 @@ Status values: **done** (implemented and matches the requirement), **partial** (
 | [07-post-to-linkedin.md](07-post-to-linkedin.md) | Post in LinkedIn | LP-1…5 |
 | [08-scheduled-posts.md](08-scheduled-posts.md) | Scheduled LinkedIn posts | SC-1…10 |
 | [09-prompt-types-and-media.md](09-prompt-types-and-media.md) | Prompt types and the image/video content workflow | PT-1…5, MW-1…4 |
-| [10-image-templates.md](10-image-templates.md) | Image prompt templates: AI picks and fills a template (planned) | IT-I1…14 |
+| [10-image-templates.md](10-image-templates.md) | Image prompt templates: AI picks and fills a template | IT-I1…15 |
+| [11-video-templates.md](11-video-templates.md) | Video prompt templates: the agent picks a video template and plans the storyboard by it (planned) | VT-I1…8 |
+| [12-app-improvements.md](12-app-improvements.md) | App improvements from the 2026-10-29 review (P2: share/save media, post history, drafts, agent warnings, settings Test, sign-in note, character count) | #6…#12 |
+| [13-single-image-carousel.md](13-single-image-carousel.md) | One image per request, or a carousel when the content needs it | SC-1…4 |
+| [14-separate-image-video.md](14-separate-image-video.md) | Separate image and video pipelines; one poster like the samples | SV-1…12 |
+| [15-isolated-pipelines.md](15-isolated-pipelines.md) | Fully isolated image and video pipelines (IP-1…7) | SP-1…16 |
 
 ## Phases
 
@@ -62,7 +67,7 @@ flowchart LR
 
 P1 and P2 can run in parallel once P0 is in.
 
-## Status summary (after the saved-state PR)
+## Status summary (updated 2026-10-30)
 
 | Area | Done | Partial | Todo | Blocked |
 |------|------|---------|------|---------|
@@ -75,8 +80,11 @@ P1 and P2 can run in parallel once P0 is in.
 | Content generation | 20 | 0 | 1 | 0 |
 | Post to LinkedIn (LP) | 7 | 0 | 0 | 0 |
 | Scheduled posts (SC) | 12 | 0 | 0 | 0 |
+| Prompt types and media (PT, MW) | 5 | 0 | 0 | 0 |
+| Image templates (IT) | 14 | 0 | 0 | 0 |
+| Video templates (VT) | 0 | 0 | 8 | 0 |
 
-Counts are per requirement row in each file (per task for Foundation). What's left: the optional rows waiting on Q-06, Q-22 and Q-23; the release tasks (REL-*); and the manual validation (`-V`) checks, which need a device. Unit and Robolectric UI tests run in CI on every PR.
+Counts are per requirement row in each file (per task for Foundation, Prompt types, Image and Video templates; IT-I12 was replaced by the video templates, which are planned in a separate thread). What's left: the optional rows waiting on Q-06, Q-22 and Q-23; the release tasks (REL-*); and the manual validation (`-V`) checks, which need a device. Unit and Robolectric UI tests run in CI on every PR.
 
 ## Defects found in the current code
 

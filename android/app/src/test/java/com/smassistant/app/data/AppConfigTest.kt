@@ -139,14 +139,14 @@ class AppConfigTest {
     @Test
     fun `image style comes from app yml with defaults for missing or invalid values`() {
         assertEquals(
-            ImageStyle("students", "Acme", "navy cards", true, ImageFormat.LANDSCAPE, ImageMode.DRAWN),
+            ImageStyle("students", "Acme", "navy cards", true, ImageSize.LANDSCAPE, ImageMode.DRAWN, ImageLayout.CAROUSEL),
             parseImageStyle(
-                "image_style:\n  audience: students\n  brand_name: Acme\n  style_guide: navy cards\n  series: true\n  format: Landscape\n  mode: drawn"
+                "image_style:\n  audience: students\n  brand_name: Acme\n  style_guide: navy cards\n  series: true\n  format: Landscape\n  mode: drawn\n  layout: carousel"
                     .byteInputStream(),
             ),
         )
         assertEquals(ImageStyle(), parseImageStyle("apis: {}".byteInputStream()))
-        assertEquals(ImageStyle(), parseImageStyle("image_style:\n  series: maybe\n  format: 4:5\n  mode: video".byteInputStream()))
+        assertEquals(ImageStyle(), parseImageStyle("image_style:\n  series: maybe\n  format: 4:5\n  mode: video\n  layout: tall".byteInputStream()))
         assertEquals(ImageStyle(), File("src/main/assets/app.yml").inputStream().use(::parseImageStyle))
     }
 }

@@ -1,8 +1,11 @@
 package com.smassistant.app.scheduler
 
 import com.smassistant.app.chat.Outcome
+import com.smassistant.app.data.ImageSize
 import com.smassistant.app.generate.GenerateContentAndMediaUseCase
-import com.smassistant.app.generate.GeneratedVideo
+import com.smassistant.app.history.PostSource
+import com.smassistant.app.history.PublishedPost
+import com.smassistant.app.image.ImageRequest
 import com.smassistant.app.linkedin.LinkedInPost
 import com.smassistant.app.linkedin.PostToLinkedInUseCase
 import com.smassistant.app.linkedin.SignInExpiry
@@ -11,6 +14,7 @@ import com.smassistant.app.net.ApiResult
 import com.smassistant.app.prompt.PreparedPrompt
 import com.smassistant.app.prompt.PromptSet
 import com.smassistant.app.prompt.PromptType
+import com.smassistant.app.video.GeneratedVideo
 import java.io.File
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -31,6 +35,7 @@ class AutoPostRunTest {
     private var video: Outcome<GeneratedVideo> = Outcome.Ok(GeneratedVideo(File("v.mp4"), emptyList()))
     private var reply: ApiResult<LinkedInPost> = ApiResult.Ok(LinkedInPost("urn:li:share:7"))
     private val prompts = mutableListOf<String>()
+    private val imageRequests = mutableListOf<ImageRequest>()
     private var expiry: SignInExpiry? = null
 
     private val linkedIn = PostToLinkedInUseCase(
@@ -51,7 +56,7 @@ class AutoPostRunTest {
             }
         },
         generateText = { prompts += it; text },
-        generateImages = { prompts += "images: $it"; images },
+        generateImages = { imageRequests += it; prompts += "images: ${it.prompt}"; images },
         generateVideo = { prompts += "video: $it"; video },
         linkedIn = linkedIn,
         now = { 1000L },
@@ -131,6 +136,44 @@ class AutoPostRunTest {
     }
 
     @Test
+    fun `image posts follow the scheduler's template and format and record the template used`() = runTest {
+        images = Outcome.Ok(listOf(File("tpl-workflow-portrait-a.png"), File("tpl-concept-square-b.png")))
+
+        val fixed = run(scheduler(PostType.IMAGE).copy(imageTemplate = "workflow", imageFormat = ImageSize.PORTRAIT))
+        val held = run(scheduler(PostType.TEXT_WITH_IMAGE).copy(reviewFirst = true))
+
+        assertEquals(
+            listOf(
+                ImageRequest("Explain everything about partitions", "workflow", ImageSize.PORTRAIT),
+                ImageRequest("Explain everything about partitions"),
+            ),
+            imageRequests,
+        )
+        assertEquals("workflow", fixed.record.template)
+        assertEquals("workflow", held.record.template)
+        assertEquals("workflow", held.held!!.template)
+        // Images without a template label (no text agent) record none.
+        images = Outcome.Ok(listOf(File("a.png")))
+        assertNull(run(scheduler(PostType.IMAGE)).record.template)
+    }
+
+    @Test
+    fun `a carousel run records its page count`() = runTest {
+        images = Outcome.Ok((1..5).map { File("carousel-3-p0$it-page.png") })
+        assertEquals(5, run(scheduler(PostType.IMAGE)).record.carouselPages)
+        images = Outcome.Ok(listOf(File("a.png"), File("b.png")))
+        assertNull(run(scheduler(PostType.IMAGE)).record.carouselPages)
+    }
+
+    @Test
+    fun `video posts record the template the video followed`() = runTest {
+        video = Outcome.Ok(GeneratedVideo(File("vtpl-architecture-landscape-v.mp4"), emptyList()))
+        assertEquals("architecture", run(scheduler(PostType.VIDEO)).record.template)
+        video = Outcome.Ok(GeneratedVideo(File("v.mp4"), emptyList()))
+        assertNull(run(scheduler(PostType.TEXT_WITH_VIDEO)).record.template)
+    }
+
+    @Test
     fun `a run is skipped while an earlier post waits for review`() = runTest {
         val waiting = PendingPost("Kafka Partitions", "text")
         val outcome = run(scheduler().copy(reviewFirst = true, pending = waiting))
@@ -206,5 +249,31 @@ class AutoPostRunTest {
                 "such as a feature, pattern, pitfall or design problem an experienced developer would want explained.",
             AutoPostRun.topicRequest("Angular", emptyList()),
         )
+    }
+
+    @Test
+    fun `scheduled posts go into the history and history titles are avoided`() = runTest {
+        val history = mutableListOf<PublishedPost>()
+        val recorded = PostToLinkedInUseCase(
+            tags = { listOf("#java") },
+            tagsEnabled = { tagsOn },
+            configured = { configured },
+            publish = { body, files -> published += body to files; reply },
+            limit = 60,
+            onPublished = { history += it },
+        )
+        val withHistory = AutoPostRun(
+            preparePrompt = { topic, type -> topics += topic; Outcome.Ok(PromptSet(type, PreparedPrompt("Kafka Partitions", "p"), null)) },
+            generateText = { text },
+            generateImages = { images },
+            generateVideo = { video },
+            linkedIn = recorded,
+            now = { 1000L },
+            historyTitles = { listOf("Redis Eviction", "Kafka Consumer Groups") },
+        )
+        withHistory(scheduler())
+        assertTrue(topics.single().contains("Kafka Consumer Groups; Redis Eviction"))
+        assertEquals(PostSource.SCHEDULED, history.single().source)
+        assertEquals("Kafka Partitions", history.single().title)
     }
 }

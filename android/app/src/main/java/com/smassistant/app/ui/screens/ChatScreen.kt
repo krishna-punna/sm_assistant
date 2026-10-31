@@ -2,12 +2,14 @@ package com.smassistant.app.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
@@ -40,6 +42,8 @@ fun <R> ChatScreen(
     resultContent: @Composable (R) -> Unit,
     noAgentMessage: String = "No AI agent is set up yet. Add an API key for one of the agents in AI Agent settings.",
     header: @Composable () -> Unit = {},
+    /** Shows Regenerate under each result, which runs its input again in its place (one image per request, SC-I1). */
+    onRegenerate: ((ChatItem<R>) -> Unit)? = null,
 ) {
     val listState = rememberLazyListState()
     LaunchedEffect(state.items.size) {
@@ -78,7 +82,14 @@ fun <R> ChatScreen(
                             "Set up an AI agent",
                             onSetUpAgent,
                         )
-                        is ChatItem.Result -> resultContent(item.value)
+                        is ChatItem.Result -> if (onRegenerate == null) {
+                            resultContent(item.value)
+                        } else {
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                resultContent(item.value)
+                                TextButton(onClick = { onRegenerate(item) }, enabled = !state.busy) { Text("Regenerate") }
+                            }
+                        }
                     }
                 }
             }

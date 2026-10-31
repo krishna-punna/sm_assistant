@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.userMessage
+import java.util.WeakHashMap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -21,10 +22,9 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.long
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.long
 import kotlinx.serialization.json.put
-import java.util.WeakHashMap
 
 /** What one generation produced. */
 sealed interface Outcome<out R> {
@@ -148,12 +148,13 @@ class ChatViewModel<R>(
         run(input)
     }
 
-    /** Runs the generation for the input behind [item] again, in place of [item]. */
+    /** Runs the generation for the input behind [item] (a failure, or a result to regenerate) again, in place of [item]. */
     fun retry(item: ChatItem<R>) {
         if (_state.value.busy) return
         val forInput = when (item) {
             is ChatItem.Failure -> item.forInput
             is ChatItem.NoAgent -> item.forInput
+            is ChatItem.Result -> item.forInput
             else -> return
         }
         val input = _state.value.items.filterIsInstance<ChatItem.Input>().firstOrNull { it.id == forInput } ?: return

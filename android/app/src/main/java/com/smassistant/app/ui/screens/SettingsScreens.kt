@@ -1,6 +1,7 @@
 package com.smassistant.app.ui.screens
 
 import android.widget.Toast
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -9,6 +10,8 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -18,6 +21,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -34,8 +38,10 @@ import com.smassistant.app.agents.AgentPreferences
 import com.smassistant.app.agents.IMAGE_AGENTS
 import com.smassistant.app.agents.TEXT_AGENTS
 import com.smassistant.app.data.AiModel
+import com.smassistant.app.data.ApiConnectionCheck
 import com.smassistant.app.data.ApiService
 import com.smassistant.app.data.ApiSettingsStore
+import com.smassistant.app.data.ConnectionStatus
 import com.smassistant.app.data.MediaPurpose
 import com.smassistant.app.data.ModelCatalog
 import com.smassistant.app.linkedin.LinkedInAuthStore
@@ -54,6 +60,7 @@ import java.text.DateFormat
 import java.util.Date
 
 /** S2 LinkedIn settings: Sign in with LinkedIn (Q-03), or paste an access token as a fallback. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun LinkedInSettingsScreen(onBackToHome: () -> Unit) {
     val appContext = LocalContext.current.applicationContext
@@ -74,6 +81,8 @@ fun LinkedInSettingsScreen(onBackToHome: () -> Unit) {
     }
     // A pasted token replaces the signed-in one: drop the "Signed in as" line.
     LaunchedEffect(pasted.message) { auth.refreshSession() }
+    val tokenSection = remember { BringIntoViewRequester() }
+    var jumpToToken by remember { mutableIntStateOf(0) }
 
     SmScreen(sectionTitle = "LinkedIn", onBackToHome = onBackToHome) {
         LinkedInSignInFields(
@@ -89,7 +98,11 @@ fun LinkedInSettingsScreen(onBackToHome: () -> Unit) {
             },
         )
         HorizontalDivider(Modifier.padding(vertical = 4.dp))
-        Text("Or paste an access token", style = MaterialTheme.typography.titleSmall)
+        Text(
+            "Or paste an access token",
+            style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.bringIntoViewRequester(tokenSection),
+        )
         Text(
             "Use this if you already have a token with the w_member_social permission, e.g. from LinkedIn's OAuth token tool.",
             style = MaterialTheme.typography.bodySmall,
@@ -97,7 +110,19 @@ fun LinkedInSettingsScreen(onBackToHome: () -> Unit) {
         ApiSettingsForm(ApiService.LINKEDIN, pasteForm)
     }
     state.authorizationUrl?.let { url ->
-        LinkedInSignInDialog(url, onNavigate = auth::onBrowserNavigate, onCancel = auth::cancelSignIn)
+        LinkedInSignInDialog(
+            url,
+            onNavigate = auth::onBrowserNavigate,
+            onCancel = auth::cancelSignIn,
+            onUseToken = {
+                auth.cancelSignIn()
+                jumpToToken++
+            },
+        )
+    }
+    // "Paste a token instead" in the sign-in browser (Google-login accounts): scroll to the token form.
+    LaunchedEffect(jumpToToken) {
+        if (jumpToToken > 0) tokenSection.bringIntoView()
     }
 }
 
@@ -143,6 +168,12 @@ fun ColumnScope.LinkedInSignInFields(
     Text(
         "The Client Secret is stored encrypted on this phone only. Use a LinkedIn app made just for SM Assistant.",
         style = MaterialTheme.typography.bodySmall,
+    )
+    Text(
+        "Sign in with your LinkedIn email and password. If you joined LinkedIn with Google, set a LinkedIn password first " +
+            "or paste an access token below: Google doesn't allow signing in inside apps.",
+        style = MaterialTheme.typography.bodySmall,
+        modifier = Modifier.testTag("googleAccountHint"),
     )
     PrimaryButton(
         when {
@@ -256,7 +287,12 @@ fun AgentSettingsScreen(agent: AiAgent, onBackToHome: () -> Unit) {
 private fun apiSettingsViewModel(service: ApiService): ApiSettingsViewModel {
     val appContext = LocalContext.current.applicationContext
     return viewModel(key = service.name) {
-        ApiSettingsViewModel(service, ApiSettingsStore(appContext), catalog = if (service in TEXT_AGENTS) ModelCatalog() else null)
+        ApiSettingsViewModel(
+            service,
+            ApiSettingsStore(appContext),
+            catalog = if (service in TEXT_AGENTS) ModelCatalog() else null,
+            check = ApiConnectionCheck()::check,
+        )
     }
 }
 
@@ -279,7 +315,8 @@ private fun ColumnScope.ApiSettingsForm(service: ApiService, viewModel: ApiSetti
         onApiChange = viewModel::onApiChange,
         onKeyChange = viewModel::onKeyChange,
         onAccountIdChange = viewModel::onAccountIdChange,
-        onSave = viewModel::onSave,
+        onSave = { viewModel.onSave() },
+        onTest = viewModel::test,
         onModelChange = viewModel::onModelChange,
         onImageModelChange = viewModel::onImageModelChange,
         onVideoModelChange = viewModel::onVideoModelChange,
@@ -300,6 +337,7 @@ fun ColumnScope.ApiSettingsFields(
     onImageModelChange: (String) -> Unit = {},
     onVideoModelChange: (String) -> Unit = {},
     onRefreshModels: () -> Unit = {},
+    onTest: () -> Unit = {},
 ) {
     val apiError = state.apiError
     val keyError = state.keyError
@@ -349,6 +387,41 @@ fun ColumnScope.ApiSettingsFields(
         ModelPickers(state, onModelChange, onImageModelChange, onVideoModelChange, onRefreshModels)
     }
     PrimaryButton("SAVE", onClick = onSave)
+    if (state.canTest) TestRow(state.testStatus, onTest)
+}
+
+/** Test (AS-7): checks the key with the API Status request and says what it found, next to SAVE. */
+@Composable
+private fun TestRow(status: ConnectionStatus?, onTest: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        val (text, ok) = when (status) {
+            null -> "Check the key works with a quick read-only request." to null
+            ConnectionStatus.Checking -> "Testing…" to null
+            ConnectionStatus.Connected -> "✓ Connected: the key works" to true
+            ConnectionStatus.NotConfigured -> "Save the API and key first" to false
+            ConnectionStatus.InvalidKey -> "✗ Invalid key: the API rejected it" to false
+            ConnectionStatus.NoPermission -> "⚠ No access: the key works but lacks permission for this check" to false
+            is ConnectionStatus.Unreachable -> "✗ Unreachable: ${status.reason}" to false
+            is ConnectionStatus.Error -> "✗ Error: unexpected response (HTTP ${status.httpCode})" to false
+        }
+        Text(
+            text,
+            style = MaterialTheme.typography.bodySmall,
+            color = when (ok) {
+                true -> MaterialTheme.colorScheme.primary
+                false -> MaterialTheme.colorScheme.error
+                null -> MaterialTheme.colorScheme.onSurfaceVariant
+            },
+            modifier = Modifier
+                .weight(1f)
+                .testTag("testStatus"),
+        )
+        TextButton(
+            onClick = onTest,
+            enabled = status != ConnectionStatus.Checking,
+            modifier = Modifier.testTag("testButton"),
+        ) { Text("Test") }
+    }
 }
 
 /** Model dropdowns (Q-04) with the list's status and a Refresh that fetches it again. */

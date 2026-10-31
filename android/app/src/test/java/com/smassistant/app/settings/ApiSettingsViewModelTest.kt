@@ -6,6 +6,7 @@ import com.smassistant.app.data.AiModel
 import com.smassistant.app.data.ApiConfig
 import com.smassistant.app.data.ApiService
 import com.smassistant.app.data.ApiSettingsStore
+import com.smassistant.app.data.ConnectionStatus
 import com.smassistant.app.data.FakeCipher
 import com.smassistant.app.data.ModelCatalog
 import com.smassistant.app.data.ModelLists
@@ -242,5 +243,36 @@ class ApiSettingsViewModelTest {
         val gemini = ApiSettingsUiState(models = lists, videoModel = "image-b")
         assertEquals(listOf("image-a"), gemini.imageOptions.map { it.id })
         assertEquals(listOf("image-b", "image-a"), gemini.videoOptions.map { it.id })
+    }
+
+    @Test
+    fun `test saves what's on the screen, checks it and remembers the result`() {
+        val checked = mutableListOf<ApiConfig>()
+        var result: ConnectionStatus = ConnectionStatus.InvalidKey
+        val vm = ApiSettingsViewModel(ApiService.GROQ, store, check = { _, config -> checked += config; result })
+        assertTrue(vm.state.value.canTest)
+
+        vm.onKeyChange("gsk-typed")
+        vm.test()
+        assertEquals("gsk-typed", checked.single().key)
+        assertEquals("gsk-typed", store.load(ApiService.GROQ).key)
+        assertEquals(ConnectionStatus.InvalidKey, vm.state.value.testStatus)
+        assertEquals(ConnectionStatus.InvalidKey, store.lastStatus(ApiService.GROQ))
+
+        result = ConnectionStatus.Connected
+        vm.test()
+        assertEquals(ConnectionStatus.Connected, vm.state.value.testStatus)
+        vm.onKeyChange("gsk-other")
+        assertNull(vm.state.value.testStatus)
+    }
+
+    @Test
+    fun `test stops at a field error and is hidden without a check`() {
+        val vm = ApiSettingsViewModel(ApiService.GROQ, store, check = { _, _ -> ConnectionStatus.Connected })
+        vm.onKeyChange("")
+        vm.test()
+        assertNull(vm.state.value.testStatus)
+        assertTrue(vm.state.value.keyError != null)
+        assertFalse(ApiSettingsViewModel(ApiService.GROQ, store).state.value.canTest)
     }
 }

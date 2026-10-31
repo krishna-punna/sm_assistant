@@ -65,11 +65,22 @@ image_checks:
 # style_guide: colours, fonts and layout to keep, e.g. "navy and teal, rounded cards"; empty: a restrained professional style.
 # series: true wraps every image in the Series template, so posts look like one series.
 # format: auto (the app picks per image), portrait (2:3), square (1:1) or landscape (3:2).
-# mode: drawn (the app draws the text), painted (the image agent paints the whole image) or both (two of each).
+# mode: auto (the image agent paints the poster; the app draws it instead when the review finds its text wrong),
+#   drawn (the app draws the text), painted (the image agent paints the whole image) or both (two of each).
+# layout: auto (one poster; content too long is written shorter), single (one image, smaller text) or carousel (square pages).
 image_style:
   audience: "developers, senior engineers and architects"
   brand_name: ""
   style_guide: ""
   series: false
   format: auto
-  mode: both
+  mode: auto
+  layout: auto
+
+# Inputs for the video templates (docs/requirements/19), apart from the images' image_style.
+# audience: who the videos are for. brand_name: drawn small on each slide when set.
+# style_guide: colours and look to keep; empty: a restrained professional style.
+video_style:
+  audience: "developers, senior engineers and architects"
+  brand_name: ""
+  style_guide: ""

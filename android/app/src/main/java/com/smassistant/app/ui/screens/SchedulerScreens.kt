@@ -38,20 +38,23 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextOverflow
-import com.smassistant.app.generate.appSmartTrim
-import com.smassistant.app.linkedin.PostState
-import com.smassistant.app.linkedin.PostViewModel
-import com.smassistant.app.linkedin.appPostToLinkedIn
-import com.smassistant.app.scheduler.PendingPost
-import com.smassistant.app.ui.components.PostDialogs
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.smassistant.app.data.ImageSize
+import com.smassistant.app.generate.appSmartTrim
+import com.smassistant.app.image.ImageTemplate
+import com.smassistant.app.image.parseImageTemplates
+import com.smassistant.app.linkedin.PostState
+import com.smassistant.app.linkedin.PostViewModel
+import com.smassistant.app.linkedin.appPostToLinkedIn
+import com.smassistant.app.prompt.loadPromptAsset
 import com.smassistant.app.scheduler.AutoPostScheduler
 import com.smassistant.app.scheduler.Frequency
+import com.smassistant.app.scheduler.PendingPost
 import com.smassistant.app.scheduler.PostType
 import com.smassistant.app.scheduler.Schedule
 import com.smassistant.app.scheduler.SchedulerEditorUiState
@@ -62,10 +65,12 @@ import com.smassistant.app.scheduler.SchedulersUiState
 import com.smassistant.app.scheduler.SchedulersViewModel
 import com.smassistant.app.scheduler.TechTopics
 import com.smassistant.app.scheduler.formatRunTime
+import com.smassistant.app.ui.components.PostDialogs
 import com.smassistant.app.ui.components.PrimaryButton
 import com.smassistant.app.ui.components.SelectDropdown
 import com.smassistant.app.ui.components.SignInWarningCard
 import com.smassistant.app.ui.components.SmScreen
+import com.smassistant.app.ui.components.TemplateFormatPickers
 import com.smassistant.app.ui.components.rememberSignInWarning
 import java.time.DayOfWeek
 import java.time.LocalTime
@@ -105,6 +110,7 @@ fun SchedulersScreen(onAdd: () -> Unit, onEdit: (String) -> Unit, onSignIn: () -
 
     SchedulersContent(
         state = state,
+        templateNames = rememberImageTemplates().associate { it.id to it.name },
         signInWarning = rememberSignInWarning(),
         onSignIn = onSignIn,
         notificationsAllowed = notificationsAllowed,
@@ -116,7 +122,11 @@ fun SchedulersScreen(onAdd: () -> Unit, onEdit: (String) -> Unit, onSignIn: () -
         onEnabledChange = viewModel::setEnabled,
         onRunNow = viewModel::runNow,
         onDelete = viewModel::delete,
-        onReview = { id -> viewModel.review(id)?.let { (text, files) -> postViewModel.review(text, files) } },
+        onReview = { id ->
+            viewModel.review(id)?.let { (text, files) ->
+                postViewModel.review(text, files, title = state.schedulers.firstOrNull { it.id == id }?.pending?.title)
+            }
+        },
         onDiscard = viewModel::discard,
         onBackToHome = onBackToHome,
     )
@@ -124,6 +134,7 @@ fun SchedulersScreen(onAdd: () -> Unit, onEdit: (String) -> Unit, onSignIn: () -
         state = postState,
         onTextChange = postViewModel::onTextChange,
         onConfirm = postViewModel::confirm,
+        onSaveDraft = if (postViewModel.canSaveDraft) postViewModel::saveDraft else null,
         onDismiss = postViewModel::dismiss,
         onOpenSettings = onSignIn,
         onTrimWithAi = postViewModel::trimWithAi,
@@ -134,6 +145,7 @@ fun SchedulersScreen(onAdd: () -> Unit, onEdit: (String) -> Unit, onSignIn: () -
 @Composable
 fun SchedulersContent(
     state: SchedulersUiState,
+    templateNames: Map<String, String> = emptyMap(),
     signInWarning: String? = null,
     onSignIn: () -> Unit = {},
     notificationsAllowed: Boolean,
@@ -169,6 +181,7 @@ fun SchedulersContent(
         state.schedulers.forEach { scheduler ->
             SchedulerCard(
                 scheduler = scheduler,
+                templateNames = templateNames,
                 onEnabledChange = { onEnabledChange(scheduler.id, it) },
                 onEdit = { onEdit(scheduler.id) },
                 onRunNow = { onRunNow(scheduler.id) },
@@ -199,6 +212,7 @@ fun SchedulersContent(
 @Composable
 private fun SchedulerCard(
     scheduler: AutoPostScheduler,
+    templateNames: Map<String, String>,
     onEnabledChange: (Boolean) -> Unit,
     onEdit: () -> Unit,
     onRunNow: () -> Unit,
@@ -230,8 +244,11 @@ private fun SchedulerCard(
             )
             scheduler.lastRun?.let { run ->
                 Text(
-                    (if (run.ok) "✓ " else "✗ ") + formatRunTime(run.at) + ": " + run.message,
+                    (if (run.ok) "✓ " else "✗ ") + formatRunTime(run.at) + ": " + run.message +
+                        run.template?.let { " · ${scheduler.postType.label} · ${templateName(it, templateNames)}" }.orEmpty() +
+                        run.carouselPages?.let { " · Carousel · $it pages" }.orEmpty(),
                     style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.testTag("lastRun-${scheduler.id}"),
                     color = if (run.ok) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.error,
                 )
             }
@@ -283,6 +300,7 @@ fun SchedulerEditorScreen(id: String?, onSaved: () -> Unit, onBackToHome: () -> 
     val state by viewModel.state.collectAsStateWithLifecycle()
     SchedulerEditorContent(
         state = state,
+        templates = rememberImageTemplates(),
         actions = SchedulerEditorActions(
             onName = viewModel::onName,
             onEnabled = viewModel::onEnabled,
@@ -290,6 +308,8 @@ fun SchedulerEditorScreen(id: String?, onSaved: () -> Unit, onBackToHome: () -> 
             onQuery = viewModel::onQuery,
             onToggleTopic = viewModel::onToggleTopic,
             onPostType = viewModel::onPostType,
+            onImageTemplate = viewModel::onImageTemplate,
+            onImageFormat = viewModel::onImageFormat,
             onFrequency = viewModel::onFrequency,
             onTime = viewModel::onTime,
             onEveryHours = viewModel::onEveryHours,
@@ -312,6 +332,8 @@ data class SchedulerEditorActions(
     val onQuery: (String) -> Unit = {},
     val onToggleTopic: (String) -> Unit = {},
     val onPostType: (PostType) -> Unit = {},
+    val onImageTemplate: (String?) -> Unit = {},
+    val onImageFormat: (ImageSize?) -> Unit = {},
     val onFrequency: (Frequency) -> Unit = {},
     val onTime: (LocalTime) -> Unit = {},
     val onEveryHours: (Int) -> Unit = {},
@@ -325,7 +347,12 @@ data class SchedulerEditorActions(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun SchedulerEditorContent(state: SchedulerEditorUiState, actions: SchedulerEditorActions, onBackToHome: () -> Unit) {
+fun SchedulerEditorContent(
+    state: SchedulerEditorUiState,
+    actions: SchedulerEditorActions,
+    onBackToHome: () -> Unit,
+    templates: List<ImageTemplate> = emptyList(),
+) {
     val draft = state.draft
     val schedule = draft.schedule
     SmScreen(sectionTitle = if (state.isNew) "New Scheduler" else "Edit Scheduler", onBackToHome = onBackToHome) {
@@ -342,6 +369,16 @@ fun SchedulerEditorContent(state: SchedulerEditorUiState, actions: SchedulerEdit
         }
 
         SelectDropdown("Post type", draft.postType, PostType.entries, { it.label }, actions.onPostType, "postType")
+        if (draft.postType.hasImages) {
+            TemplateFormatPickers(
+                templates = templates,
+                template = draft.imageTemplate,
+                format = draft.imageFormat,
+                onTemplate = actions.onImageTemplate,
+                onFormat = actions.onImageFormat,
+                testTagPrefix = "schedule",
+            )
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Review before posting")
@@ -469,3 +506,13 @@ private fun TimeDropdowns(label: String, time: LocalTime, onChange: (LocalTime) 
 private val MINUTES = listOf(0, 15, 30, 45)
 
 private fun twoDigits(n: Int) = n.toString().padStart(2, '0')
+
+/** The image templates, for their names; empty when the asset can't be read. */
+@Composable
+private fun rememberImageTemplates(): List<ImageTemplate> {
+    val appContext = LocalContext.current.applicationContext
+    return remember { runCatching { parseImageTemplates(loadPromptAsset(appContext, "image/image_templates")) }.getOrDefault(emptyList()) }
+}
+
+/** The template's name, or its id capitalised when it isn't known. */
+private fun templateName(id: String, names: Map<String, String>) = names[id] ?: id.replaceFirstChar { it.uppercase() }

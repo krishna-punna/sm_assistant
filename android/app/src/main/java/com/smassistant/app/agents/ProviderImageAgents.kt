@@ -2,7 +2,7 @@ package com.smassistant.app.agents
 
 import com.smassistant.app.data.ApiConfig
 import com.smassistant.app.data.ApiService
-import com.smassistant.app.data.ImageFormat
+import com.smassistant.app.data.ImageSize
 import com.smassistant.app.media.MediaCache
 import com.smassistant.app.media.extensionFor
 import com.smassistant.app.net.ApiError
@@ -12,6 +12,8 @@ import com.smassistant.app.net.Http
 import com.smassistant.app.net.path
 import com.smassistant.app.net.postForBytes
 import com.smassistant.app.net.textOrNull
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import okhttp3.OkHttpClient
 import java.io.File
 import java.util.Base64
 import kotlinx.coroutines.async
@@ -22,8 +24,6 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
-import okhttp3.OkHttpClient
 
 /**
  * Diffusion models (FLUX, Stable Diffusion) read only the start of a prompt, and Cloudflare's
@@ -55,7 +55,7 @@ abstract class ProviderImageAgent(
 ) : ImageAgent {
     override suspend fun generate(prompt: String, count: Int): ApiResult<List<File>> = generate(prompt, count, null)
 
-    override suspend fun generate(prompt: String, count: Int, format: ImageFormat?): ApiResult<List<File>> {
+    override suspend fun generate(prompt: String, count: Int, format: ImageSize?): ApiResult<List<File>> {
         val current = config()
         if (!current.isUsableImageAgent(service)) return ApiResult.Failed(ApiError.NotConfigured)
         val short = compactPrompt(prompt)
@@ -66,7 +66,7 @@ abstract class ProviderImageAgent(
     }
 
     /** One image's bytes, in [format] if the provider can do it (null: its default). */
-    protected abstract suspend fun generateOne(config: ApiConfig, prompt: String, format: ImageFormat?): ApiResult<ByteArray>
+    protected abstract suspend fun generateOne(config: ApiConfig, prompt: String, format: ImageSize?): ApiResult<ByteArray>
 
     protected fun bearer(config: ApiConfig) = mapOf("Authorization" to "Bearer ${config.key}")
 }
@@ -81,7 +81,9 @@ class CloudflareImageAgent(
     cache: MediaCache,
     client: OkHttpClient = Http.generationClient,
 ) : ProviderImageAgent(ApiService.CLOUDFLARE, config, cache, client) {
-    override suspend fun generateOne(config: ApiConfig, prompt: String, format: ImageFormat?): ApiResult<ByteArray> {
+    override val onlyFormat = ImageSize.SQUARE
+
+    override suspend fun generateOne(config: ApiConfig, prompt: String, format: ImageSize?): ApiResult<ByteArray> {
         val reply = client.postForBytes(
             url = "${config.apiUrl.trimEnd('/')}/run/${config.imageModel.trim()}",
             headers = bearer(config),
@@ -107,7 +109,7 @@ class PollinationsImageAgent(
     cache: MediaCache,
     client: OkHttpClient = Http.generationClient,
 ) : ProviderImageAgent(ApiService.POLLINATIONS, config, cache, client) {
-    override suspend fun generateOne(config: ApiConfig, prompt: String, format: ImageFormat?): ApiResult<ByteArray> {
+    override suspend fun generateOne(config: ApiConfig, prompt: String, format: ImageSize?): ApiResult<ByteArray> {
         val origin = config.apiUrl.toHttpUrlOrNull()?.newBuilder()?.encodedPath("/")?.query(null)?.build()
             ?: return ApiResult.Failed(ApiError.Unreachable("Invalid API URL"))
         val reply = client.postForBytes(
@@ -129,10 +131,10 @@ class PollinationsImageAgent(
 }
 
 /** Pollinations' `size` for [format]: 1024x1536, 1024x1024 (also the default) or 1536x1024. */
-internal fun pollinationsSize(format: ImageFormat?): String = when (format) {
-    ImageFormat.PORTRAIT -> "1024x1536"
-    ImageFormat.LANDSCAPE -> "1536x1024"
-    ImageFormat.SQUARE, null -> "1024x1024"
+internal fun pollinationsSize(format: ImageSize?): String = when (format) {
+    ImageSize.PORTRAIT -> "1024x1536"
+    ImageSize.LANDSCAPE -> "1536x1024"
+    ImageSize.SQUARE, null -> "1024x1024"
 }
 
 private fun BinaryReply.isJson() = contentType?.contains("json", ignoreCase = true) == true

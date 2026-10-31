@@ -1,6 +1,7 @@
 package com.smassistant.app.linkedin
 
 import com.smassistant.app.data.ApiConfig
+import com.smassistant.app.media.isDocument
 import com.smassistant.app.media.isVideo
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
@@ -8,6 +9,14 @@ import com.smassistant.app.net.Http
 import com.smassistant.app.net.await
 import com.smassistant.app.net.path
 import com.smassistant.app.net.textOrNull
+import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
 import java.io.File
 import java.io.IOException
 import java.net.URLEncoder
@@ -22,14 +31,6 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
-import okhttp3.HttpUrl
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.asRequestBody
-import okhttp3.RequestBody.Companion.toRequestBody
-import okhttp3.Response
 
 /** A published post: its URN and the link that opens it. */
 data class LinkedInPost(val urn: String) {
@@ -46,13 +47,14 @@ class LinkedInClient(
     private val client: OkHttpClient = Http.client,
     private val imageChecks: List<Long> = IMAGE_CHECKS_MILLIS,
     private val videoChecks: List<Long> = VIDEO_CHECKS_MILLIS,
+    private val documentChecks: List<Long> = VIDEO_CHECKS_MILLIS,
 ) {
     private var cachedMember: Pair<String, String>? = null
 
     /**
      * Publishes [text] (plain text, not yet escaped) as a public post. [media] is uploaded first
-     * and attached (LP-2-I): one image or one video (an `.mp4`, VI-I3) as `content.media`, two or
-     * more images as `content.multiImage`.
+     * and attached (LP-2-I): one image, one video (an `.mp4`, VI-I3) or one document (a carousel's
+     * `.pdf`, SC-I6, titled with its file name) as `content.media`, two or more images as `content.multiImage`.
      */
     suspend fun createPost(text: String, media: List<File> = emptyList()): ApiResult<LinkedInPost> {
         val current = config()
@@ -63,10 +65,10 @@ class LinkedInClient(
             is ApiResult.Ok -> member.value
         }
         val mediaUrns = media.map { file ->
-            val uploaded = if (isVideo(file)) {
-                uploadVideo(postsUrl, current.key, author, file)
-            } else {
-                uploadImage(postsUrl, current.key, author, file)
+            val uploaded = when {
+                isVideo(file) -> uploadVideo(postsUrl, current.key, author, file)
+                isDocument(file) -> uploadDocument(postsUrl, current.key, author, file)
+                else -> uploadImage(postsUrl, current.key, author, file)
             }
             when (uploaded) {
                 is ApiResult.Failed -> return uploaded
@@ -84,7 +86,13 @@ class LinkedInClient(
             }
             when (mediaUrns.size) {
                 0 -> Unit
-                1 -> putJsonObject("content") { putJsonObject("media") { put("id", mediaUrns.single()) } }
+                1 -> putJsonObject("content") {
+                    putJsonObject("media") {
+                        put("id", mediaUrns.single())
+                        // LinkedIn shows a document's title above its pages, and requires one.
+                        media.single().takeIf(::isDocument)?.let { put("title", it.nameWithoutExtension) }
+                    }
+                }
                 else -> putJsonObject("content") {
                     putJsonObject("multiImage") {
                         putJsonArray("images") { mediaUrns.forEach { urn -> addJsonObject { put("id", urn) } } }
@@ -106,22 +114,38 @@ class LinkedInClient(
     }
 
     /** Images API: initializeUpload gives an upload URL and image URN, then the bytes are PUT there. */
-    private suspend fun uploadImage(postsUrl: HttpUrl, token: String, owner: String, file: File): ApiResult<String> {
+    private suspend fun uploadImage(postsUrl: HttpUrl, token: String, owner: String, file: File): ApiResult<String> =
+        uploadFile(postsUrl, token, owner, file, "images", "image", imageChecks)
+
+    /** Documents API: the same steps as an image, under `/rest/documents` (up to 100 MB and 300 pages). */
+    private suspend fun uploadDocument(postsUrl: HttpUrl, token: String, owner: String, file: File): ApiResult<String> =
+        uploadFile(postsUrl, token, owner, file, "documents", "document", documentChecks)
+
+    /** initializeUpload under `/rest/[resource]` gives an upload URL and the [field] URN, the bytes are PUT there, then it waits until LinkedIn has processed them. */
+    private suspend fun uploadFile(
+        postsUrl: HttpUrl,
+        token: String,
+        owner: String,
+        file: File,
+        resource: String,
+        field: String,
+        checks: List<Long>,
+    ): ApiResult<String> {
         val initialize = Request.Builder()
-            .url(postsUrl.resolve("/rest/images?action=initializeUpload")!!)
+            .url(postsUrl.resolve("/rest/$resource?action=initializeUpload")!!)
             .restliHeaders(token)
             .post(buildJsonObject { putJsonObject("initializeUploadRequest") { put("owner", owner) } }.toString().toRequestBody(JSON))
             .build()
         val target = call(initialize) { _, json ->
             val uploadUrl = json?.path("value", "uploadUrl")?.textOrNull?.toHttpUrlOrNull()
-            val image = json?.path("value", "image")?.textOrNull
-            if (uploadUrl == null || image.isNullOrBlank()) {
-                ApiResult.Failed(ApiError.BadResponse("no image upload URL"))
+            val urn = json?.path("value", field)?.textOrNull
+            if (uploadUrl == null || urn.isNullOrBlank()) {
+                ApiResult.Failed(ApiError.BadResponse("no $field upload URL"))
             } else {
-                ApiResult.Ok(uploadUrl to image)
+                ApiResult.Ok(uploadUrl to urn)
             }
         }
-        val (uploadUrl, image) = when (target) {
+        val (uploadUrl, urn) = when (target) {
             is ApiResult.Failed -> return target
             is ApiResult.Ok -> target.value
         }
@@ -130,9 +154,9 @@ class LinkedInClient(
             .header("Authorization", "Bearer $token")
             .put(file.asRequestBody(OCTET_STREAM))
             .build()
-        return when (val sent = call(upload) { _, _ -> ApiResult.Ok(image) }) {
+        return when (val sent = call(upload) { _, _ -> ApiResult.Ok(urn) }) {
             is ApiResult.Failed -> sent
-            is ApiResult.Ok -> awaitReady(postsUrl, token, "images", image, imageChecks)
+            is ApiResult.Ok -> awaitReady(postsUrl, token, resource, urn, checks)
         }
     }
 
@@ -143,7 +167,7 @@ class LinkedInClient(
      * can't check, so it goes ahead.
      */
     private suspend fun awaitReady(postsUrl: HttpUrl, token: String, resource: String, urn: String, checks: List<Long>): ApiResult<String> {
-        val noun = if (resource == "videos") "video" else "image"
+        val noun = resource.removeSuffix("s")
         val statusUrl = postsUrl.newBuilder()
             .encodedPath("/rest/$resource/")
             .addEncodedPathSegment(URLEncoder.encode(urn, "UTF-8"))

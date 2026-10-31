@@ -7,14 +7,17 @@ import com.smassistant.app.data.MediaPurpose
 import com.smassistant.app.generate.GenerateContentAndMediaUseCase.Companion.IMAGES_NOT_SET_UP
 import com.smassistant.app.generate.GenerateContentAndMediaUseCase.Companion.TEXT_NOT_SET_UP
 import com.smassistant.app.generate.GenerateContentAndMediaUseCase.Companion.VIDEO_NOT_SET_UP
-import com.smassistant.app.generate.GeneratedVideo
-import com.smassistant.app.generate.appGenerateImages
 import com.smassistant.app.generate.appGenerateTechnicalContent
-import com.smassistant.app.generate.appGenerateVideo
+import com.smassistant.app.history.PostHistoryStore
+import com.smassistant.app.history.PostSource
+import com.smassistant.app.image.ImageRequest
+import com.smassistant.app.image.appGenerateImages
+import com.smassistant.app.image.imageLabel
+import com.smassistant.app.image.isCarousel
 import com.smassistant.app.linkedin.PostToLinkedInUseCase
 import com.smassistant.app.linkedin.SignInExpiry
-import com.smassistant.app.linkedin.appSignInExpiry
 import com.smassistant.app.linkedin.appPostToLinkedIn
+import com.smassistant.app.linkedin.appSignInExpiry
 import com.smassistant.app.linkedin.linkedInErrorMessage
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
@@ -23,6 +26,9 @@ import com.smassistant.app.prompt.PreparePromptsUseCase
 import com.smassistant.app.prompt.PromptSet
 import com.smassistant.app.prompt.PromptType
 import com.smassistant.app.prompt.loadPromptAsset
+import com.smassistant.app.video.GeneratedVideo
+import com.smassistant.app.video.appGenerateVideo
+import com.smassistant.app.video.videoLabel
 import java.io.File
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -46,17 +52,20 @@ data class RunOutcome(
  * One scheduled run (docs/requirements/13-scheduled-posts.md, SC-1…3b): the scheduler's next topic
  * → Prepare Prompt for the post type → Generate Technical Content and/or the images or video →
  * the length check with default hashtags → Post in LinkedIn. Nothing is posted unless every part
- * the post type needs came back and the text fits.
+ * the post type needs came back and the text fits. Images follow the scheduler's template and format
+ * (Auto unless it fixes them), and the run records the template the first image, or the video, followed.
  */
 class AutoPostRun(
     private val preparePrompt: suspend (String, PromptType) -> Outcome<PromptSet>,
     private val generateText: suspend (String) -> Outcome<String>,
-    private val generateImages: suspend (String) -> Outcome<List<File>>,
+    private val generateImages: suspend (ImageRequest) -> Outcome<List<File>>,
     private val generateVideo: suspend (String) -> Outcome<GeneratedVideo>,
     private val linkedIn: PostToLinkedInUseCase,
     private val now: () -> Long = System::currentTimeMillis,
     /** The LinkedIn sign-in's expiry; an expired one fails the run before anything is generated. */
     private val signInExpiry: () -> SignInExpiry? = { null },
+    /** Titles of recent scheduled posts from the post history, so every scheduler steers away from them. */
+    private val historyTitles: () -> List<String> = { emptyList() },
 ) {
     suspend operator fun invoke(scheduler: AutoPostScheduler): RunOutcome {
         val topic = scheduler.currentTopic() ?: return failed("Choose at least one technical content type.")
@@ -71,7 +80,7 @@ class AutoPostRun(
         if (expiry is SignInExpiry.Expired) return failed(expiry.message().orEmpty())
 
         val type = scheduler.postType.promptType
-        val prompts = when (val outcome = preparePrompt(topicRequest(topic, scheduler.recentTitles), type)) {
+        val prompts = when (val outcome = preparePrompt(topicRequest(topic, (scheduler.recentTitles + historyTitles()).distinct()), type)) {
             is Outcome.Ok -> outcome.value
             else -> return failed(outcome, "prepare the prompt", TEXT_NOT_SET_UP)
         }
@@ -85,7 +94,7 @@ class AutoPostRun(
         val (text, media) = coroutineScope {
             // Image and Video posts have no written post: the title is the caption, before the hashtags.
             val writing = async { if (type.post) generateText(postPrompt.prompt) else Outcome.Ok(postPrompt.title) }
-            val making = async { media(type.media, contentPrompt.prompt) }
+            val making = async { media(type.media, ImageRequest(contentPrompt.prompt, scheduler.imageTemplate, scheduler.imageFormat)) }
             writing.await() to making.await()
         }
         val markdown = when (text) {
@@ -101,6 +110,8 @@ class AutoPostRun(
             }
         }
 
+        val template = files.firstNotNullOfOrNull { imageLabel(it)?.templateId ?: videoLabel(it)?.templateId }
+        val pages = files.size.takeIf { isCarousel(files) }
         val post = linkedIn.prepare(markdown)
         if (post.text.isBlank()) return failed("The agent wrote an empty post, so nothing was posted.", title)
         if (!post.fitsLimit) {
@@ -109,26 +120,26 @@ class AutoPostRun(
 
         if (scheduler.reviewFirst) {
             return RunOutcome(
-                RunRecord(now(), ok = true, message = "Ready for your review: “$title”", awaitingReview = true),
+                RunRecord(now(), ok = true, message = "Ready for your review: “$title”", awaitingReview = true, template = template, carouselPages = pages),
                 title,
-                held = PendingPost(title, post.text, files.map { it.path }, now()),
+                held = PendingPost(title, post.text, files.map { it.path }, now(), template),
             )
         }
 
-        return when (val result = linkedIn.post(post.text, files)) {
-            is ApiResult.Ok -> RunOutcome(RunRecord(now(), ok = true, message = "Posted “$title”", postUrl = result.value.url), title)
+        return when (val result = linkedIn.post(post.text, files, PostSource.SCHEDULED, title)) {
+            is ApiResult.Ok -> RunOutcome(RunRecord(now(), ok = true, message = "Posted “$title”", postUrl = result.value.url, template = template, carouselPages = pages), title)
             is ApiResult.Failed -> RunOutcome(
-                RunRecord(now(), ok = false, message = linkedInErrorMessage(result.error)),
+                RunRecord(now(), ok = false, message = linkedInErrorMessage(result.error), template = template, carouselPages = pages),
                 title,
                 retry = isTransient(result.error),
             )
         }
     }
 
-    private suspend fun media(purpose: MediaPurpose?, prompt: String): Outcome<List<File>> = when (purpose) {
+    private suspend fun media(purpose: MediaPurpose?, request: ImageRequest): Outcome<List<File>> = when (purpose) {
         null -> Outcome.Ok(emptyList())
-        MediaPurpose.IMAGE -> generateImages(prompt)
-        MediaPurpose.VIDEO -> when (val video = generateVideo(prompt)) {
+        MediaPurpose.IMAGE -> generateImages(request)
+        MediaPurpose.VIDEO -> when (val video = generateVideo(request.prompt)) {
             is Outcome.Ok -> Outcome.Ok(listOf(video.value.file))
             is Outcome.Failed -> video
             Outcome.NoAgent -> Outcome.NoAgent
@@ -153,7 +164,7 @@ class AutoPostRun(
          * and steering away from the scheduler's recent posts.
          */
         fun topicRequest(topic: String, recentTitles: List<String>): String {
-            val avoid = recentTitles.take(AutoPostScheduler.MAX_RECENT_TITLES)
+            val avoid = recentTitles.take(MAX_AVOID_TITLES)
             return buildString {
                 append("$topic: choose one specific, practical subject within $topic for a technical LinkedIn post, ")
                 append("such as a feature, pattern, pitfall or design problem an experienced developer would want explained.")
@@ -164,6 +175,9 @@ class AutoPostRun(
                 }
             }
         }
+
+        /** How many recent titles a prompt request lists: this scheduler's own, then the history's. */
+        const val MAX_AVOID_TITLES = 25
 
         /** Errors worth a retry in a few minutes. */
         fun isTransient(error: ApiError) = error is ApiError.Unreachable || error == ApiError.RateLimited ||
@@ -179,9 +193,10 @@ fun appAutoPostRun(context: Context): AutoPostRun {
     return AutoPostRun(
         preparePrompt = { topic, type -> PreparePromptsUseCase(postPrompt, contentPrompt, textAgent) { type }(topic) },
         generateText = appGenerateTechnicalContent(context)::invoke,
-        generateImages = appGenerateImages(context)::invoke,
+        generateImages = appGenerateImages(context)::generate,
         generateVideo = appGenerateVideo(context)::invoke,
         linkedIn = appPostToLinkedIn(context),
         signInExpiry = appSignInExpiry(context),
+        historyTitles = { PostHistoryStore(context).recentScheduledTitles() },
     )
 }

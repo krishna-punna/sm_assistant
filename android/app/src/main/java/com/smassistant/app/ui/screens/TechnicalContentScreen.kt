@@ -9,20 +9,20 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.smassistant.app.chat.sessionChatViewModel
 import com.smassistant.app.chat.TextSaver
+import com.smassistant.app.chat.sessionChatViewModel
 import com.smassistant.app.generate.appGenerateTechnicalContent
 import com.smassistant.app.generate.appSmartTrim
 import com.smassistant.app.linkedin.PostState
 import com.smassistant.app.linkedin.PostViewModel
 import com.smassistant.app.linkedin.appPostToLinkedIn
 import com.smassistant.app.navigation.Feature
-import com.smassistant.app.ui.components.TextAgentDropdown
 import com.smassistant.app.ui.components.MarkdownText
 import com.smassistant.app.ui.components.PostDialogs
 import com.smassistant.app.ui.components.PostInLinkedInButton
 import com.smassistant.app.ui.components.PostLengthNote
 import com.smassistant.app.ui.components.PromptCard
+import com.smassistant.app.ui.components.TextAgentDropdown
 
 /** S9 Generate Technical Content (docs/requirements/06 §6.1): the prompt card, the rendered post, Post in LinkedIn. */
 @Composable
@@ -62,6 +62,7 @@ fun TechnicalContentScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit
         onTrimWithAi = postViewModel::trimWithAi,
         onCutToFit = postViewModel::cutToFit,
         onConfirm = postViewModel::confirm,
+        onSaveDraft = if (postViewModel.canSaveDraft) postViewModel::saveDraft else null,
         onDismiss = postViewModel::dismiss,
         onOpenSettings = onSetUpLinkedIn,
     )

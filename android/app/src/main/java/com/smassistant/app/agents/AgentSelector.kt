@@ -4,13 +4,13 @@ import android.content.Context
 import com.smassistant.app.data.ApiConfig
 import com.smassistant.app.data.ApiService
 import com.smassistant.app.data.ApiSettingsStore
-import com.smassistant.app.data.ImageFormat
+import com.smassistant.app.data.ImageSize
 import com.smassistant.app.data.MediaPurpose
 import com.smassistant.app.data.forMedia
-import com.smassistant.app.generate.DEFAULT_VIDEO_SECONDS
-import com.smassistant.app.generate.VIDEO_LENGTHS
 import com.smassistant.app.media.MediaCache
 import com.smassistant.app.prompt.PromptType
+import com.smassistant.app.video.DEFAULT_VIDEO_SECONDS
+import com.smassistant.app.video.VIDEO_LENGTHS
 
 /** Agents that can generate text, in fallback order. */
 val TEXT_AGENTS = listOf(
@@ -61,6 +61,22 @@ class AgentPreferences(context: Context) {
             prefs.edit().putString(KEY_DEFAULT_VIDEO, value?.name).apply()
         }
 
+    /**
+     * The text agent that writes the content of images or of video slides (SP-12): each keeps its
+     * own choice, and until one is made it follows [defaultTextAgent]. A null [purpose] is the
+     * plain text features' agent.
+     */
+    fun defaultTextAgentFor(purpose: MediaPurpose?): ApiService? = when (purpose) {
+        null -> defaultTextAgent
+        else -> prefs.getString(textKey(purpose), null)?.let { name -> TEXT_AGENTS.firstOrNull { it.name == name } } ?: defaultTextAgent
+    }
+
+    fun setDefaultTextAgent(purpose: MediaPurpose?, service: ApiService) {
+        if (purpose == null) defaultTextAgent = service else prefs.edit().putString(textKey(purpose), service.name).apply()
+    }
+
+    private fun textKey(purpose: MediaPurpose) = if (purpose == MediaPurpose.VIDEO) KEY_VIDEO_TEXT else KEY_IMAGE_TEXT
+
     fun defaultMediaAgent(purpose: MediaPurpose): ApiService? =
         if (purpose == MediaPurpose.VIDEO) defaultVideoAgent else defaultImageAgent
 
@@ -90,8 +106,8 @@ class AgentPreferences(context: Context) {
         }
 
     /** The image format last picked on the image screens; null is Auto (the app picks per image). */
-    var imageFormat: ImageFormat?
-        get() = ImageFormat.of(prefs.getString(KEY_IMAGE_FORMAT, null))
+    var imageFormat: ImageSize?
+        get() = ImageSize.of(prefs.getString(KEY_IMAGE_FORMAT, null))
         set(value) {
             prefs.edit().putString(KEY_IMAGE_FORMAT, value?.key).apply()
         }
@@ -104,6 +120,8 @@ class AgentPreferences(context: Context) {
         const val KEY_DEFAULT_TEXT = "default_text_agent"
         const val KEY_DEFAULT_IMAGE = "default_image_agent"
         const val KEY_DEFAULT_VIDEO = "default_video_agent"
+        const val KEY_IMAGE_TEXT = "image_text_agent"
+        const val KEY_VIDEO_TEXT = "video_text_agent"
     }
 }
 
@@ -133,14 +151,18 @@ class ImageAgentSelector(
         (listOfNotNull(preferred()) + IMAGE_AGENTS).firstOrNull { configOf(it).isUsableImageAgent(it) }?.let(agentFor)
 }
 
-/** The selector the screens use: saved settings, the user's default, and the real HTTP clients. */
-fun appAgentSelector(context: Context): AgentSelector {
+/**
+ * The selector the screens use: saved settings, the user's default, and the real HTTP clients.
+ * [purpose] picks the image or the video text agent and model (SP-12); null is the plain text features'.
+ */
+fun appAgentSelector(context: Context, purpose: MediaPurpose? = null): AgentSelector {
     val store = ApiSettingsStore(context)
     val preferences = AgentPreferences(context)
+    val configOf = { service: ApiService -> store.loadForText(service, purpose) }
     return AgentSelector(
-        configOf = store::load,
-        preferred = { preferences.defaultTextAgent },
-        agentFor = { service -> textAgentFor(service, { store.load(service) }) },
+        configOf = configOf,
+        preferred = { preferences.defaultTextAgentFor(purpose) },
+        agentFor = { service -> textAgentFor(service, { configOf(service) }) },
     )
 }
 
@@ -150,7 +172,7 @@ fun appAgentSelector(context: Context): AgentSelector {
  */
 fun appImageAgentSelector(
     context: Context,
-    cache: MediaCache = MediaCache(context),
+    cache: MediaCache = MediaCache(context, MediaPurpose.IMAGE),
     purpose: MediaPurpose = MediaPurpose.IMAGE,
 ): ImageAgentSelector {
     val store = ApiSettingsStore(context)

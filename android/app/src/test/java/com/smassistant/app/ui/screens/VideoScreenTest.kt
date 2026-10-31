@@ -6,7 +6,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import com.smassistant.app.generate.GenerateContentAndMediaUseCase
-import com.smassistant.app.generate.GeneratedVideo
+import com.smassistant.app.video.GeneratedVideo
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -26,9 +26,16 @@ class VideoScreenTest {
         val slides = (1..4).map { File("s$it.png") }
         compose.setContent { VideoResult(GeneratedVideo(File("video.mp4"), slides, seconds = 90), posting = false, onPost = { posts++ }) }
         compose.onNodeWithTag("videoPlayer").assertExists()
-        compose.onNodeWithText("4 slides, 1 min 30 sec").assertExists()
+        compose.onNodeWithText("9:16 · 1080×1920 · 4 slides, 1 min 30 sec").assertExists()
         compose.onNodeWithText("Post in LinkedIn").performClick()
         assertEquals(1, posts)
+    }
+
+    @Test
+    fun resultShowsTheTemplateAndSizeOfALabelledVideo() {
+        val slides = (1..4).map { File("s$it.png") }
+        compose.setContent { VideoResult(GeneratedVideo(File("vtpl-workflow-vertical-video.mp4"), slides, seconds = 90), posting = false, onPost = {}) }
+        compose.onNodeWithText("Workflow or Lifecycle · 9:16 · 1080×1920 · 4 slides, 1 min 30 sec").assertExists()
     }
 
     @Test

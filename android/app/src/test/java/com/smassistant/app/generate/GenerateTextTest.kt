@@ -3,14 +3,15 @@ package com.smassistant.app.generate
 import com.smassistant.app.agents.TextAgent
 import com.smassistant.app.chat.Outcome
 import com.smassistant.app.data.ApiService
+import com.smassistant.app.image.shortened
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
+import java.io.File
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.io.File
 
 private class FakeAgent(private val replies: List<ApiResult<String>>) : TextAgent {
     constructor(reply: ApiResult<String>) : this(listOf(reply))

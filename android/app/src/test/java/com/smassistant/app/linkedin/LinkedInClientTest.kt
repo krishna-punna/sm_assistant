@@ -6,17 +6,17 @@ import com.smassistant.app.net.ApiResult
 import com.smassistant.app.net.Http
 import com.smassistant.app.net.path
 import com.smassistant.app.net.textOrNull
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
+import java.io.File
+import java.nio.file.Files
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
-import java.io.File
-import java.nio.file.Files
 
 class LinkedInClientTest {
     private val server = MockWebServer()
@@ -159,6 +159,31 @@ class LinkedInClientTest {
         val multi = Json.parseToJsonElement(server.takeRequest().body.readUtf8()) as JsonObject
         assertEquals("urn:li:image:B", multi.path("content", "multiImage", "images", 0, "id")?.textOrNull)
         assertEquals("urn:li:image:C", multi.path("content", "multiImage", "images", 1, "id")?.textOrNull)
+    }
+
+    @Test
+    fun `uploads a carousel PDF as a document and attaches it with its title`() {
+        linkedIn = LinkedInClient({ ApiConfig(server.url("/rest/posts").toString(), key) }, Http.build(timeoutSeconds = 2), documentChecks = listOf(0L, 0L))
+        val pdf = File(Files.createTempDirectory("post").toFile(), "Caching in 5 steps.pdf").apply { writeBytes(byteArrayOf(9, 8)) }
+
+        userinfo()
+        server.enqueue(MockResponse().setBody("""{"value":{"uploadUrl":"${server.url("/upload/D")}","document":"urn:li:document:D"}}"""))
+        server.enqueue(MockResponse().setResponseCode(201))
+        mediaStatus("PROCESSING")
+        mediaStatus("AVAILABLE")
+        created()
+        assertEquals(ApiResult.Ok(LinkedInPost("urn:li:share:7400")), runBlocking { linkedIn.createPost("Caching", listOf(pdf)) })
+
+        server.takeRequest() // userinfo
+        assertEquals("/rest/documents?action=initializeUpload", server.takeRequest().path)
+        val put = server.takeRequest()
+        assertEquals("/upload/D", put.path)
+        assertEquals(listOf<Byte>(9, 8), put.body.readByteArray().toList())
+        assertEquals("/rest/documents/urn%3Ali%3Adocument%3AD", server.takeRequest().path)
+        server.takeRequest()
+        val body = Json.parseToJsonElement(server.takeRequest().body.readUtf8()) as JsonObject
+        assertEquals("urn:li:document:D", body.path("content", "media", "id")?.textOrNull)
+        assertEquals("Caching in 5 steps", body.path("content", "media", "title")?.textOrNull)
     }
 
     @Test

@@ -1,11 +1,12 @@
 package com.smassistant.app.ui.screens
 
-import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.smassistant.app.navigation.AiAgent
@@ -39,6 +40,9 @@ class NavigationTest {
     // The app bar also says "SM Assistant", so buttons are found by text and click action.
     private fun click(text: String) = compose.onNode(hasText(text) and hasClickAction()).performClick()
 
+    // Home's list is longer than the screen, so its lower buttons are scrolled to first.
+    private fun clickOnHome(text: String) = compose.onNode(hasText(text) and hasClickAction()).performScrollTo().performClick()
+
     private fun backToHome() {
         compose.onNodeWithContentDescription("Back to Home").performClick()
         compose.waitForIdle()
@@ -53,10 +57,14 @@ class NavigationTest {
             "AI Agent" to Routes.AI_AGENTS,
             "SM Assistant" to Routes.HUB,
             "Scheduled Posts" to Routes.SCHEDULERS,
+            "Drafts" to Routes.DRAFTS,
+            "Post History" to Routes.POST_HISTORY,
             "Default Hash Tags" to Routes.DEFAULT_HASHTAGS,
+            "Image Style" to Routes.IMAGE_STYLE,
+            "Video Style" to Routes.VIDEO_STYLE,
             "Themes" to Routes.THEMES,
         ).forEach { (button, expected) ->
-            click(button)
+            clickOnHome(button)
             compose.waitForIdle()
             assertEquals(button, expected, route())
             backToHome()
