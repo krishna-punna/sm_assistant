@@ -30,6 +30,7 @@ import com.smassistant.app.linkedin.appPostToLinkedIn
 import com.smassistant.app.media.imagePixels
 import com.smassistant.app.media.sizeText
 import com.smassistant.app.navigation.Feature
+import com.smassistant.app.pipeline.Pipelines
 import com.smassistant.app.prompt.loadPromptAsset
 import com.smassistant.app.ui.components.BackToHomeButton
 import com.smassistant.app.ui.components.CarouselPager
@@ -50,7 +51,7 @@ fun ImageScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToH
     val appContext = LocalContext.current.applicationContext
     val viewModel = viewModel {
         val useCase = appGenerateImages(appContext)
-        sessionChatViewModel(appContext, Feature.IMAGE.name, createSavedStateHandle(), ImagesSaver) { prompt ->
+        sessionChatViewModel(appContext, Feature.IMAGE.name, createSavedStateHandle(), ImagesSaver, pipeline = Pipelines.image) { prompt ->
             useCase.generate(pickedImageRequest(appContext, prompt))
         }
     }

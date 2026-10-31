@@ -2,6 +2,9 @@ package com.smassistant.app.generate
 
 import com.smassistant.app.chat.Outcome
 import com.smassistant.app.net.userMessage
+import com.smassistant.app.pipeline.Pipeline
+import com.smassistant.app.pipeline.StageId
+import com.smassistant.app.pipeline.StageStatus
 import com.smassistant.app.video.GeneratedVideo
 import java.io.File
 import kotlinx.coroutines.async
@@ -16,6 +19,33 @@ data class ContentAndMedia<M>(
     val retryingText: Boolean = false,
     val retryingMedia: Boolean = false,
 )
+
+/**
+ * The stages once a Content & Image / Content & Video generation came back (docs/requirements/20): a half
+ * with an error fails its stages (the post's, or the media's running or first waiting one), the rest are done.
+ */
+fun ContentAndMedia<*>.finish(pipeline: Pipeline): Pipeline {
+    val media = mediaStages(pipeline)
+    return pipeline
+        .finishHalf(setOf(StageId.WRITE_POST), textError)
+        .finishHalf(media, mediaError)
+        .done(StageId.PROMPT)
+}
+
+/** One half's [stages]: all done without an [error]; with one, the running (or first waiting) stage fails and the rest wait. */
+private fun Pipeline.finishHalf(stages: Set<StageId>, error: String?): Pipeline {
+    val half = this.stages.filter { it.id in stages }
+    if (error == null) {
+        return half.fold(this) { p, stage -> if (stage.status == StageStatus.WAITING || stage.status == StageStatus.RUNNING) p.done(stage.id) else p }
+    }
+    if (half.any { it.status == StageStatus.FAILED }) return this
+    val target = half.firstOrNull { it.status == StageStatus.RUNNING } ?: half.firstOrNull { it.status == StageStatus.WAITING } ?: return this
+    return half.fold(this) { p, stage -> if (stage.status == StageStatus.RUNNING && stage.id != target.id) p.reset(stage.id) else p }.fail(target.id, error)
+}
+
+/** The media stages of [pipeline], for Retry images. */
+fun mediaStages(pipeline: Pipeline): Set<StageId> =
+    pipeline.generation.map { it.id }.filter { it != StageId.PROMPT && it != StageId.WRITE_POST }.toSet()
 
 typealias ContentAndImages = ContentAndMedia<List<File>>
 typealias ContentAndVideo = ContentAndMedia<GeneratedVideo>
