@@ -7,6 +7,7 @@ import androidx.compose.material.icons.filled.CheckCircle as FilledCheckCircle
 import androidx.compose.material.icons.filled.Create as FilledCreate
 import androidx.compose.material.icons.filled.DateRange as FilledDateRange
 import androidx.compose.material.icons.filled.Edit as FilledEdit
+import androidx.compose.material.icons.filled.Email as FilledEmail
 import androidx.compose.material.icons.filled.Face as FilledFace
 import androidx.compose.material.icons.filled.Home as FilledHome
 import androidx.compose.material.icons.filled.Refresh as FilledRefresh
@@ -17,6 +18,7 @@ import androidx.compose.material.icons.outlined.CheckCircle as OutlinedCheckCirc
 import androidx.compose.material.icons.outlined.Create as OutlinedCreate
 import androidx.compose.material.icons.outlined.DateRange as OutlinedDateRange
 import androidx.compose.material.icons.outlined.Edit as OutlinedEdit
+import androidx.compose.material.icons.outlined.Email as OutlinedEmail
 import androidx.compose.material.icons.outlined.Face as OutlinedFace
 import androidx.compose.material.icons.outlined.Home as OutlinedHome
 import androidx.compose.material.icons.outlined.Refresh as OutlinedRefresh
@@ -27,6 +29,7 @@ import androidx.compose.material.icons.rounded.CheckCircle as RoundedCheckCircle
 import androidx.compose.material.icons.rounded.Create as RoundedCreate
 import androidx.compose.material.icons.rounded.DateRange as RoundedDateRange
 import androidx.compose.material.icons.rounded.Edit as RoundedEdit
+import androidx.compose.material.icons.rounded.Email as RoundedEmail
 import androidx.compose.material.icons.rounded.Face as RoundedFace
 import androidx.compose.material.icons.rounded.Home as RoundedHome
 import androidx.compose.material.icons.rounded.Refresh as RoundedRefresh
@@ -37,6 +40,7 @@ import androidx.compose.material.icons.sharp.CheckCircle as SharpCheckCircle
 import androidx.compose.material.icons.sharp.Create as SharpCreate
 import androidx.compose.material.icons.sharp.DateRange as SharpDateRange
 import androidx.compose.material.icons.sharp.Edit as SharpEdit
+import androidx.compose.material.icons.sharp.Email as SharpEmail
 import androidx.compose.material.icons.sharp.Face as SharpFace
 import androidx.compose.material.icons.sharp.Home as SharpHome
 import androidx.compose.material.icons.sharp.Refresh as SharpRefresh
@@ -47,6 +51,7 @@ import androidx.compose.material.icons.twotone.CheckCircle as TwoToneCheckCircle
 import androidx.compose.material.icons.twotone.Create as TwoToneCreate
 import androidx.compose.material.icons.twotone.DateRange as TwoToneDateRange
 import androidx.compose.material.icons.twotone.Edit as TwoToneEdit
+import androidx.compose.material.icons.twotone.Email as TwoToneEmail
 import androidx.compose.material.icons.twotone.Face as TwoToneFace
 import androidx.compose.material.icons.twotone.Home as TwoToneHome
 import androidx.compose.material.icons.twotone.Refresh as TwoToneRefresh
@@ -89,7 +94,8 @@ enum class SmIcon(
     HISTORY(
         Icons.Filled.FilledRefresh, Icons.Outlined.OutlinedRefresh, Icons.Rounded.RoundedRefresh,
         Icons.Sharp.SharpRefresh, Icons.TwoTone.TwoToneRefresh,
-    );
+    ),
+    DRAFTS(Icons.Filled.FilledEmail, Icons.Outlined.OutlinedEmail, Icons.Rounded.RoundedEmail, Icons.Sharp.SharpEmail, Icons.TwoTone.TwoToneEmail);
 
     /** The vector for [style], or null when the theme shows no icons. */
     fun vector(style: IconStyle): ImageVector? = when (style) {
