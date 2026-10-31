@@ -21,6 +21,7 @@ import com.smassistant.app.net.ApiResult
 import java.io.File
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -374,7 +375,10 @@ class GenerateImagesTest {
 
         assertEquals(Outcome.Ok(listOf(File("Caching.png"))), outcome)
         assertEquals(2, writer.calls.size)
-        assertTrue(writer.calls[1].second.contains("- $CONDENSE_FEEDBACK"))
+        val retry = writer.calls[1].second
+        assertTrue(retry, retry.contains("- it is too dense for one readable poster: its 8 cards need "))
+        assertTrue(retry, retry.contains("units of height and the format holds 1620") && retry.contains("keep every point"))
+        assertFalse(retry.contains("at most 11"))
         assertTrue(writer.calls.none { it.first.startsWith("Pages") })
     }
 

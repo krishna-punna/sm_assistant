@@ -21,6 +21,7 @@ import com.smassistant.app.image.render.ImageInspector
 import com.smassistant.app.image.render.InfographicPipeline
 import com.smassistant.app.image.render.InfographicRenderer
 import com.smassistant.app.image.render.PaintTextMeasurer
+import com.smassistant.app.image.render.PosterFit
 import com.smassistant.app.image.render.imageProblem
 import com.smassistant.app.image.render.numbered
 import com.smassistant.app.image.render.reviewJpeg
@@ -32,6 +33,7 @@ import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
 import com.smassistant.app.prompt.loadPromptAsset
 import java.io.File
+import kotlin.math.roundToInt
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -253,10 +255,12 @@ class GenerateImagesUseCase(
                 is ApiResult.Failed -> return best?.let { Outcome.Ok(listOf(it.first)) } ?: Outcome.Failed(result.error, writer.service.displayName)
                 is ApiResult.Ok -> result.value
             }
-            // Too long for one poster: asked once for a shorter one; the longer one is drawn smaller when that fails.
-            if (condensing && !parts.pipeline.fits(spec)) {
+            // Too dense for one readable poster: the writer gets the measured numbers and decides itself
+            // what to merge (AC-4); the denser one is drawn smaller when that fails.
+            val fit = if (condensing) parts.pipeline.measure(spec) else null
+            if (fit != null && !fit.fits) {
                 condensing = false
-                val shorter = parts.writer.write(writer, topic, idea, content, feedback + CONDENSE_FEEDBACK, brief)
+                val shorter = parts.writer.write(writer, topic, idea, content, feedback + condenseFeedback(fit), brief)
                 if (shorter is ApiResult.Ok) spec = shorter.value
             }
             val file = parts.pipeline.draw(spec, illustrator)?.let { drawn -> brief?.let { labelImage(drawn, it.template.id, spec.format.image) } ?: drawn }
@@ -338,9 +342,14 @@ class GenerateImagesUseCase(
         .replace("{{prompt}}", prompt)
 }
 
-/** What the writer is told when its definition is too long for one poster (docs/requirements/18, SV-5). */
-internal const val CONDENSE_FEEDBACK =
-    "it is too long for one image at full text size; keep every topic but use at most 11 sections and shorter items, about 6 words each"
+/**
+ * What the writer is told when its definition is too dense for one readable poster (AC-4): the
+ * measured numbers, not a fixed card count, so the AI decides what to merge. Nothing may be left out.
+ */
+internal fun condenseFeedback(fit: PosterFit): String =
+    "it is too dense for one readable poster: its ${fit.cards} cards need ${fit.neededHeight} units of height and the " +
+        "format holds ${fit.availableHeight}, so text would shrink below ${fit.feedTextPx.roundToInt()} px at LinkedIn's feed width; " +
+        "keep every point but merge related cards and shorten items (about 6 words each) so it fits"
 
 /** The request for [prompt] with the template and format last picked on the image screens. */
 fun pickedImageRequest(context: Context, prompt: String): ImageRequest {
