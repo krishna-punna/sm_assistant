@@ -40,6 +40,13 @@ class InfographicCheckTest {
     }
 
     @Test
+    fun `cards over the cap are reported so the writer merges them instead of losing them`() {
+        val problems = infographicProblems(good.copy(droppedSections = 3), "Kafka retry strategies")
+        assertEquals(1, problems.size)
+        assertTrue(problems[0], problems[0].contains("${good.sections.size + 3} cards") && problems[0].contains("merge"))
+    }
+
+    @Test
     fun `illustrations that ask for text or diagrams are flagged, ones that forbid text are not`() {
         assertTrue(asksForText("a server rack with labels on each shelf"))
         assertTrue(asksForText("an architecture diagram of microservices"))
