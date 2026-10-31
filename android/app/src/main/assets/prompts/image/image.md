@@ -7,7 +7,7 @@ House style (shared by every example):
 - Explain the real mechanism: flow diagrams with arrows, step-by-step numbered lists, data structure drawings, comparison tables, before/after panels and short syntax-highlighted code blocks.
 - Flat colourful icons, green check and red cross bullets, a limited consistent palette (navy, blue, green, purple, orange, red accents).
 - A footer strip with a key takeaway or interview tip.
-- Legible sans-serif text, short labels, every word spelled correctly and technically accurate. Flat cartoon illustrations are fine; no photographs of people, no watermarks.
+- Legible sans-serif text, short labels, every word spelled correctly and technically accurate. Draw every label exactly as quoted, with a clear normal space between every two words (never run words together), title case for the title and headings, sentence case for other text, no ALL CAPS except acronyms. Flat cartoon illustrations are fine; no photographs of people, no watermarks.
 
 Examples of a topic and the image that suits it:
 

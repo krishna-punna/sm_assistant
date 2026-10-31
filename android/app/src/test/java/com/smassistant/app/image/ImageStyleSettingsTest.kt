@@ -40,6 +40,7 @@ class ImageStyleSettingsTest {
         val vm = ImageStyleViewModel(store)
         vm.onAudience("students")
         vm.onBrandName("SM")
+        vm.onHandle(" @sm ")
         vm.onStyleGuide("flat icons")
         vm.onSeries(true)
         vm.onMode(ImageMode.PAINTED)
@@ -47,7 +48,7 @@ class ImageStyleSettingsTest {
         assertEquals(defaults, store.load())
 
         vm.save()
-        val saved = defaults.copy(audience = "students", brandName = "SM", styleGuide = "flat icons", series = true, mode = ImageMode.PAINTED)
+        val saved = defaults.copy(audience = "students", brandName = "SM", handle = "@sm", styleGuide = "flat icons", series = true, mode = ImageMode.PAINTED)
         assertEquals(saved, store.load())
         assertEquals(saved, vm.state.value.style)
         assertEquals("Image style saved", vm.state.value.message)

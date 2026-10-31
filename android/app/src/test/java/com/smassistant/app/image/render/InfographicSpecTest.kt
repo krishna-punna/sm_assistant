@@ -68,11 +68,21 @@ class InfographicSpecTest {
     @Test
     fun `long lists are cut to the limits`() {
         val items = (1..20).joinToString(",") { "\"item $it\"" }
-        val sections = (1..12).joinToString(",") { """{"heading": "S$it", "items": [$items]}""" }
+        val sections = (1..20).joinToString(",") { """{"heading": "S$it", "items": [$items]}""" }
         val spec = parseInfographic("""{"title": "T", "sections": [$sections]}""").getOrThrow()
 
+        assertEquals(16, Limits.SECTIONS)
         assertEquals(Limits.SECTIONS, spec.sections.size)
+        assertEquals(4, spec.droppedSections)
         assertEquals(Limits.ITEMS, (spec.sections[0].body as SectionBody.Bullets).items.size)
+    }
+
+    @Test
+    fun `16 cards are all kept and nothing is counted as dropped`() {
+        val sections = (1..16).joinToString(",") { """{"heading": "S$it", "items": ["a point"]}""" }
+        val spec = parseInfographic("""{"title": "T", "sections": [$sections]}""").getOrThrow()
+        assertEquals(16, spec.sections.size)
+        assertEquals(0, spec.droppedSections)
     }
 
     @Test
@@ -87,5 +97,14 @@ class InfographicSpecTest {
         assertEquals(listOf("portrait", "square", "landscape"), InfographicFormat.entries.map { it.key })
         assertEquals(InfographicFormat.PORTRAIT, parseInfographic("""{"title": "T", "format": "vertical"}""").getOrThrow().format)
         assertEquals(InfographicFormat.PORTRAIT, parseInfographic("""{"title": "T", "format": "wide"}""").getOrThrow().format)
+    }
+
+    @Test
+    fun `any card reads an optional art prompt, and an illustration card keeps its own picture (AC-8)`() {
+        val spec = parseInfographic("""{"title": "Caching", "sections": [
+            {"heading": "Latency", "items": ["fast"], "art": "a stopwatch"},
+            {"heading": "Plain", "items": ["no picture"], "art": "  "},
+            {"heading": "Picture", "type": "illustration", "prompt": "a cache", "art": "ignored"}]}""").getOrThrow()
+        assertEquals(listOf("a stopwatch", null, null), spec.sections.map { it.art })
     }
 }
