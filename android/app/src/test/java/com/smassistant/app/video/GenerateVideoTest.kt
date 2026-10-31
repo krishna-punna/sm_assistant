@@ -9,12 +9,17 @@ import com.smassistant.app.media.SizeGuard
 import com.smassistant.app.media.SlideshowMaker
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
+import com.smassistant.app.pipeline.Pipelines
+import com.smassistant.app.pipeline.StageId
+import com.smassistant.app.pipeline.StageReporter
+import com.smassistant.app.pipeline.StageStatus
 import com.smassistant.app.video.render.InfographicComposer
 import com.smassistant.app.video.render.InfographicFormat
 import com.smassistant.app.video.render.InfographicPipeline
 import com.smassistant.app.video.render.InfographicRenderer
 import java.io.File
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -402,5 +407,22 @@ class GenerateVideoTest {
     fun `video deck asset keeps its placeholders`() {
         val text = File("src/main/assets/prompts/video/video_deck.md").readText()
         listOf("{{slides}}", "{{seconds}}", "{{format}}", "{{examples}}").forEach { assertTrue(it, text.contains(it)) }
+    }
+
+    @Test
+    fun `painted slides skip writing and report drawing and encoding`() = runTest {
+        val tracking = StageReporter.Tracking(Pipelines.video) {}
+        withContext(tracking.reporter) { useCase()("x") }
+        assertEquals(StageStatus.SKIPPED, tracking.pipeline[StageId.WRITE_SLIDES]?.status)
+        assertEquals(StageStatus.DONE, tracking.pipeline[StageId.DRAW_SLIDES]?.status)
+        assertEquals(StageStatus.DONE, tracking.pipeline[StageId.MAKE_VIDEO]?.status)
+    }
+
+    @Test
+    fun `an encoding failure leaves Make video running for the screen to fail`() = runTest {
+        encodeResult = { Result.failure(IllegalStateException("no H.264 encoder")) }
+        val tracking = StageReporter.Tracking(Pipelines.video) {}
+        withContext(tracking.reporter) { useCase()("x") }
+        assertEquals(StageStatus.RUNNING, tracking.pipeline[StageId.MAKE_VIDEO]?.status)
     }
 }
