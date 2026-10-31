@@ -17,12 +17,15 @@ import com.smassistant.app.linkedin.PostState
 import com.smassistant.app.linkedin.PostViewModel
 import com.smassistant.app.linkedin.appPostToLinkedIn
 import com.smassistant.app.navigation.Feature
+import com.smassistant.app.pipeline.Pipelines
+import com.smassistant.app.ui.components.LocalChatInputId
 import com.smassistant.app.ui.components.MarkdownText
 import com.smassistant.app.ui.components.PostDialogs
 import com.smassistant.app.ui.components.PostInLinkedInButton
 import com.smassistant.app.ui.components.PostLengthNote
 import com.smassistant.app.ui.components.PromptCard
 import com.smassistant.app.ui.components.TextAgentDropdown
+import com.smassistant.app.ui.components.TrackPostStage
 
 /** S9 Generate Technical Content (docs/requirements/06 §6.1): the prompt card, the rendered post, Post in LinkedIn. */
 @Composable
@@ -30,7 +33,7 @@ fun TechnicalContentScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit
     val appContext = LocalContext.current.applicationContext
     val viewModel = viewModel {
         val useCase = appGenerateTechnicalContent(appContext)
-        sessionChatViewModel(appContext, Feature.TECHNICAL_CONTENT.name, createSavedStateHandle(), TextSaver) { prompt -> useCase(prompt) }
+        sessionChatViewModel(appContext, Feature.TECHNICAL_CONTENT.name, createSavedStateHandle(), TextSaver, pipeline = Pipelines.text) { prompt -> useCase(prompt) }
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val postViewModel = viewModel { PostViewModel(appPostToLinkedIn(appContext), appSmartTrim(appContext)) }
@@ -49,13 +52,15 @@ fun TechnicalContentScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit
         header = { TextAgentDropdown() },
         inputContent = { PromptCard("Your prompt", it, collapsedLines = 4) },
         resultContent = { markdown ->
+            val inputId = LocalChatInputId.current
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 MarkdownText(markdown)
                 PostLengthNote(postViewModel.measure(markdown), postViewModel.limit)
-                PostInLinkedInButton(onClick = { postViewModel.start(markdown) }, busy = postState == PostState.Posting)
+                PostInLinkedInButton(onClick = { postViewModel.start(markdown, key = inputId) }, busy = postState == PostState.Posting)
             }
         },
     )
+    TrackPostStage(postState, postViewModel.key, viewModel::markStage)
     PostDialogs(
         state = postState,
         onTextChange = postViewModel::onTextChange,
