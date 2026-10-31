@@ -166,6 +166,8 @@ enum class ImageSize(val key: String, val words: String) {
 
 /** How an image is made from its filled template: drawn by the app, painted by the image agent, or both side by side. */
 enum class ImageMode(val key: String) {
+    /** Painted by the image agent, and drawn by the app instead when the review finds its text wrong (SV-6). */
+    AUTO("auto"),
     DRAWN("drawn"),
     PAINTED("painted"),
     BOTH("both"),
@@ -202,7 +204,7 @@ enum class ImageLayout(val key: String) {
  *   style_guide: ""
  *   series: false
  *   format: auto
- *   mode: both
+ *   mode: auto
  *   layout: auto
  * ```
  *
@@ -214,7 +216,7 @@ data class ImageStyle(
     val styleGuide: String = "",
     val series: Boolean = false,
     val format: ImageSize? = null,
-    val mode: ImageMode = ImageMode.BOTH,
+    val mode: ImageMode = ImageMode.AUTO,
     val layout: ImageLayout = ImageLayout.AUTO,
 )
 

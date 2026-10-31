@@ -44,6 +44,15 @@ class InfographicRendererTest {
     }
 
     @Test
+    fun `a dense portrait poster is laid out in 3 columns, a light one in 2`() {
+        fun columns(cards: Int) = renderer.render(
+            InfographicSpec(title = "Caching", sections = List(cards) { Section("Card $it", SectionBody.Illustration("a server rack")) }),
+        ).slots.map { it.x }.distinct().size
+        assertEquals(2, columns(6))
+        assertEquals(3, columns(DENSE_SECTIONS))
+    }
+
+    @Test
     fun `everything stays inside the canvas`() {
         for (format in InfographicFormat.entries) {
             val rendered = renderer.render(spec.copy(format = format))

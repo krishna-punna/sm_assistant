@@ -73,7 +73,7 @@ class ImageExamplesTest {
     @Test
     fun `the asset has an example for every sample image and the template uses them`() {
         val parsed = parseImageExamples(File("src/main/assets/prompts/image/image_examples.md").readText())
-        assertEquals(21, parsed.size)
+        assertEquals(27, parsed.size)
         assertTrue(parsed.all { it.keywords.isNotEmpty() })
         // Every example is tagged with a template the app has (never the Series template, which the chooser never picks).
         val ids = parseImageTemplates(File("src/main/assets/prompts/image/image_templates.md").readText()).map { it.id }.toSet() - SERIES_TEMPLATE

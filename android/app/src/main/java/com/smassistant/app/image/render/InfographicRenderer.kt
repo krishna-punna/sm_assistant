@@ -22,6 +22,9 @@ data class IllustrationSlot(
  */
 data class RenderedInfographic(val svg: String, val width: Int, val height: Int, val slots: List<IllustrationSlot>)
 
+/** Narrow cards from which a portrait poster is laid out in 3 columns instead of 2 (SV-7). */
+const val DENSE_SECTIONS = 7
+
 /**
  * The infographic renderer (docs/design/image-video-pipeline.md): lays an [InfographicSpec] out
  * as a header band, a grid of numbered cards and a takeaway footer, and writes it as SVG that
@@ -141,11 +144,16 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
     /** Section [index]'s card and where it goes in the body. */
     private class Placement(val index: Int, val block: Block, val x: Float, val top: Float)
 
-    /** 2 columns (3 for landscape and wide) at the format's width, and one more for each such column a wider page has room for. */
+    /**
+     * 2 columns (3 for landscape and wide, and for a portrait poster of [DENSE_SECTIONS] or more narrow
+     * cards, like the dense samples; SV-7) at the format's width, and one more for each such column a
+     * wider page has room for.
+     */
     private fun columnsFor(spec: InfographicSpec, width: Float): Int {
-        val base = if (spec.format.isWide) 3 else 2
+        val narrow = spec.sections.count { !isAlwaysWide(it.body) }
+        val base = if (spec.format.isWide || spec.format == InfographicFormat.PORTRAIT && narrow >= DENSE_SECTIONS) 3 else 2
         val room = max(base, floor(width / (spec.format.width / base.toFloat())).toInt())
-        return min(room, max(1, spec.sections.count { !isAlwaysWide(it.body) }))
+        return min(room, max(1, narrow))
     }
 
     private fun isAlwaysWide(body: SectionBody) =
