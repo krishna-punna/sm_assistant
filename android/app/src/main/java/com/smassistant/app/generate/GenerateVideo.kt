@@ -11,8 +11,10 @@ import com.smassistant.app.data.MediaPurpose
 import com.smassistant.app.infographic.InfographicPipeline
 import com.smassistant.app.infographic.InfographicRenderer
 import com.smassistant.app.infographic.revealSteps
+import com.smassistant.app.media.AndroidFrameBlender
 import com.smassistant.app.media.AndroidImageInspector
 import com.smassistant.app.media.AndroidInfographicComposer
+import com.smassistant.app.media.FrameBlender
 import com.smassistant.app.media.Media3SlideshowMaker
 import com.smassistant.app.media.MediaCache
 import com.smassistant.app.media.PaintTextMeasurer
@@ -92,7 +94,8 @@ class SlideDecks(
  * [MIN_SCENE_SECONDS] each), or equally when the storyboard gives none. A `reveal` scene is shown
  * in steps, one more section each ([revealSteps]), the steps sharing its time. With video
  * templates the chooser picks one for the technical content (the prompt when there is none), and
- * the deck follows it; a failed choice gives the Universal Master.
+ * the deck follows it; a failed choice gives the Universal Master. With a [blender] the scenes
+ * fade into each other.
  */
 class GenerateVideoUseCase(
     private val slideTemplate: String,
@@ -101,6 +104,7 @@ class GenerateVideoUseCase(
     private val newVideoFile: () -> File,
     private val seconds: () -> Int = { DEFAULT_VIDEO_SECONDS },
     private val decks: SlideDecks? = null,
+    private val blender: FrameBlender? = null,
 ) {
     suspend operator fun invoke(prompt: String): Outcome<GeneratedVideo> {
         val topic = prompt.trim()
@@ -115,13 +119,40 @@ class GenerateVideoUseCase(
             Outcome.NoAgent -> return Outcome.NoAgent
         }
         val images = video.slides.map { it.file }
-        // A revealed scene's frames share its time equally.
-        val frames = video.slides.flatMap { it.frames }
-        val millis = sceneMillis(video.slides.map { it.seconds }, length).zip(video.slides).flatMap { (scene, slide) -> split(scene, slide.frames.size) }
+        val (frames, millis) = timeline(video, sceneMillis(video.slides.map { it.seconds }, length))
         return maker.make(frames, newVideoFile(), millis, video.format.width, video.format.height).fold(
             onSuccess = { Outcome.Ok(GeneratedVideo(it, images, length, video.format)) },
             onFailure = { Outcome.Failed(ApiError.BadResponse(it.message ?: "couldn't encode the video"), VIDEO_MAKER) },
         )
+    }
+
+    /**
+     * Every frame of the video and how long it shows: a revealed scene's steps share its time
+     * equally, and with a [blender] each scene fades into the next over [FADE_FRAMES] blended
+     * frames taken from the end of its time. A scene too short for that, or a blend that fails,
+     * keeps a hard cut.
+     */
+    private suspend fun timeline(video: DrawnVideo, sceneMillis: List<Long>): Pair<List<File>, List<Long>> {
+        val frames = mutableListOf<File>()
+        val millis = mutableListOf<Long>()
+        video.slides.zip(sceneMillis).forEachIndexed { i, (slide, time) ->
+            val next = video.slides.getOrNull(i + 1)
+            val fade = FADE_FRAMES * FADE_FRAME_MILLIS
+            val blends = if (blender != null && next != null && time >= MIN_FADED_SCENE_MILLIS) {
+                fadeAmounts().map { blender.blend(slide.file, next.frames.first(), it, video.format.width, video.format.height) }
+                    .takeIf { all -> all.all { it != null } }?.filterNotNull()
+            } else {
+                null
+            }
+            val shown = split(if (blends != null) time - fade else time, slide.frames.size)
+            frames += slide.frames
+            millis += shown
+            if (blends != null) {
+                frames += blends
+                millis += List(blends.size) { FADE_FRAME_MILLIS }
+            }
+        }
+        return frames to millis
     }
 
     private suspend fun deckSlides(
@@ -197,6 +228,7 @@ fun appGenerateVideo(context: Context): GenerateVideoUseCase {
         slideTemplate = loadPromptAsset(context, "video"),
         agent = selector::imageAgent,
         maker = Media3SlideshowMaker(context.applicationContext),
+        blender = AndroidFrameBlender(cache),
         newVideoFile = { cache.newFile("mp4") },
         seconds = AgentPreferences(context)::videoSeconds,
         decks = SlideDecks(
