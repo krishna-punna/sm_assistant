@@ -3,12 +3,8 @@ package com.smassistant.app.image.render
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
-import com.smassistant.app.image.render.ApproxTextMeasurer
-import com.smassistant.app.image.render.InfographicFormat
-import com.smassistant.app.image.render.InfographicRenderer
-import com.smassistant.app.image.render.InfographicSpec
-import com.smassistant.app.image.render.Section
-import com.smassistant.app.image.render.SectionBody
+import com.smassistant.app.media.AndroidSvgRenderer
+import com.smassistant.app.media.MediaCache
 import java.nio.file.Files
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
