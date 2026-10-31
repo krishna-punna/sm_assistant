@@ -48,7 +48,8 @@ class ImageStyleScreenTest {
         compose.onNodeWithText("developers").assertExists()
         compose.onNodeWithText("SM").assertExists()
         compose.onNodeWithTag("styleSeries").assertIsOff()
-        compose.onNodeWithTag("styleMode").assertTextEquals("Both (drawn and AI-painted) ▾")
+        compose.onNodeWithTag("styleMode").assertTextEquals("App-drawn (default) ▾")
+        compose.onNodeWithTag("styleLayout").assertTextEquals("Auto: one image or a carousel ▾")
 
         compose.onNodeWithTag("styleAudience").performTextReplacement("architects")
         compose.onNodeWithTag("styleSeries").performScrollTo().performClick()
