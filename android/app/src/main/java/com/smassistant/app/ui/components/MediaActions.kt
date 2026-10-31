@@ -1,6 +1,7 @@
 package com.smassistant.app.ui.components
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -36,7 +37,12 @@ import kotlinx.coroutines.withContext
  * [files] is read when a button is tapped, so it can follow a selection.
  */
 @Composable
-fun MediaActions(files: () -> List<File>, modifier: Modifier = Modifier, enabled: Boolean = true) {
+fun MediaActions(
+    files: () -> List<File>,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    share: (Context, List<File>) -> Unit = { context, picked -> context.startActivity(MediaExport.shareIntent(context, picked)) },
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var saving by remember { mutableStateOf(false) }
@@ -67,7 +73,7 @@ fun MediaActions(files: () -> List<File>, modifier: Modifier = Modifier, enabled
             onClick = {
                 val picked = files()
                 if (picked.isNotEmpty()) {
-                    runCatching { context.startActivity(MediaExport.shareIntent(context, picked)) }
+                    runCatching { share(context, picked) }
                         .onFailure { Toast.makeText(context, "No app can share this", Toast.LENGTH_SHORT).show() }
                 }
             },
