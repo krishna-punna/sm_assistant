@@ -119,7 +119,10 @@ fun imageLabel(file: File): ImageLabel? {
     return ImageLabel(match.groupValues[1], format, match.groupValues[3].isNotEmpty())
 }
 
-/** "Workflow · 2:3" ("Workflow · 2:3 · AI" when painted): the template's name from [templates] and the format's ratio. */
-fun ImageLabel.text(templates: List<ImageTemplate>): String =
-    "${templates.firstOrNull { it.id == templateId }?.name ?: templateId.replaceFirstChar { it.uppercase() }} · ${format.words.substringAfter(' ')}" +
+/**
+ * "Workflow · 2:3" ("Workflow · 2:3 · AI" when painted): the template's name from [templates] and the
+ * format's ratio, or the image's real [size] ("2:3 · 2160×3240") when it is known.
+ */
+fun ImageLabel.text(templates: List<ImageTemplate>, size: String? = null): String =
+    "${templates.firstOrNull { it.id == templateId }?.name ?: templateId.replaceFirstChar { it.uppercase() }} · ${size ?: format.words.substringAfter(' ')}" +
         if (painted) " · AI" else ""

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
@@ -95,6 +96,8 @@ fun ImageStrip(
     onToggle: (Int) -> Unit,
     onOpen: (Int) -> Unit,
     labels: List<String?> = emptyList(),
+    /** Each image's width / height; a thumbnail keeps it instead of being cropped to a square (docs/requirements/18, SV-10). */
+    ratios: List<Float?> = emptyList(),
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
@@ -106,13 +109,14 @@ fun ImageStrip(
             itemsIndexed(images) { index, file ->
                 Box(
                     Modifier
-                        .size(150.dp)
+                        .height(150.dp)
+                        .aspectRatio(ratios.getOrNull(index) ?: 1f, matchHeightConstraintsFirst = true)
                         .clip(RoundedCornerShape(8.dp))
                         .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
                         .clickable(onClickLabel = "Open preview") { onOpen(index) }
                         .semantics { contentDescription = "Image ${index + 1}" },
                 ) {
-                    GeneratedImage(file, Modifier.fillMaxSize(), maxSidePx = 400)
+                    GeneratedImage(file, Modifier.fillMaxSize(), maxSidePx = 400, contentScale = ContentScale.Fit)
                     labels.getOrNull(index)?.let { label ->
                         Text(
                             label,
@@ -146,11 +150,11 @@ fun ImageStrip(
  * posted together, so there is nothing to select.
  */
 @Composable
-fun CarouselPager(pages: List<File>, onOpen: (Int) -> Unit) {
+fun CarouselPager(pages: List<File>, onOpen: (Int) -> Unit, sizes: List<String?> = emptyList()) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         val pager = rememberPagerState { pages.size }
         Text(
-            "Carousel · page ${pager.currentPage + 1} of ${pages.size}",
+            listOfNotNull("Carousel · page ${pager.currentPage + 1} of ${pages.size}", sizes.getOrNull(pager.currentPage)).joinToString(" · "),
             style = MaterialTheme.typography.labelMedium,
             modifier = Modifier.testTag("carouselCount"),
         )

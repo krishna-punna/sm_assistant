@@ -28,6 +28,7 @@ This knowledge base is derived from the wireframe deck [`requirements/SM Assista
 | 16 | [Video prompt templates](16-video-prompt-templates.md) | Krishna's LinkedIn technical video templates; the agent picks one from the prompt and its technical content and plans the storyboard by it (plan: [design](../design/video-templates.md)) | — (request 2026-10-30) |
 | 17 | [One image or a carousel](17-single-image-or-carousel.md) | One result per image request; the app splits long content into a swipeable carousel, trying landscape first (plan: [design](../design/single-image-carousel.md)) | — (request 2026-10-31) |
 | 18 | [Separate image and video](18-separate-image-and-video.md) | Two separate pipelines and size types; every image post is one dense poster like the samples (2:3 default), carousel only when picked | — (request 2026-10-31) |
+| 19 | [Isolated image and video pipelines](19-isolated-image-video-pipelines.md) | Image and video share nothing from prompt to final file; current implementation verified 2026-10-31 | — (request 2026-10-31) |
 
 ## Slide index
 

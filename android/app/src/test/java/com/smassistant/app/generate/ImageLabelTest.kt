@@ -35,6 +35,9 @@ class ImageLabelTest {
         val templates = listOf(ImageTemplate("workflow", "Workflow", "", ""))
         assertEquals("Workflow · 2:3", ImageLabel("workflow", ImageFormat.PORTRAIT).text(templates))
         assertEquals("Data · 3:2", ImageLabel("data", ImageFormat.LANDSCAPE).text(templates))
+        // The real size, when known, replaces the planned ratio.
+        assertEquals("Workflow · 1:1 · 2160×2160", ImageLabel("workflow", ImageFormat.PORTRAIT).text(templates, "1:1 · 2160×2160"))
+        assertEquals("Workflow · 2:3 · 1664×2496 · AI", ImageLabel("workflow", ImageFormat.PORTRAIT, painted = true).text(templates, "2:3 · 1664×2496"))
     }
 
     @Test

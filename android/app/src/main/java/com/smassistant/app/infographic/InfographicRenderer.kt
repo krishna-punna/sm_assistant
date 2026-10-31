@@ -646,7 +646,7 @@ private class Svg {
         if (bold) out.append(""" font-weight="bold"""")
         if (anchor != "start") out.append(""" text-anchor="$anchor"""")
         if (opacity < 1f) out.append(""" opacity="${n(opacity)}"""")
-        out.append(">").append(escape(content)).append("</text>")
+        out.append(">").append(textContent(content)).append("</text>")
     }
 
     /** One line per entry, the first line box starting at [top]. */
@@ -668,7 +668,8 @@ private class Svg {
     fun highlightedLine(line: String, highlight: Set<String>, x: Float, y: Float, size: Float, fill: String, accent: String) {
         out.append("""<text x="${n(x)}" y="${n(y)}" font-family="sans-serif" font-size="${n(size)}" font-weight="bold" fill="$fill">""")
         line.split(' ').forEachIndexed { i, word ->
-            val text = escape(if (i == 0) word else " $word")
+            // A non-breaking space: AndroidSVG drops a normal space at the start of a <tspan>, which ran the words together.
+            val text = textContent(if (i == 0) word else "\u00A0$word")
             val key = word.lowercase().trim { !it.isLetterOrDigit() }
             if (key in highlight) out.append("""<tspan fill="$accent">$text</tspan>""") else out.append("<tspan>$text</tspan>")
         }
@@ -713,7 +714,13 @@ private class Svg {
 
     private fun n3(v: Float) = ((v * 1000).roundToInt() / 1000.0).toString()
 
-    private fun escape(text: String) = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
+    /**
+     * [text] as element content. AndroidSVG reads with an XmlPullParser and skips entity references,
+     * so `&lt;` and `&gt;` vanished from code ("Mono<Dto>" drawn as "MonoDto"); text with `<`, `>` or
+     * `&` goes in a CDATA section instead, which it keeps.
+     */
+    private fun textContent(text: String) =
+        if (text.none { it == '<' || it == '>' || it == '&' }) text else "<![CDATA[" + text.replace("]]>", "]]]]><![CDATA[>") + "]]>"
 }
 
 private val InfographicFormat.isWide get() = this == InfographicFormat.LANDSCAPE || this == InfographicFormat.WIDE
