@@ -33,6 +33,7 @@ Status values: **done** (implemented and matches the requirement), **partial** (
 | [09-prompt-types-and-media.md](09-prompt-types-and-media.md) | Prompt types and the image/video content workflow | PT-1…5, MW-1…4 |
 | [10-image-templates.md](10-image-templates.md) | Image prompt templates: AI picks and fills a template | IT-I1…15 |
 | [11-video-templates.md](11-video-templates.md) | Video prompt templates: the agent picks a video template and plans the storyboard by it (planned) | VT-I1…8 |
+| [12-single-image-carousel.md](12-single-image-carousel.md) | One image per request, or a carousel when the content needs it | SC-1…4 |
 
 ## Phases
 
