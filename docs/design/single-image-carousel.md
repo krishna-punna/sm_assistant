@@ -68,8 +68,13 @@ technical content ──► infographic definition (the format the template plan
   summary (the takeaway and up to 5 key points). Between them, 3 to 8 content pages. At most 10.
 - A `Carousel` is written in one text-agent call (`CarouselWriter`, `prompts/carousel.md`), like the
   video's `SlideDeck`: the cover, the pages as infographic definitions and the summary, one palette.
-  Each page is checked (`infographicProblems` with page budgets), drawn by `InfographicPipeline`
-  (at most 1 illustration per page, 2 on the cover), and the vision review runs on each page.
+  The carousel is checked as a whole (`carouselProblems`: page count, cover title, at most 2
+  sections a page, every page fits its square) and drawn by `InfographicPipeline.drawPages` (at
+  most 1 illustration per page, 2 on the cover). The vision review is not run per page, to keep a
+  10-page carousel from costing 10 more vision calls. If no carousel can be made (the writer fails,
+  or fewer than 2 pages draw), the long content is drawn as one image as before.
+- The cover has no cards: its header fills the page with the title centred. Content pages centre
+  their cards below the header.
 - Files: `carousel-<id>-p01.png` … so a result, a saved result and a scheduled run keep the pages
   together and in order.
 

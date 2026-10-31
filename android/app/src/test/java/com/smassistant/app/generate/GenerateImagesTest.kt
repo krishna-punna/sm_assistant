@@ -11,6 +11,7 @@ import com.smassistant.app.infographic.InfographicRenderer
 import com.smassistant.app.chat.Outcome
 import com.smassistant.app.data.ApiService
 import com.smassistant.app.data.ImageFormat
+import com.smassistant.app.data.ImageLayout
 import com.smassistant.app.data.ImageMode
 import com.smassistant.app.data.ImageStyle
 import com.smassistant.app.net.ApiError
@@ -326,6 +327,61 @@ class GenerateImagesTest {
         assertEquals(1, (outcome as Outcome.Ok).value.size)
         assertTrue(gemini.painted.none { it.first.startsWith("Rules for") })
         assertTrue(writer.calls.drop(2).single().second.contains("Image template: Workflow, portrait 2:3."))
+    }
+
+    /** A definition too long for one image at full text size, even as landscape. */
+    private fun tooLong(): String {
+        val cards = List(8) { i -> "{\"heading\": \"Part $i\", \"items\": [${List(5) { "\"point $it about caching entries and their expiry\"" }.joinToString()}]}" }
+        return "{\"title\": \"Caching\", \"sections\": [${cards.joinToString()}]}"
+    }
+
+    private val carouselPages = listOf("Caching", "Reads", "Expiry", "Eviction", "Summary")
+
+    private fun carouselReply(): String {
+        val cover = "{\"title\": \"Caching\", \"subtitle\": \"What a cache does\"}"
+        val pages = carouselPages.drop(1).map { "{\"title\": \"$it\", \"sections\": [{\"heading\": \"$it notes\", \"items\": [\"one point on $it\"]}]}" }
+        return "{\"palette\": \"teal\", \"pages\": [${(listOf(cover) + pages).joinToString()}]}"
+    }
+
+    @Test
+    fun `content too long for one image becomes a carousel of pages in order`() = runTest {
+        val writer = ScriptedTextAgent(ApiResult.Ok(tooLong()), ApiResult.Ok(carouselReply()))
+        val parts = Infographics({ writer }, InfographicWriter("Plan.{{examples}}"), pipeline, carousel = CarouselWriter("Pages {{pages}}.{{examples}}"))
+
+        val outcome = GenerateImagesUseCase("{{prompt}}", { null }, IMAGES_PER_REQUEST, infographics = parts)(" Caching ")
+
+        assertEquals(Outcome.Ok(carouselPages.map { File("$it.png") }), outcome)
+        // Only the pages were drawn, never the long single image.
+        assertEquals(carouselPages.sorted(), drawn.sorted())
+        assertTrue(writer.calls[1].first.startsWith("Pages 10."))
+    }
+
+    @Test
+    fun `the Carousel layout skips the single image`() = runTest {
+        val writer = ScriptedTextAgent(
+            ApiResult.Ok("1. Request flow"),
+            ApiResult.Ok("""{"primary": "workflow", "alternates": []}"""),
+            ApiResult.Ok(carouselReply()),
+        )
+        val parts = templated(writer, ImageStyle(audience = "devs", layout = ImageLayout.CAROUSEL))
+        val withCarousel = Infographics(parts.textAgent, parts.writer, pipeline, parts.content, templates = parts.templates, carousel = CarouselWriter("Pages."))
+
+        val outcome = GenerateImagesUseCase("{{prompt}}", { null }, IMAGES_PER_REQUEST, infographics = withCarousel).generate(ImageRequest("Caching"))
+
+        assertEquals(carouselPages.size, (outcome as Outcome.Ok).value.size)
+        assertEquals(3, writer.calls.size)
+        assertTrue(writer.calls[2].second.contains("Image template: Workflow."))
+    }
+
+    @Test
+    fun `when no carousel can be made the long image is drawn as one`() = runTest {
+        val writer = ScriptedTextAgent(ApiResult.Ok(tooLong()), ApiResult.Ok("no JSON here"))
+        val parts = Infographics({ writer }, InfographicWriter("Plan.{{examples}}"), pipeline, carousel = CarouselWriter("Pages."))
+
+        val outcome = GenerateImagesUseCase("{{prompt}}", { null }, IMAGES_PER_REQUEST, infographics = parts)(" Caching ")
+
+        assertEquals(Outcome.Ok(listOf(File("Caching.png"))), outcome)
+        assertEquals(3, writer.calls.size)
     }
 
     @Test

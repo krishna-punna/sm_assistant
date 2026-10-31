@@ -10,6 +10,7 @@ import com.smassistant.app.agents.appImageAgentSelector
 import com.smassistant.app.chat.Outcome
 import com.smassistant.app.data.AppConfig
 import com.smassistant.app.data.ImageFormat
+import com.smassistant.app.data.ImageLayout
 import com.smassistant.app.data.ImageStyle
 import com.smassistant.app.infographic.ImageInspector
 import com.smassistant.app.infographic.InfographicFormat
@@ -17,6 +18,7 @@ import com.smassistant.app.infographic.InfographicPipeline
 import com.smassistant.app.infographic.InfographicRenderer
 import com.smassistant.app.infographic.InfographicSpec
 import com.smassistant.app.infographic.imageProblem
+import com.smassistant.app.infographic.numbered
 import com.smassistant.app.media.AndroidImageInspector
 import com.smassistant.app.media.AndroidImageUpscaler
 import com.smassistant.app.media.AndroidInfographicComposer
@@ -48,6 +50,8 @@ class Infographics(
     val reviewer: ImageReviewer? = null,
     val retries: Int = 1,
     val templates: Templates? = null,
+    /** Writes the carousel that content too long for one image is split into (docs/design/single-image-carousel.md); null never splits. */
+    val carousel: CarouselWriter? = null,
 )
 
 /**
@@ -152,6 +156,7 @@ class GenerateImagesUseCase(
         }.orEmpty()
         val illustrator = agent()
         val briefs = parts.templates?.let { templates -> briefs(templates, writer, topic, content, request) }
+        val layout = parts.templates?.style()?.layout ?: ImageLayout.AUTO
         val outcomes = coroutineScope {
             List(count) { i ->
                 val brief = briefs?.get(i)
@@ -167,23 +172,55 @@ class GenerateImagesUseCase(
                         null
                     }
                     if (painted != null) {
-                        Outcome.Ok(labelImage(painted, paintBrief!!.template.id, paintBrief.format, painted = true))
+                        Outcome.Ok(listOf(labelImage(painted, paintBrief!!.template.id, paintBrief.format, painted = true)))
                     } else {
-                        // A painted image that couldn't be made is drawn instead.
-                        infographic(parts, writer, topic, idea, content, illustrator, brief)
+                        // A painted image that couldn't be made is drawn instead, or split into a carousel.
+                        val split = splitter(parts, writer, topic, content, illustrator, brief)
+                        if (layout == ImageLayout.CAROUSEL) split?.invoke(null)?.let { return@async Outcome.Ok(it) }
+                        infographic(parts, writer, topic, idea, content, illustrator, brief, split.takeIf { layout == ImageLayout.AUTO })
                     }
                 }
             }.awaitAll()
         }
-        val files = outcomes.filterIsInstance<Outcome.Ok<File>>().map { it.value }
+        val files = outcomes.filterIsInstance<Outcome.Ok<List<File>>>().flatMap { it.value }
         return if (files.isNotEmpty()) Outcome.Ok(files) else outcomes.first() as Outcome.Failed
+    }
+
+    /**
+     * Splits the content into a carousel (docs/design/single-image-carousel.md): the carousel writer
+     * plans the pages, then each is drawn and labelled in order. It gets the single image's
+     * definition that was too long, or null when the Layout setting asks for a carousel anyway.
+     * The pages, or null when fewer than 2 could be made, so a single image is drawn instead.
+     * Null when no carousel writer is set up.
+     */
+    private fun splitter(
+        parts: Infographics,
+        writer: TextAgent,
+        topic: String,
+        content: String,
+        illustrator: ImageAgent?,
+        brief: ImageBrief?,
+    ): (suspend (InfographicSpec?) -> List<File>?)? {
+        val carousels = parts.carousel ?: return null
+        return { _ ->
+            when (val result = carousels.write(writer, topic, content, brief, parts.pipeline::fits)) {
+                is ApiResult.Failed -> null
+                is ApiResult.Ok -> {
+                    val id = System.currentTimeMillis()
+                    parts.pipeline.drawPages(result.value.numbered(), illustrator)
+                        .takeIf { it.size >= 2 }
+                        ?.mapIndexed { i, file -> labelCarouselPage(file, id, i + 1) }
+                }
+            }
+        }
     }
 
     /**
      * One infographic: written, drawn and reviewed. One the review scores too low is written again
      * with the review's problems, up to [Infographics.retries] times, and the best-scored is kept.
      * One made from a [brief] is labelled with its template and the format it was drawn in, which
-     * [fitFormat] may have switched to landscape.
+     * [fitFormat] may have switched to landscape. A definition too long even for that is given to
+     * [split] once, and its carousel pages are the result when it makes them.
      */
     private suspend fun infographic(
         parts: Infographics,
@@ -193,26 +230,33 @@ class GenerateImagesUseCase(
         content: String,
         illustrator: ImageAgent?,
         brief: ImageBrief? = null,
-    ): Outcome<File> {
+        split: (suspend (InfographicSpec?) -> List<File>?)? = null,
+    ): Outcome<List<File>> {
         val reviewer = parts.reviewer
         var feedback = emptyList<String>()
         var best: Pair<File, Int>? = null
+        var splitter = split
         repeat(parts.retries + 1) {
             val spec = when (val result = parts.writer.write(writer, topic, idea, content, feedback, brief)) {
-                is ApiResult.Failed -> return best?.let { Outcome.Ok(it.first) } ?: Outcome.Failed(result.error, writer.service.displayName)
+                is ApiResult.Failed -> return best?.let { Outcome.Ok(listOf(it.first)) } ?: Outcome.Failed(result.error, writer.service.displayName)
                 is ApiResult.Ok -> fitFormat(result.value, brief, parts.pipeline::fits)
+            }
+            // Too long for one image even as landscape: split into a carousel, or draw it smaller when that fails.
+            splitter?.takeIf { !parts.pipeline.fits(spec) }?.let { carousel ->
+                splitter = null
+                carousel(spec)?.let { return Outcome.Ok(it) }
             }
             val file = parts.pipeline.draw(spec, illustrator)?.let { drawn -> brief?.let { labelImage(drawn, it.template.id, spec.format.image) } ?: drawn }
             if (file == null) {
                 feedback = listOf("the image couldn't be drawn or came out blank; use simpler sections")
                 return@repeat
             }
-            val review = reviewer?.review(writer, topic, spec, file, brief?.template) ?: return Outcome.Ok(file)
-            if (reviewer.passes(review)) return Outcome.Ok(file)
+            val review = reviewer?.review(writer, topic, spec, file, brief?.template) ?: return Outcome.Ok(listOf(file))
+            if (reviewer.passes(review)) return Outcome.Ok(listOf(file))
             if (best == null || review.score > best!!.second) best = file to review.score
             feedback = review.problems.ifEmpty { listOf("it scored ${review.score}/10; make it clearer and closer to the topic") }
         }
-        return best?.let { Outcome.Ok(it.first) }
+        return best?.let { Outcome.Ok(listOf(it.first)) }
             ?: Outcome.Failed(ApiError.BadResponse("the infographic couldn't be drawn"), INFOGRAPHIC_RENDERER)
     }
 
@@ -329,6 +373,7 @@ internal fun appInfographics(context: Context, cache: MediaCache, examples: List
         reviewer = if (checks.visionReview) ImageReviewer(loadPromptAsset(context, "image_review"), ::reviewJpeg, checks.minScore) else null,
         retries = if (checks.visionReview) checks.retries else 0,
         templates = appTemplates(context),
+        carousel = CarouselWriter(loadPromptAsset(context, "carousel"), examples),
     )
 }
 
