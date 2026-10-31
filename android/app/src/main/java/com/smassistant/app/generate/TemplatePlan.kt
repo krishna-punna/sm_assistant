@@ -90,6 +90,14 @@ val ImageFormat.infographic: InfographicFormat
         ImageFormat.LANDSCAPE -> InfographicFormat.LANDSCAPE
     }
 
+/** The image format of a renderer format; a video-only shape (9:16, 16:9) reads as the nearest image one. */
+val InfographicFormat.image: ImageFormat
+    get() = when (this) {
+        InfographicFormat.PORTRAIT, InfographicFormat.VERTICAL -> ImageFormat.PORTRAIT
+        InfographicFormat.SQUARE -> ImageFormat.SQUARE
+        InfographicFormat.LANDSCAPE, InfographicFormat.WIDE -> ImageFormat.LANDSCAPE
+    }
+
 /**
  * The template and format an image was made with, and whether it was AI-[painted], kept in its file
  * name so saved results keep it too.

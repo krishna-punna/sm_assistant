@@ -19,6 +19,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.smassistant.app.data.ImageLayout
 import com.smassistant.app.data.ImageMode
 import com.smassistant.app.generate.ImageStyleStore
 import com.smassistant.app.generate.ImageStyleUiState
@@ -52,6 +53,7 @@ fun ImageStyleScreen(onBackToHome: () -> Unit) {
             onStyleGuide = viewModel::onStyleGuide,
             onSeries = viewModel::onSeries,
             onMode = viewModel::onMode,
+            onLayout = viewModel::onLayout,
             onSave = viewModel::save,
             onReset = viewModel::reset,
         ),
@@ -66,15 +68,23 @@ data class ImageStyleActions(
     val onStyleGuide: (String) -> Unit = {},
     val onSeries: (Boolean) -> Unit = {},
     val onMode: (ImageMode) -> Unit = {},
+    val onLayout: (ImageLayout) -> Unit = {},
     val onSave: () -> Unit = {},
     val onReset: () -> Unit = {},
 )
 
 /** How each mode reads in its picker. */
 fun ImageMode.label(): String = when (this) {
-    ImageMode.BOTH -> "Both (drawn and AI-painted)"
+    ImageMode.BOTH -> "App-drawn (default)"
     ImageMode.DRAWN -> "App-drawn"
     ImageMode.PAINTED -> "AI-painted"
+}
+
+/** How each layout reads in its picker. */
+fun ImageLayout.label(): String = when (this) {
+    ImageLayout.AUTO -> "Auto: one image or a carousel"
+    ImageLayout.SINGLE -> "Always one image"
+    ImageLayout.CAROUSEL -> "Always a carousel"
 }
 
 @Composable
@@ -120,9 +130,17 @@ fun ImageStyleContent(state: ImageStyleUiState, actions: ImageStyleActions, onBa
         SelectDropdown("Images", style.mode, ImageMode.entries, { it.label() }, actions.onMode, "styleMode")
         Text(
             when (style.mode) {
-                ImageMode.BOTH -> "Images 1 and 3 are drawn by the app, 2 and 4 painted by the image agent."
-                ImageMode.DRAWN -> "The app draws every image, so text, code and numbers are exact."
-                ImageMode.PAINTED -> "The image agent paints every image from the template."
+                ImageMode.BOTH, ImageMode.DRAWN -> "The app draws the image, so text, code and numbers are exact."
+                ImageMode.PAINTED -> "The image agent paints the image from the template, always as one image."
+            },
+            style = MaterialTheme.typography.bodySmall,
+        )
+        SelectDropdown("Layout", style.layout, ImageLayout.entries, { it.label() }, actions.onLayout, "styleLayout")
+        Text(
+            when (style.layout) {
+                ImageLayout.AUTO -> "Content that doesn't fit a portrait image is tried as landscape, then split into a swipeable carousel."
+                ImageLayout.SINGLE -> "Always one image; long content is drawn with smaller text."
+                ImageLayout.CAROUSEL -> "Always a carousel of square pages: a cover, the content and a summary."
             },
             style = MaterialTheme.typography.bodySmall,
         )

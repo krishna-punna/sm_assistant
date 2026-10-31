@@ -177,6 +177,22 @@ enum class ImageMode(val key: String) {
 }
 
 /**
+ * Whether a request's content is made into one image or a carousel (docs/design/single-image-carousel.md):
+ * Auto splits content that doesn't fit one image (portrait, then landscape) into a carousel, Single
+ * always makes one image (smaller text when it is long), Carousel always makes a carousel.
+ */
+enum class ImageLayout(val key: String) {
+    AUTO("auto"),
+    SINGLE("single"),
+    CAROUSEL("carousel"),
+    ;
+
+    companion object {
+        fun of(key: String?): ImageLayout? = entries.firstOrNull { it.key.equals(key?.trim(), ignoreCase = true) }
+    }
+}
+
+/**
  * The inputs the image templates take besides the content (docs/design/image-templates.md), from app.yml:
  *
  * ```yaml
@@ -187,6 +203,7 @@ enum class ImageMode(val key: String) {
  *   series: false
  *   format: auto
  *   mode: both
+ *   layout: auto
  * ```
  *
  * A null [format] is Auto: the app picks one per image. Missing or invalid values fall back to the defaults.
@@ -198,6 +215,7 @@ data class ImageStyle(
     val series: Boolean = false,
     val format: ImageFormat? = null,
     val mode: ImageMode = ImageMode.BOTH,
+    val layout: ImageLayout = ImageLayout.AUTO,
 )
 
 fun parseImageStyle(input: InputStream): ImageStyle {
@@ -211,5 +229,6 @@ fun parseImageStyle(input: InputStream): ImageStyle {
         series = entry["series"]?.toString()?.toBooleanStrictOrNull() ?: defaults.series,
         format = ImageFormat.of(entry["format"]?.toString()),
         mode = ImageMode.of(entry["mode"]?.toString()) ?: defaults.mode,
+        layout = ImageLayout.of(entry["layout"]?.toString()) ?: defaults.layout,
     )
 }

@@ -12,8 +12,10 @@ import com.smassistant.app.data.AppConfig
 import com.smassistant.app.data.ImageFormat
 import com.smassistant.app.data.ImageStyle
 import com.smassistant.app.infographic.ImageInspector
+import com.smassistant.app.infographic.InfographicFormat
 import com.smassistant.app.infographic.InfographicPipeline
 import com.smassistant.app.infographic.InfographicRenderer
+import com.smassistant.app.infographic.InfographicSpec
 import com.smassistant.app.infographic.imageProblem
 import com.smassistant.app.media.AndroidImageInspector
 import com.smassistant.app.media.AndroidImageUpscaler
@@ -168,8 +170,7 @@ class GenerateImagesUseCase(
                         Outcome.Ok(labelImage(painted, paintBrief!!.template.id, paintBrief.format, painted = true))
                     } else {
                         // A painted image that couldn't be made is drawn instead.
-                        val outcome = infographic(parts, writer, topic, idea, content, illustrator, brief)
-                        if (brief != null && outcome is Outcome.Ok) Outcome.Ok(labelImage(outcome.value, brief.template.id, brief.format)) else outcome
+                        infographic(parts, writer, topic, idea, content, illustrator, brief)
                     }
                 }
             }.awaitAll()
@@ -181,6 +182,8 @@ class GenerateImagesUseCase(
     /**
      * One infographic: written, drawn and reviewed. One the review scores too low is written again
      * with the review's problems, up to [Infographics.retries] times, and the best-scored is kept.
+     * One made from a [brief] is labelled with its template and the format it was drawn in, which
+     * [fitFormat] may have switched to landscape.
      */
     private suspend fun infographic(
         parts: Infographics,
@@ -197,9 +200,9 @@ class GenerateImagesUseCase(
         repeat(parts.retries + 1) {
             val spec = when (val result = parts.writer.write(writer, topic, idea, content, feedback, brief)) {
                 is ApiResult.Failed -> return best?.let { Outcome.Ok(it.first) } ?: Outcome.Failed(result.error, writer.service.displayName)
-                is ApiResult.Ok -> result.value
+                is ApiResult.Ok -> fitFormat(result.value, brief, parts.pipeline::fits)
             }
-            val file = parts.pipeline.draw(spec, illustrator)
+            val file = parts.pipeline.draw(spec, illustrator)?.let { drawn -> brief?.let { labelImage(drawn, it.template.id, spec.format.image) } ?: drawn }
             if (file == null) {
                 feedback = listOf("the image couldn't be drawn or came out blank; use simpler sections")
                 return@repeat
@@ -262,13 +265,25 @@ class GenerateImagesUseCase(
         val style = templates.style()
         val universal = templates.all.byId(UNIVERSAL_TEMPLATE)
         val series = templates.all.firstOrNull { it.id == SERIES_TEMPLATE }?.takeIf { style.series && choice.primary.id != SERIES_TEMPLATE }
-        return planImages(choice, count, picked != null, universal, request.format ?: style.format)
-            .mapIndexed { i, plan -> ImageBrief(plan.template, content, plan.format, style, paints(style.mode, i), series) }
+        val format = request.format ?: style.format
+        return planImages(choice, count, picked != null, universal, format)
+            .mapIndexed { i, plan -> ImageBrief(plan.template, content, plan.format, style, paints(style.mode, i), series, fixedFormat = format != null) }
     }
 
     private fun imagePrompt(prompt: String) = styleTemplate
         .replace("{{examples}}", formatImageExamples(pickImageExamples(examples, prompt)))
         .replace("{{prompt}}", prompt)
+}
+
+/**
+ * [spec], or the same definition as a 3:2 landscape when it doesn't [fit] its portrait or square
+ * format at full text size but does fit landscape (docs/design/single-image-carousel.md). A format
+ * the user picked is never switched, and neither is a definition written without a brief.
+ */
+internal fun fitFormat(spec: InfographicSpec, brief: ImageBrief?, fits: (InfographicSpec) -> Boolean): InfographicSpec {
+    if (brief == null || brief.fixedFormat || spec.format == InfographicFormat.LANDSCAPE || fits(spec)) return spec
+    val landscape = spec.copy(format = InfographicFormat.LANDSCAPE)
+    return if (fits(landscape)) landscape else spec
 }
 
 /** The request for [prompt] with the template and format last picked on the image screens. */

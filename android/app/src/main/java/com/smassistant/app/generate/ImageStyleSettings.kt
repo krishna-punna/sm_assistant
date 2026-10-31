@@ -3,6 +3,7 @@ package com.smassistant.app.generate
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import com.smassistant.app.data.AppConfig
+import com.smassistant.app.data.ImageLayout
 import com.smassistant.app.data.ImageMode
 import com.smassistant.app.data.ImageStyle
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,6 +30,7 @@ class ImageStyleStore(
             styleGuide = prefs.getString(STYLE_GUIDE, null) ?: base.styleGuide,
             series = if (prefs.contains(SERIES)) prefs.getBoolean(SERIES, base.series) else base.series,
             mode = ImageMode.of(prefs.getString(MODE, null)) ?: base.mode,
+            layout = ImageLayout.of(prefs.getString(LAYOUT, null)) ?: base.layout,
         )
     }
 
@@ -39,6 +41,7 @@ class ImageStyleStore(
             .putString(STYLE_GUIDE, style.styleGuide.trim())
             .putBoolean(SERIES, style.series)
             .putString(MODE, style.mode.key)
+            .putString(LAYOUT, style.layout.key)
             .apply()
     }
 
@@ -51,6 +54,7 @@ class ImageStyleStore(
         const val STYLE_GUIDE = "style_guide"
         const val SERIES = "series"
         const val MODE = "mode"
+        const val LAYOUT = "layout"
     }
 }
 
@@ -68,6 +72,7 @@ class ImageStyleViewModel(private val store: ImageStyleStore) : ViewModel() {
     fun onStyleGuide(text: String) = edit { it.copy(styleGuide = text) }
     fun onSeries(on: Boolean) = edit { it.copy(series = on) }
     fun onMode(mode: ImageMode) = edit { it.copy(mode = mode) }
+    fun onLayout(layout: ImageLayout) = edit { it.copy(layout = layout) }
 
     fun save() {
         store.save(_state.value.style)
