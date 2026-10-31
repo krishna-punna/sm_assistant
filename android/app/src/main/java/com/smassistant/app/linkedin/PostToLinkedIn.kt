@@ -5,14 +5,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.smassistant.app.chat.Outcome
 import com.smassistant.app.data.ApiService
+import com.smassistant.app.data.ApiSettingsStore
+import com.smassistant.app.data.AppConfig
 import com.smassistant.app.drafts.Draft
 import com.smassistant.app.drafts.DraftSaver
 import com.smassistant.app.drafts.DraftStore
-import com.smassistant.app.data.ApiSettingsStore
-import com.smassistant.app.data.AppConfig
 import com.smassistant.app.generate.PostCut
 import com.smassistant.app.generate.SmartTrimUseCase
-import com.smassistant.app.generate.isCarousel
 import com.smassistant.app.hashtags.HashtagSettingsStore
 import com.smassistant.app.hashtags.Hashtags
 import com.smassistant.app.hashtags.LINKEDIN_POST_LIMIT
@@ -21,6 +20,7 @@ import com.smassistant.app.hashtags.postLength
 import com.smassistant.app.history.PostHistoryStore
 import com.smassistant.app.history.PostSource
 import com.smassistant.app.history.PublishedPost
+import com.smassistant.app.image.isCarousel
 import com.smassistant.app.markdown.MarkdownToLinkedIn
 import com.smassistant.app.media.AndroidCarouselPdfMaker
 import com.smassistant.app.media.CarouselPdfMaker
@@ -28,11 +28,11 @@ import com.smassistant.app.media.isVideo
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
 import com.smassistant.app.net.userMessage
+import java.io.File
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.io.File
 
 /**
  * The single entry point for every Post in LinkedIn button (docs/tasks LP-1-I2, HT-I5):

@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.pdf.PdfDocument
+import com.smassistant.app.image.render.Carousel
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

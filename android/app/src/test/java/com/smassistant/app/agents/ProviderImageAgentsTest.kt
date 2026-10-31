@@ -1,22 +1,22 @@
 package com.smassistant.app.agents
 
 import com.smassistant.app.data.ApiConfig
-import com.smassistant.app.data.ImageFormat
+import com.smassistant.app.data.ImageSize
 import com.smassistant.app.media.MediaCache
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
 import com.smassistant.app.net.Http
 import com.smassistant.app.net.path
 import com.smassistant.app.net.textOrNull
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.RecordedRequest
+import okio.Buffer
 import java.nio.file.Files
 import java.util.Base64
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
-import okhttp3.mockwebserver.RecordedRequest
-import okio.Buffer
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -88,19 +88,19 @@ class ProviderImageAgentsTest {
 
     @Test
     fun `pollinations asks for the size of the format`() {
-        assertEquals("1024x1536", pollinationsSize(ImageFormat.PORTRAIT))
-        assertEquals("1024x1024", pollinationsSize(ImageFormat.SQUARE))
-        assertEquals("1536x1024", pollinationsSize(ImageFormat.LANDSCAPE))
+        assertEquals("1024x1536", pollinationsSize(ImageSize.PORTRAIT))
+        assertEquals("1024x1024", pollinationsSize(ImageSize.SQUARE))
+        assertEquals("1536x1024", pollinationsSize(ImageSize.LANDSCAPE))
         json("""{"data":[{"b64_json":"${base64(png)}"}]}""")
         val config = ApiConfig(server.url("/v1/chat/completions").toString(), "sk_test", "m", "flux")
-        runBlocking { PollinationsImageAgent({ config }, cache, client).generate("Draw a cache", 1, ImageFormat.PORTRAIT) }
+        runBlocking { PollinationsImageAgent({ config }, cache, client).generate("Draw a cache", 1, ImageSize.PORTRAIT) }
         assertEquals("1024x1536", server.takeRequest().json().path("size")?.textOrNull)
     }
 
     @Test
     fun `only cloudflare is limited to one format, square`() {
         val config = ApiConfig(server.url("/").toString(), "k", "m", "flux")
-        assertEquals(ImageFormat.SQUARE, CloudflareImageAgent({ config }, cache, client).onlyFormat)
+        assertEquals(ImageSize.SQUARE, CloudflareImageAgent({ config }, cache, client).onlyFormat)
         assertEquals(null, PollinationsImageAgent({ config }, cache, client).onlyFormat)
     }
 

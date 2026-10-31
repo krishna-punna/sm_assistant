@@ -6,12 +6,12 @@ import com.smassistant.app.net.Http
 import com.smassistant.app.net.path
 import com.smassistant.app.net.sendJson
 import com.smassistant.app.net.textOrNull
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
 
 /** One model a provider offers: [id] goes in requests, [label] is what the picker shows. */
 data class AiModel(val id: String, val label: String = id)

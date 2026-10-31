@@ -26,8 +26,8 @@ import com.smassistant.app.ui.screens.SchedulerEditorScreen
 import com.smassistant.app.ui.screens.SchedulersScreen
 import com.smassistant.app.ui.screens.TechnicalContentScreen
 import com.smassistant.app.ui.screens.ThemesScreen
-import com.smassistant.app.ui.theme.ThemeId
 import com.smassistant.app.ui.screens.VideoScreen
+import com.smassistant.app.ui.theme.ThemeId
 
 @Composable
 fun SmNavHost(

@@ -1,12 +1,11 @@
 package com.smassistant.app.scheduler
 
 import com.smassistant.app.chat.Outcome
-import com.smassistant.app.data.ImageFormat
+import com.smassistant.app.data.ImageSize
 import com.smassistant.app.generate.GenerateContentAndMediaUseCase
-import com.smassistant.app.generate.GeneratedVideo
-import com.smassistant.app.generate.ImageRequest
 import com.smassistant.app.history.PostSource
 import com.smassistant.app.history.PublishedPost
+import com.smassistant.app.image.ImageRequest
 import com.smassistant.app.linkedin.LinkedInPost
 import com.smassistant.app.linkedin.PostToLinkedInUseCase
 import com.smassistant.app.linkedin.SignInExpiry
@@ -15,6 +14,7 @@ import com.smassistant.app.net.ApiResult
 import com.smassistant.app.prompt.PreparedPrompt
 import com.smassistant.app.prompt.PromptSet
 import com.smassistant.app.prompt.PromptType
+import com.smassistant.app.video.GeneratedVideo
 import java.io.File
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -139,12 +139,12 @@ class AutoPostRunTest {
     fun `image posts follow the scheduler's template and format and record the template used`() = runTest {
         images = Outcome.Ok(listOf(File("tpl-workflow-portrait-a.png"), File("tpl-concept-square-b.png")))
 
-        val fixed = run(scheduler(PostType.IMAGE).copy(imageTemplate = "workflow", imageFormat = ImageFormat.PORTRAIT))
+        val fixed = run(scheduler(PostType.IMAGE).copy(imageTemplate = "workflow", imageFormat = ImageSize.PORTRAIT))
         val held = run(scheduler(PostType.TEXT_WITH_IMAGE).copy(reviewFirst = true))
 
         assertEquals(
             listOf(
-                ImageRequest("Explain everything about partitions", "workflow", ImageFormat.PORTRAIT),
+                ImageRequest("Explain everything about partitions", "workflow", ImageSize.PORTRAIT),
                 ImageRequest("Explain everything about partitions"),
             ),
             imageRequests,

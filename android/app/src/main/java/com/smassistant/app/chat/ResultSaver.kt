@@ -1,13 +1,13 @@
 package com.smassistant.app.chat
 
 import com.smassistant.app.generate.ContentAndMedia
-import com.smassistant.app.generate.GeneratedVideo
-import com.smassistant.app.generate.VideoFormat
 import com.smassistant.app.net.path
 import com.smassistant.app.net.textOrNull
 import com.smassistant.app.prompt.PreparedPrompt
 import com.smassistant.app.prompt.PromptSet
 import com.smassistant.app.prompt.PromptType
+import com.smassistant.app.video.GeneratedVideo
+import com.smassistant.app.video.VideoSize
 import java.io.File
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -90,7 +90,7 @@ object VideoSaver : ResultSaver<GeneratedVideo> {
         // Videos saved before the length option had 4-second slides.
         val seconds = json.path("seconds")?.textOrNull?.toIntOrNull() ?: (slides.size * 4)
         // Videos saved before the video sizes were all square.
-        val format = VideoFormat.of(json.path("format")?.textOrNull) ?: VideoFormat.SQUARE
+        val format = VideoSize.of(json.path("format")?.textOrNull) ?: VideoSize.SQUARE
         return GeneratedVideo(file, slides, seconds, format)
     }
 }

@@ -31,6 +31,11 @@ object AppConfig {
 
     fun imageStyle(context: Context): ImageStyle =
         cachedImageStyle ?: context.assets.open("app.yml").use(::parseImageStyle).also { cachedImageStyle = it }
+
+    @Volatile private var cachedVideoStyle: VideoStyle? = null
+
+    fun videoStyle(context: Context): VideoStyle =
+        cachedVideoStyle ?: context.assets.open("app.yml").use(::parseVideoStyle).also { cachedVideoStyle = it }
 }
 
 /**

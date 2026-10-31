@@ -3,14 +3,15 @@ package com.smassistant.app.prompt
 import com.smassistant.app.agents.TextAgent
 import com.smassistant.app.chat.Outcome
 import com.smassistant.app.data.ApiService
+import com.smassistant.app.image.shortened
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
-import org.junit.Assert.assertFalse
+import java.io.File
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.io.File
 
 private class FakeAgent(private val reply: ApiResult<String>, private val replies: Map<String, ApiResult<String>> = emptyMap()) : TextAgent {
     override val service = ApiService.GEMINI

@@ -1,21 +1,21 @@
 package com.smassistant.app.agents
 
 import com.smassistant.app.data.ApiConfig
-import com.smassistant.app.data.ImageFormat
+import com.smassistant.app.data.ImageSize
 import com.smassistant.app.media.MediaCache
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
 import com.smassistant.app.net.Http
 import com.smassistant.app.net.path
 import com.smassistant.app.net.textOrNull
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
 import java.nio.file.Files
 import java.util.Base64
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -71,7 +71,7 @@ class ImageAgentTest {
 
     @Test
     fun `a format is sent as the aspect ratio`() {
-        for ((format, ratio) in listOf(ImageFormat.PORTRAIT to "2:3", ImageFormat.SQUARE to "1:1", ImageFormat.LANDSCAPE to "3:2")) {
+        for ((format, ratio) in listOf(ImageSize.PORTRAIT to "2:3", ImageSize.SQUARE to "1:1", ImageSize.LANDSCAPE to "3:2")) {
             image(byteArrayOf(1))
             runBlocking { agent.generate("Draw a URL shortener", 1, format) }
             val body = Json.parseToJsonElement(server.takeRequest().body.readUtf8()) as JsonObject

@@ -1,6 +1,6 @@
 package com.smassistant.app.scheduler
 
-import com.smassistant.app.data.ImageFormat
+import com.smassistant.app.data.ImageSize
 import com.smassistant.app.data.MediaPurpose
 import com.smassistant.app.prompt.PromptType
 import java.time.DayOfWeek
@@ -93,7 +93,7 @@ data class AutoPostScheduler(
     /** The image template id every image post of this scheduler follows; null is Auto (the AI agent picks). */
     val imageTemplate: String? = null,
     /** The image format every image post of this scheduler uses; null is Auto. */
-    val imageFormat: ImageFormat? = null,
+    val imageFormat: ImageSize? = null,
 ) {
     val displayName get() = name.ifBlank { topics.take(2).joinToString(", ").ifBlank { "Scheduler" } }
 
@@ -218,7 +218,7 @@ object SchedulerJson {
             },
             nextRunAt = json.long("nextRunAt"),
             imageTemplate = json.string("imageTemplate")?.takeIf { it.isNotBlank() },
-            imageFormat = ImageFormat.of(json.string("imageFormat")),
+            imageFormat = ImageSize.of(json.string("imageFormat")),
         )
     }
 

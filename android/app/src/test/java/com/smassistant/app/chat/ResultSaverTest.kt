@@ -1,14 +1,14 @@
 package com.smassistant.app.chat
 
 import com.smassistant.app.generate.ContentAndMedia
-import com.smassistant.app.generate.GeneratedVideo
-import com.smassistant.app.generate.VideoFormat
 import com.smassistant.app.prompt.PreparedPrompt
 import com.smassistant.app.prompt.PromptSet
 import com.smassistant.app.prompt.PromptType
+import com.smassistant.app.video.GeneratedVideo
+import com.smassistant.app.video.VideoSize
 import java.io.File
-import kotlinx.serialization.json.JsonObject
 import java.nio.file.Files
+import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -45,9 +45,9 @@ class ResultSaverTest {
         val old = JsonObject((VideoSaver.save(video) as JsonObject) - "seconds")
         assertEquals(8, VideoSaver.restore(old)?.seconds)
         // Saved before the video sizes: square.
-        val wide = video.copy(format = VideoFormat.LANDSCAPE)
+        val wide = video.copy(format = VideoSize.LANDSCAPE)
         assertEquals(wide, roundTrip(VideoSaver, wide))
-        assertEquals(VideoFormat.SQUARE, VideoSaver.restore(JsonObject((VideoSaver.save(video) as JsonObject) - "format"))?.format)
+        assertEquals(VideoSize.SQUARE, VideoSaver.restore(JsonObject((VideoSaver.save(video) as JsonObject) - "format"))?.format)
 
         val saved = ImagesSaver.save(images)
         images[1].delete()

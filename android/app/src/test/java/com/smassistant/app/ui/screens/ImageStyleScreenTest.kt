@@ -15,7 +15,7 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextReplacement
 import com.smassistant.app.data.ImageMode
 import com.smassistant.app.data.ImageStyle
-import com.smassistant.app.generate.ImageStyleUiState
+import com.smassistant.app.image.ImageStyleUiState
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test

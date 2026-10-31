@@ -75,3 +75,11 @@ image_style:
   format: auto
   mode: both
   layout: auto
+
+# Inputs for the video templates (docs/requirements/19), apart from the images' image_style.
+# audience: who the videos are for. brand_name: drawn small on each slide when set.
+# style_guide: colours and look to keep; empty: a restrained professional style.
+video_style:
+  audience: "developers, senior engineers and architects"
+  brand_name: ""
+  style_guide: ""

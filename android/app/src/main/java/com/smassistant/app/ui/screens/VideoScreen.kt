@@ -12,17 +12,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.smassistant.app.chat.VideoSaver
 import com.smassistant.app.chat.sessionChatViewModel
 import com.smassistant.app.data.MediaPurpose
-import com.smassistant.app.chat.VideoSaver
 import com.smassistant.app.generate.GenerateContentAndMediaUseCase
-import com.smassistant.app.generate.GeneratedVideo
-import com.smassistant.app.generate.appGenerateVideo
 import com.smassistant.app.generate.appSmartTrim
-import com.smassistant.app.generate.name
-import com.smassistant.app.generate.parseImageTemplates
-import com.smassistant.app.generate.videoLabel
-import com.smassistant.app.generate.videoLengthLabel
 import com.smassistant.app.linkedin.PostState
 import com.smassistant.app.linkedin.PostViewModel
 import com.smassistant.app.linkedin.appPostToLinkedIn
@@ -37,6 +31,12 @@ import com.smassistant.app.ui.components.PromptCard
 import com.smassistant.app.ui.components.TextAgentDropdown
 import com.smassistant.app.ui.components.VideoLengthDropdown
 import com.smassistant.app.ui.components.VideoPlayer
+import com.smassistant.app.video.GeneratedVideo
+import com.smassistant.app.video.appGenerateVideo
+import com.smassistant.app.video.name
+import com.smassistant.app.video.parseVideoTemplates
+import com.smassistant.app.video.videoLabel
+import com.smassistant.app.video.videoLengthLabel
 
 /** S11 Generate Video (docs/requirements/06 §6.3, Q-08 = slideshow): prompt card, then the video. */
 @Composable
@@ -92,7 +92,7 @@ fun VideoResult(video: GeneratedVideo, posting: Boolean, onPost: () -> Unit) {
         // "Workflow or Lifecycle · 9:16 · 1080×1920" for a video made from a template (docs/design/video-templates.md):
         // the size is the one the MP4 was encoded at (docs/requirements/18, SV-10).
         val label = remember(video.file) {
-            videoLabel(video.file)?.name(runCatching { parseImageTemplates(loadPromptAsset(appContext, "video/video_templates")) }.getOrDefault(emptyList()))
+            videoLabel(video.file)?.name(runCatching { parseVideoTemplates(loadPromptAsset(appContext, "video/video_templates")) }.getOrDefault(emptyList()))
         }
         Text(
             listOfNotNull(label, sizeText(video.format.width, video.format.height), "${video.slides.size} slides, ${videoLengthLabel(video.seconds)}")

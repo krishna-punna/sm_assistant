@@ -29,15 +29,15 @@ import com.smassistant.app.data.AiModel
 import com.smassistant.app.data.ApiService
 import com.smassistant.app.data.ApiSettingsStore
 import com.smassistant.app.data.ConnectionStatus
-import com.smassistant.app.data.ImageFormat
+import com.smassistant.app.data.ImageSize
 import com.smassistant.app.data.MediaPurpose
 import com.smassistant.app.data.forMedia
-import com.smassistant.app.generate.ImageTemplate
-import com.smassistant.app.generate.VIDEO_LENGTHS
-import com.smassistant.app.generate.parseImageTemplates
-import com.smassistant.app.generate.videoLengthLabel
+import com.smassistant.app.image.ImageTemplate
+import com.smassistant.app.image.parseImageTemplates
 import com.smassistant.app.prompt.PromptType
 import com.smassistant.app.prompt.loadPromptAsset
+import com.smassistant.app.video.VIDEO_LENGTHS
+import com.smassistant.app.video.videoLengthLabel
 
 /**
  * "Agent: Gemini ▾" above a text feature's conversation: picks which set-up agent writes the
@@ -221,9 +221,9 @@ fun ImageTemplatePickers() {
 fun TemplateFormatPickers(
     templates: List<ImageTemplate>,
     template: String?,
-    format: ImageFormat?,
+    format: ImageSize?,
     onTemplate: (String?) -> Unit,
-    onFormat: (ImageFormat?) -> Unit,
+    onFormat: (ImageSize?) -> Unit,
     testTagPrefix: String = "image",
 ) {
     SelectDropdown(
@@ -237,7 +237,7 @@ fun TemplateFormatPickers(
     SelectDropdown(
         label = "Format",
         selected = format,
-        options = listOf<ImageFormat?>(null) + ImageFormat.entries,
+        options = listOf<ImageSize?>(null) + ImageSize.entries,
         optionLabel = { it?.words?.replaceFirstChar { c -> c.uppercase() } ?: "Auto" },
         onSelect = onFormat,
         testTag = "${testTagPrefix}FormatDropdown",

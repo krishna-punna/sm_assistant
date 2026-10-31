@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Environment
 import androidx.test.core.app.ApplicationProvider
+import com.smassistant.app.image.render.numbered
 import java.io.File
 import java.util.Calendar
 import org.junit.Assert.assertEquals

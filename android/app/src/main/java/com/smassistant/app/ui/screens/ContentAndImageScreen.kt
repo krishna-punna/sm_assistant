@@ -11,29 +11,29 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.smassistant.app.chat.ChatItem
-import com.smassistant.app.chat.sessionChatViewModel
 import com.smassistant.app.chat.ContentAndMediaSaver
 import com.smassistant.app.chat.ImagesSaver
+import com.smassistant.app.chat.sessionChatViewModel
 import com.smassistant.app.generate.ContentAndImages
 import com.smassistant.app.generate.GenerateContentAndMediaUseCase
-import com.smassistant.app.generate.appGenerateImages
-import com.smassistant.app.generate.pickedImageRequest
 import com.smassistant.app.generate.appGenerateTechnicalContent
 import com.smassistant.app.generate.appSmartTrim
+import com.smassistant.app.image.appGenerateImages
+import com.smassistant.app.image.pickedImageRequest
 import com.smassistant.app.linkedin.PostState
 import com.smassistant.app.linkedin.PostViewModel
 import com.smassistant.app.linkedin.appPostToLinkedIn
 import com.smassistant.app.navigation.Feature
-import com.smassistant.app.ui.components.TextAgentDropdown
-import com.smassistant.app.ui.components.ImageTemplatePickers
-import com.smassistant.app.ui.components.MediaAgentDropdown
 import com.smassistant.app.ui.components.ErrorCard
 import com.smassistant.app.ui.components.GeneratingRow
+import com.smassistant.app.ui.components.ImageTemplatePickers
 import com.smassistant.app.ui.components.MarkdownText
+import com.smassistant.app.ui.components.MediaAgentDropdown
 import com.smassistant.app.ui.components.PostDialogs
 import com.smassistant.app.ui.components.PostInLinkedInButton
 import com.smassistant.app.ui.components.PostLengthNote
 import com.smassistant.app.ui.components.PromptCard
+import com.smassistant.app.ui.components.TextAgentDropdown
 import java.io.File
 
 /** S12 Generate Content & Image (docs/requirements/06 §6.4, slide 11): text, then images, then Post in LinkedIn. */
