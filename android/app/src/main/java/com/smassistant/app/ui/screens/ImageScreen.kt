@@ -33,6 +33,7 @@ import com.smassistant.app.ui.components.ImageTemplatePickers
 import com.smassistant.app.ui.components.MediaAgentDropdown
 import com.smassistant.app.ui.components.ImagePreview
 import com.smassistant.app.ui.components.ImageStrip
+import com.smassistant.app.ui.components.MediaActions
 import com.smassistant.app.ui.components.PostDialogs
 import com.smassistant.app.ui.components.PostInLinkedInButton
 import com.smassistant.app.ui.components.PromptCard
@@ -87,15 +88,17 @@ fun ImageScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToH
         onTrimWithAi = postViewModel::trimWithAi,
         onCutToFit = postViewModel::cutToFit,
         onConfirm = postViewModel::confirm,
+        onSaveDraft = if (postViewModel.canSaveDraft) postViewModel::saveDraft else null,
         onDismiss = postViewModel::dismiss,
         onOpenSettings = onSetUpLinkedIn,
     )
 }
 
 /**
- * One generation: the strip, then Post in LinkedIn for the selected images (IM-4, IM-5).
- * The preview posts the image it shows. Content & Image also posts its text through [onPost].
- * A carousel's pages are shown one at a time and always posted together (SC-I5).
+ * One generation: the strip, then Post in LinkedIn for the selected images (IM-4, IM-5),
+ * then Share and Save to Gallery for the same selection. The preview acts on the image it shows.
+ * Content & Image also posts its text through [onPost]. A carousel's pages are shown one at a time
+ * and always posted, shared and saved together (SC-I5).
  */
 @Composable
 fun ImageResult(
@@ -132,6 +135,10 @@ fun ImageResult(
             enabled = carousel || canPostWithoutImages || selected.isNotEmpty(),
             busy = posting,
         )
+        MediaActions(
+            files = { if (carousel) images else images.filterIndexed { index, _ -> index in selected } },
+            enabled = carousel || selected.isNotEmpty(),
+        )
     }
     previewIndex?.let { start ->
         ImagePreview(images, start, onDismiss = { previewIndex = null }, noun = if (carousel) "Page" else "Image") { current ->
@@ -142,6 +149,7 @@ fun ImageResult(
                 },
                 busy = posting,
             )
+            MediaActions(files = { listOf(images[current]) })
             BackToHomeButton(onClick = {
                 previewIndex = null
                 onBackToHome()
