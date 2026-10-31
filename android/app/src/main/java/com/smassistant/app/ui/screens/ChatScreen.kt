@@ -21,6 +21,7 @@ import com.smassistant.app.chat.ChatUiState
 import com.smassistant.app.ui.components.ChatInputBar
 import com.smassistant.app.ui.components.ErrorCard
 import com.smassistant.app.ui.components.GeneratingRow
+import com.smassistant.app.ui.components.PipelineRow
 import com.smassistant.app.ui.components.SmScreen
 
 /**
@@ -74,7 +75,18 @@ fun <R> ChatScreen(
             ) {
                 items(state.items, key = { it.id }) { item ->
                     when (item) {
-                        is ChatItem.Input -> inputContent(item.text)
+                        is ChatItem.Input -> {
+                            val pipeline = state.pipelines[item.id]
+                            if (pipeline == null) {
+                                inputContent(item.text)
+                            } else {
+                                // The prompt, then where it is on its way to LinkedIn (docs/requirements/20).
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    inputContent(item.text)
+                                    PipelineRow(pipeline)
+                                }
+                            }
+                        }
                         is ChatItem.Loading -> GeneratingRow(onCancel)
                         is ChatItem.Failure -> ErrorCard(item.message, "Retry") { onRetry(item) }
                         is ChatItem.NoAgent -> ErrorCard(
