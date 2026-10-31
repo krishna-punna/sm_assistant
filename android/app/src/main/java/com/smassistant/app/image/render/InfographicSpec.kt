@@ -95,6 +95,23 @@ sealed interface SectionBody {
     }
 }
 
+/** Most posters a drawn series has (AC-7): a guard against runaway replies; the AI uses as few as show everything. */
+const val MAX_SERIES_POSTERS = 6
+
+/**
+ * Reads a poster series (AC-7): `{"posters": [definition, ...]}`, at most [MAX_SERIES_POSTERS], every
+ * poster in the first one's format and palette so the series looks like one, each labelled "1 / 3",
+ * "2 / 3" and so on in its header.
+ */
+fun parseSeries(reply: String): Result<List<InfographicSpec>> = jsonObjectIn(reply).mapCatching { root ->
+    val first = root.array("posters").filterIsInstance<JsonObject>().firstOrNull() ?: error("no posters in the reply")
+    val lead = spec(first, null, null)
+    val posters = root.array("posters").filterIsInstance<JsonObject>()
+        .mapNotNull { poster -> runCatching { spec(poster, lead.format, lead.palette) }.getOrNull() }
+        .take(MAX_SERIES_POSTERS)
+    posters.mapIndexed { i, poster -> poster.copy(page = "${i + 1} / ${posters.size}") }
+}
+
 /** Upper limits that keep a definition drawable, whatever the model wrote. */
 internal object Limits {
     /**

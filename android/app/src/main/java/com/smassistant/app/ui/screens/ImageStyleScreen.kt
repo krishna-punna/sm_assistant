@@ -140,7 +140,7 @@ fun ImageStyleContent(state: ImageStyleUiState, actions: ImageStyleActions, onBa
         SelectDropdown("Layout", style.layout, ImageLayout.entries, { it.label() }, actions.onLayout, "styleLayout")
         Text(
             when (style.layout) {
-                ImageLayout.AUTO -> "One poster per post, like the samples; content too dense is merged to fit, never cut."
+                ImageLayout.AUTO -> "One poster per post, like the samples; content too dense for one readable poster becomes a numbered poster series (1/N), never cut."
                 ImageLayout.SINGLE -> "Always one image; long content is drawn with smaller text."
             },
             style = MaterialTheme.typography.bodySmall,
