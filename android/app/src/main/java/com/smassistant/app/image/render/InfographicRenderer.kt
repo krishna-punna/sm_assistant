@@ -25,6 +25,19 @@ data class RenderedInfographic(val svg: String, val width: Int, val height: Int,
 /** Narrow cards from which a portrait poster is laid out in 3 columns instead of 2 (SV-7). */
 const val DENSE_SECTIONS = 7
 
+/** Narrow cards from which a portrait or landscape poster may take one more column: 4 on both (AC-1). */
+const val MORE_COLUMNS_SECTIONS = 12
+
+/** How wide LinkedIn shows an image in the feed before it is opened, on any device (AC-1). */
+const val FEED_WIDTH = 550f
+
+/**
+ * How [InfographicRenderer.measure] found a poster: whether it [fits] one readable poster, how many
+ * [cards] it has, the height its content needs against the height its format holds (in layout
+ * units, at the format's width), and the body text size in px when the image is shown at [FEED_WIDTH].
+ */
+data class PosterFit(val fits: Boolean, val cards: Int, val neededHeight: Int, val availableHeight: Int, val feedTextPx: Float)
+
 /**
  * The infographic renderer (docs/design/image-video-pipeline.md): lays an [InfographicSpec] out
  * as a header band, a grid of numbered cards and a takeaway footer, and writes it as SVG that
@@ -38,26 +51,97 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
      * on a wider page with more columns, up to [MAX_WIDEN] times the format's width, so the text is
      * drawn smaller instead; content too long even for that is centred on a page widened to the ratio.
      */
-    /** Whether [spec] fits its format's ratio at the format's own width, with text at full size (no widening). */
-    fun fits(spec: InfographicSpec): Boolean = renderAt(spec, spec.format.width.toFloat(), padSides = false).second
+    /**
+     * Whether [spec] is readable as one poster (AC-1): it fits its format's ratio at the format's own
+     * width, so no text is drawn smaller than designed. Shown in the LinkedIn feed (about [FEED_WIDTH]
+     * px wide on every device), body text is then [PosterFit.feedTextPx] px.
+     */
+    fun fits(spec: InfographicSpec): Boolean = measure(spec).fits
+
+    /** How [spec] fits one poster at its format's width (AC-1), with the numbers to tell the writer when it doesn't. */
+    fun measure(spec: InfographicSpec): PosterFit {
+        val drawn = renderAt(spec, spec.format.width.toFloat(), padSides = false)
+        return PosterFit(
+            fits = drawn.fits,
+            cards = spec.sections.size,
+            neededHeight = drawn.contentHeight.roundToInt(),
+            availableHeight = drawn.ratioHeight.roundToInt(),
+            feedTextPx = BODY_SIZE * FEED_WIDTH / spec.format.width,
+        )
+    }
 
     fun render(spec: InfographicSpec): RenderedInfographic {
         val base = spec.format.width.toFloat()
         var width = base
         while (true) {
             val last = width >= base * MAX_WIDEN
-            val (rendered, fits) = renderAt(spec, width, padSides = last)
-            if (fits || last) return rendered
+            val drawn = renderAt(spec, width, padSides = last)
+            if (drawn.fits || last) return drawn.rendered
             width = min(width * 1.1f, base * MAX_WIDEN)
         }
     }
 
-    private fun renderAt(spec: InfographicSpec, width: Float, padSides: Boolean): Pair<RenderedInfographic, Boolean> {
+    /** One layout attempt: what was drawn, whether it fit the ratio, and the heights compared. */
+    private class Drawn(val rendered: RenderedInfographic, val fits: Boolean, val contentHeight: Float, val ratioHeight: Float)
+
+    private fun renderAt(spec: InfographicSpec, width: Float, padSides: Boolean): Drawn {
         val palette = spec.palette
         val contentWidth = width - 2 * MARGIN
 
         val header = header(spec, width)
-        val columns = columnsFor(spec, width)
+        val brand = spec.brand?.trim()?.takeIf { it.isNotEmpty() }
+        val footer = if (spec.takeaway != null || brand != null) footer(spec.takeaway, brand, width, palette) else null
+        // The format's ratio: the sample images' sizes (2:3, 1:1, 3:2).
+        val ratioHeight = when (spec.format) {
+            InfographicFormat.PORTRAIT -> width * 1.5f
+            InfographicFormat.SQUARE -> width
+            InfographicFormat.LANDSCAPE -> width * 2 / 3
+        }
+        fun heightWith(body: Body) = header.height + GAP + body.height + GAP + (footer?.height ?: 0f)
+        // The fewest columns that fit the ratio; when none fits, the layout that comes closest (AC-1).
+        val layouts = columnsFor(spec, width).map { body(spec, width, it) }
+        val (placements, bodyHeight) = layouts.firstOrNull { heightWith(it) <= ratioHeight + 0.5f } ?: layouts.minBy { heightWith(it) }
+
+        val contentHeight = header.height + GAP + bodyHeight + GAP + (footer?.height ?: 0f)
+        val fits = contentHeight <= ratioHeight + 0.5f
+        val height = max(contentHeight, ratioHeight)
+        // The last resort for content that doesn't fit: a page widened to the ratio, the layout centred on it.
+        val pageWidth = if (fits || !padSides) width else height * width / ratioHeight
+        val dx = (pageWidth - width) / 2
+
+        val svg = Svg()
+        svg.rect(0f, 0f, pageWidth, height, fill = palette.background)
+        val band = header.height
+        svg.rect(0f, 0f, pageWidth, band, fill = palette.header)
+        svg.rect(0f, band - 6, pageWidth, 6f, fill = palette.highlight)
+        header.draw(svg, dx, (band - header.height) / 2)
+        // A series poster's label ("2 / 3", AC-7) sits in the top padding, above the title and the art.
+        spec.page?.let { svg.text(it, dx + width - MARGIN, HEADER_PAD - 12, 20f, palette.headerText, bold = true, anchor = "end", opacity = 0.75f) }
+        val bodyTop = header.height + GAP
+        // A reveal step draws only its first sections, where the whole layout puts them, and the footer once all are shown.
+        val shown = spec.revealed ?: spec.sections.size
+        placements.filter { it.index < shown }.forEach { it.block.draw(svg, dx + it.x, bodyTop + it.top) }
+        if (footer != null && shown >= spec.sections.size) {
+            val top = height - footer.height
+            svg.rect(0f, top, pageWidth, footer.height, fill = palette.header)
+            footer.draw(svg, dx, top)
+        }
+        val rendered = RenderedInfographic(
+            svg = svg.document(pageWidth.roundToInt(), height.roundToInt()),
+            width = pageWidth.roundToInt(),
+            height = height.roundToInt(),
+            slots = svg.slots,
+        )
+        return Drawn(rendered, fits, contentHeight, ratioHeight)
+    }
+
+    /** The cards laid out in some number of columns on a page, and the height they take. */
+    private data class Body(val placements: List<Placement>, val height: Float)
+
+    /** Lays the cards out in [columns] columns on a page [width] wide. */
+    private fun body(spec: InfographicSpec, width: Float, columns: Int): Body {
+        val palette = spec.palette
+        val contentWidth = width - 2 * MARGIN
         val columnWidth = (contentWidth - (columns - 1) * GAP) / columns
         // Reading order: wide cards span the page. Between them, narrow cards go in the shortest
         // column, and the last few that can't fill the columns share a row instead of leaving a gap.
@@ -92,50 +176,7 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
             if (leftover > 0) row(run.takeLast(leftover))
             next = end
         }
-        val bodyHeight = max(0f, bottoms.maxOrNull()?.minus(GAP) ?: 0f)
-        val brand = spec.brand?.trim()?.takeIf { it.isNotEmpty() }
-        val footer = if (spec.takeaway != null || brand != null) footer(spec.takeaway, brand, width, palette) else null
-
-        val contentHeight = header.height + GAP + bodyHeight + GAP + (footer?.height ?: 0f)
-        // The format's ratio: the sample images' sizes (2:3, 1:1, 3:2).
-        val ratioHeight = when (spec.format) {
-            InfographicFormat.PORTRAIT -> width * 1.5f
-            InfographicFormat.SQUARE -> width
-            InfographicFormat.LANDSCAPE -> width * 2 / 3
-        }
-        val fits = contentHeight <= ratioHeight + 0.5f
-        val height = max(contentHeight, ratioHeight)
-        // The last resort for content that doesn't fit: a page widened to the ratio, the layout centred on it.
-        val pageWidth = if (fits || !padSides) width else height * width / ratioHeight
-        val dx = (pageWidth - width) / 2
-
-        val svg = Svg()
-        svg.rect(0f, 0f, pageWidth, height, fill = palette.background)
-        // A carousel's cover has no cards: its header fills the page above the footer, the title centred in it.
-        val band = if (spec.page != null && spec.sections.isEmpty()) height - (footer?.height ?: 0f) else header.height
-        svg.rect(0f, 0f, pageWidth, band, fill = palette.header)
-        svg.rect(0f, band - 6, pageWidth, 6f, fill = palette.highlight)
-        header.draw(svg, dx, (band - header.height) / 2)
-        // A carousel page's label sits in the top padding, above the title and the art.
-        spec.page?.let { svg.text(it, dx + width - MARGIN, HEADER_PAD - 12, 20f, palette.headerText, bold = true, anchor = "end", opacity = 0.75f) }
-        // A carousel page's few cards sit in the middle of the space below the header, not at its top.
-        val spare = height - header.height - 2 * GAP - (footer?.height ?: 0f) - bodyHeight
-        val bodyTop = header.height + GAP + if (spec.page != null && fits) max(0f, spare / 2) else 0f
-        // A reveal step draws only its first sections, where the whole layout puts them, and the footer once all are shown.
-        val shown = spec.revealed ?: spec.sections.size
-        placements.filter { it.index < shown }.forEach { it.block.draw(svg, dx + it.x, bodyTop + it.top) }
-        if (footer != null && shown >= spec.sections.size) {
-            val top = height - footer.height
-            svg.rect(0f, top, pageWidth, footer.height, fill = palette.header)
-            footer.draw(svg, dx, top)
-        }
-        val rendered = RenderedInfographic(
-            svg = svg.document(pageWidth.roundToInt(), height.roundToInt()),
-            width = pageWidth.roundToInt(),
-            height = height.roundToInt(),
-            slots = svg.slots,
-        )
-        return rendered to fits
+        return Body(placements, max(0f, bottoms.maxOrNull()?.minus(GAP) ?: 0f))
     }
 
     /** Something drawn at an (x, y) that is decided after its [height] is known. */
@@ -145,15 +186,19 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
     private class Placement(val index: Int, val block: Block, val x: Float, val top: Float)
 
     /**
-     * 2 columns (3 for landscape and wide, and for a portrait poster of [DENSE_SECTIONS] or more narrow
-     * cards, like the dense samples; SV-7) at the format's width, and one more for each such column a
-     * wider page has room for.
+     * The column counts to try, fewest first. At the format's width: 2 (3 for landscape, and for a
+     * portrait poster of [DENSE_SECTIONS] or more narrow cards, like the dense samples; SV-7), and
+     * one more for portrait and landscape posters of [MORE_COLUMNS_SECTIONS] or more narrow cards,
+     * so many cards fit without the text shrinking (AC-1). A wider page has room for one more column
+     * per such column width.
      */
-    private fun columnsFor(spec: InfographicSpec, width: Float): Int {
+    private fun columnsFor(spec: InfographicSpec, width: Float): List<Int> {
         val narrow = spec.sections.count { !isAlwaysWide(it.body) }
         val base = if (spec.format.isWide || spec.format == InfographicFormat.PORTRAIT && narrow >= DENSE_SECTIONS) 3 else 2
         val room = max(base, floor(width / (spec.format.width / base.toFloat())).toInt())
-        return min(room, max(1, narrow))
+        val most = if (narrow >= MORE_COLUMNS_SECTIONS && spec.format != InfographicFormat.SQUARE) room + 1 else room
+        val cap = max(1, narrow)
+        return (min(room, cap)..min(most, cap)).toList()
     }
 
     private fun isAlwaysWide(body: SectionBody) =
@@ -234,7 +279,7 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
         val heading = wrapText(section.heading.ifBlank { " " }, width - headingX - CARD_PAD, 28f, measurer, bold = true, maxLines = 2)
         val tab = max(68f, heading.size * 36f + 26)
         val inner = width - 2 * CARD_PAD
-        val body = body(section, inner, color, palette)
+        val body = section.art?.let { withArt(section, it, inner, color, palette) } ?: body(section, inner, color, palette)
         val height = max(minHeight, tab + CARD_PAD + body.height + CARD_PAD)
         return Block(height) { svg, x, y ->
             svg.rect(x, y, width, height, fill = palette.card, stroke = palette.cardBorder, strokeWidth = 2f, rx = 18f)
@@ -245,6 +290,30 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
             section.icon?.let { svg.icon(it, x + CARD_PAD + 56, y + tab / 2 - 15, 30f, "#FFFFFF") }
             svg.lines(heading, x + headingX, y + (tab - heading.size * 36f) / 2, 28f, 36f, "#FFFFFF", bold = true)
             body.draw(svg, x + CARD_PAD, y + tab + CARD_PAD)
+        }
+    }
+
+    /**
+     * A card's content with its clip art (AC-8): beside the content in a card wide enough to keep
+     * the text readable, otherwise a picture band above it. The picture is an AI illustration slot
+     * with a placeholder icon, so the card is complete when no picture is painted.
+     */
+    private fun withArt(section: Section, art: String, width: Float, color: String, palette: Palette): Block {
+        val tint = mix(color, palette.card, 0.88f)
+        val icon = section.icon ?: "idea"
+        if (width >= MIN_SIDE_ART_CARD) {
+            val side = min(CARD_ART, width * 0.3f)
+            val content = body(section, width - side - CARD_ART_GAP, color, palette)
+            return Block(max(content.height, side)) { svg, x, y ->
+                content.draw(svg, x, y)
+                svg.illustration(art, x + width - side, y, side, side, 14f, icon, tint = tint, iconColor = color)
+            }
+        }
+        val band = min(width * 0.5f, CARD_ART)
+        val content = body(section, width, color, palette)
+        return Block(band + CARD_ART_GAP + content.height) { svg, x, y ->
+            svg.illustration(art, x, y, width, band, 14f, icon, tint = tint, iconColor = color)
+            content.draw(svg, x, y + band + CARD_ART_GAP)
         }
     }
 
@@ -549,6 +618,11 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
 
     private companion object {
         const val MARGIN = 48f
+
+        /** A card's clip art (AC-8): its largest side, the gap to the content, and the narrowest card that puts it beside the content. */
+        const val CARD_ART = 140f
+        const val CARD_ART_GAP = 16f
+        const val MIN_SIDE_ART_CARD = 420f
 
         /** Narrowest diagram box when the layers are laid out side by side. */
         const val MIN_DIAGRAM_NODE = 150f

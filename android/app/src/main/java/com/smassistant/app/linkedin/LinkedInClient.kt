@@ -1,7 +1,6 @@
 package com.smassistant.app.linkedin
 
 import com.smassistant.app.data.ApiConfig
-import com.smassistant.app.media.isDocument
 import com.smassistant.app.media.isVideo
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
@@ -47,14 +46,13 @@ class LinkedInClient(
     private val client: OkHttpClient = Http.client,
     private val imageChecks: List<Long> = IMAGE_CHECKS_MILLIS,
     private val videoChecks: List<Long> = VIDEO_CHECKS_MILLIS,
-    private val documentChecks: List<Long> = VIDEO_CHECKS_MILLIS,
 ) {
     private var cachedMember: Pair<String, String>? = null
 
     /**
      * Publishes [text] (plain text, not yet escaped) as a public post. [media] is uploaded first
-     * and attached (LP-2-I): one image, one video (an `.mp4`, VI-I3) or one document (a carousel's
-     * `.pdf`, SC-I6, titled with its file name) as `content.media`, two or more images as `content.multiImage`.
+     * and attached (LP-2-I): one image or one video (an `.mp4`, VI-I3) as `content.media`, two or
+     * more images (a poster series, AC-7) as `content.multiImage`, in order.
      */
     suspend fun createPost(text: String, media: List<File> = emptyList()): ApiResult<LinkedInPost> {
         val current = config()
@@ -67,7 +65,6 @@ class LinkedInClient(
         val mediaUrns = media.map { file ->
             val uploaded = when {
                 isVideo(file) -> uploadVideo(postsUrl, current.key, author, file)
-                isDocument(file) -> uploadDocument(postsUrl, current.key, author, file)
                 else -> uploadImage(postsUrl, current.key, author, file)
             }
             when (uploaded) {
@@ -87,11 +84,7 @@ class LinkedInClient(
             when (mediaUrns.size) {
                 0 -> Unit
                 1 -> putJsonObject("content") {
-                    putJsonObject("media") {
-                        put("id", mediaUrns.single())
-                        // LinkedIn shows a document's title above its pages, and requires one.
-                        media.single().takeIf(::isDocument)?.let { put("title", it.nameWithoutExtension) }
-                    }
+                    putJsonObject("media") { put("id", mediaUrns.single()) }
                 }
                 else -> putJsonObject("content") {
                     putJsonObject("multiImage") {
@@ -116,10 +109,6 @@ class LinkedInClient(
     /** Images API: initializeUpload gives an upload URL and image URN, then the bytes are PUT there. */
     private suspend fun uploadImage(postsUrl: HttpUrl, token: String, owner: String, file: File): ApiResult<String> =
         uploadFile(postsUrl, token, owner, file, "images", "image", imageChecks)
-
-    /** Documents API: the same steps as an image, under `/rest/documents` (up to 100 MB and 300 pages). */
-    private suspend fun uploadDocument(postsUrl: HttpUrl, token: String, owner: String, file: File): ApiResult<String> =
-        uploadFile(postsUrl, token, owner, file, "documents", "document", documentChecks)
 
     /** initializeUpload under `/rest/[resource]` gives an upload URL and the [field] URN, the bytes are PUT there, then it waits until LinkedIn has processed them. */
     private suspend fun uploadFile(

@@ -53,6 +53,40 @@ class InfographicRendererTest {
     }
 
     @Test
+    fun `posters of 12, 14 and 16 cards fit at full size, taking a 4th column when 3 are too tall`() {
+        fun poster(cards: Int) = InfographicSpec(
+            title = "Kafka Patterns",
+            sections = List(cards) { Section("Card $it", SectionBody.Bullets(listOf("Short point", "Another point", "Third point"))) },
+        )
+        fun headingXs(svg: String) = Regex("""<text x="([\d.]+)"[^>]*>Card""").findAll(svg).map { it.groupValues[1] }.toSet()
+        for (cards in listOf(12, 14, 16)) {
+            val fit = renderer.measure(poster(cards))
+            assertTrue("$cards cards fit one portrait poster", fit.fits)
+            assertEquals(cards, fit.cards)
+            assertTrue(fit.neededHeight <= fit.availableHeight)
+            assertEquals("$cards cards drawn at the format's width", 1080, renderer.render(poster(cards)).width)
+        }
+        // 16 cards are too tall in 3 columns, so they take 4; 14 still fit in 3 (the fewest that fit win).
+        assertEquals(4, headingXs(renderer.render(poster(16)).svg).size)
+        assertTrue(headingXs(renderer.render(poster(14)).svg).size <= 4)
+        assertEquals(setOf("128", "465.3", "802.7"), headingXs(renderer.render(poster(12)).svg))
+    }
+
+    @Test
+    fun `measure reports the heights compared and the text size in the feed`() {
+        val fit = renderer.measure(spec)
+        assertEquals(spec.sections.size, fit.cards)
+        assertEquals(1620, fit.availableHeight)
+        assertEquals(fit.neededHeight <= fit.availableHeight, fit.fits)
+        assertEquals(renderer.fits(spec), fit.fits)
+        // Body text 24 units on a 1080-wide layout is about 12 px at LinkedIn's 550 px feed width, on any device.
+        assertEquals(12.2f, fit.feedTextPx, 0.1f)
+        assertEquals(12.2f, renderer.measure(spec.copy(format = InfographicFormat.SQUARE)).feedTextPx, 0.1f)
+        val tooMany = spec.copy(format = InfographicFormat.SQUARE, sections = sections + sections)
+        renderer.measure(tooMany).let { assertFalse(it.fits); assertTrue(it.neededHeight > it.availableHeight) }
+    }
+
+    @Test
     fun `everything stays inside the canvas`() {
         for (format in InfographicFormat.entries) {
             val rendered = renderer.render(spec.copy(format = format))
@@ -165,6 +199,35 @@ class InfographicRendererTest {
             Regex("""(-?[\d.]+)[ ,](-?[\d.]+)""").findAll(list).map { val (px, py) = it.destructured; listOf(px.toFloat(), py.toFloat(), px.toFloat(), py.toFloat()) }
         }
         return (rects + circles + texts + points).toList()
+    }
+
+    @Test
+    fun `any card may carry clip art, drawn inside its card, as many as the AI asks for (AC-8)`() {
+        val pictures = listOf("a stopwatch", "a padlock", "a stack of plates", "a rocket", "a magnifier", "a gear", "a queue of people", "a cloud")
+        val cards = sections.filter { it.body !is SectionBody.Illustration } + Section("Hits", SectionBody.Bullets(listOf("Served from memory")))
+        for (count in listOf(0, 1, 8)) {
+            val withArt = cards.mapIndexed { i, card -> if (i < count) card.copy(art = pictures[i]) else card }
+            for (format in InfographicFormat.IMAGE) {
+                val rendered = renderer.render(spec.copy(hero = null, sections = withArt, format = format))
+                assertEquals("$format with $count pictures", pictures.take(count), rendered.slots.map { it.prompt })
+                rendered.slots.forEach {
+                    assertTrue(it.x >= 0 && it.y >= 0 && it.x + it.width <= rendered.width && it.y + it.height <= rendered.height)
+                    assertTrue("$format: clip art is a picture, not a speck", it.width >= 60 && it.height >= 60)
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `a card picture sits beside the content in a wide card and above it in a narrow one (AC-8)`() {
+        val card = Section("Latency", SectionBody.Bullets(listOf("Reads from memory", "Microseconds, not milliseconds")), art = "a stopwatch")
+        val wide = renderer.render(InfographicSpec(title = "Caching", format = InfographicFormat.LANDSCAPE, sections = listOf(card, card.copy(heading = "Hits"))))
+        val wideSlot = wide.slots.first()
+        assertTrue("square beside the text", wideSlot.width == wideSlot.height)
+
+        val narrow = renderer.render(InfographicSpec(title = "Caching", sections = List(12) { card.copy(heading = "Card $it") }))
+        val band = narrow.slots.first()
+        assertTrue("a band across the narrow card", band.width > band.height)
     }
 
     @Test

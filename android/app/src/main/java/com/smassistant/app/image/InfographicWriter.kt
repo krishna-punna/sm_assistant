@@ -1,14 +1,13 @@
 package com.smassistant.app.image
 
 import com.smassistant.app.agents.TextAgent
-import com.smassistant.app.image.render.Carousel
 import com.smassistant.app.image.render.InfographicSpec
-import com.smassistant.app.image.render.MAX_CAROUSEL_PAGES
-import com.smassistant.app.image.render.MIN_CAROUSEL_PAGES
-import com.smassistant.app.image.render.carouselProblems
+import com.smassistant.app.image.render.MAX_SERIES_POSTERS
+import com.smassistant.app.image.render.PosterFit
 import com.smassistant.app.image.render.infographicProblems
-import com.smassistant.app.image.render.parseCarousel
 import com.smassistant.app.image.render.parseInfographic
+import com.smassistant.app.image.render.parseSeries
+import com.smassistant.app.image.render.seriesProblems
 import com.smassistant.app.image.render.templateProblems
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
@@ -56,6 +55,36 @@ class InfographicWriter(
             result
         }
     }
+
+    /**
+     * A numbered poster series (AC-7), for content still too dense for one readable poster after it
+     * was written denser ([fit] has the measured numbers): 2 to [MAX_SERIES_POSTERS] full posters in one
+     * format and palette, each covering the next part of the content, nothing left out. Asked once
+     * more when the reply fails [seriesProblems], with [fits] saying which posters are still too dense.
+     */
+    suspend fun writeSeries(
+        agent: TextAgent,
+        topic: String,
+        content: String,
+        fit: PosterFit,
+        brief: ImageBrief? = null,
+        fits: (InfographicSpec) -> Boolean = { true },
+    ): ApiResult<List<InfographicSpec>> {
+        val picked = pickImageExamples(examples, topic, template = brief?.template?.id)
+        val system = systemPrompt.replace("{{examples}}", formatImageExamples(picked))
+        val user = "Topic: $topic${contentBlock(content)}${templateBlock(brief, content)}\n\n" +
+            "The content is too dense for one readable poster: ${fit.cards} cards need ${fit.neededHeight} units of height and the " +
+            "format holds ${fit.availableHeight}. Don't leave anything out: plan a numbered poster series instead, " +
+            "2 to $MAX_SERIES_POSTERS posters, as few as show everything. Each poster is a complete infographic in the shape above " +
+            "with its own title for its part, and covers the next part of the content in order; together they cover all of it. " +
+            "Use one palette and format for every poster.\n\nReply with {\"posters\": [the first poster's JSON, the second poster's JSON]} only."
+        val result = askTwice(agent, system, user, ::parseSeries) { seriesProblems(it, "$topic\n$content", fits) }
+        return if (brief != null && result is ApiResult.Ok) {
+            ApiResult.Ok(result.value.map { it.copy(format = brief.format.infographic, brand = brief.style.brandName.ifBlank { null }) })
+        } else {
+            result
+        }
+    }
 }
 
 /**
@@ -72,44 +101,6 @@ private fun templateBlock(brief: ImageBrief?, content: String): String {
     return "\n\nImage template: ${brief.template.name}, ${brief.format.words}. Plan the infographic by this template. " +
         "The app draws the image from your JSON, so the template decides what to show and how to arrange it; " +
         "keep its content rules and turn its design rules into your choice of sections.$palette\n\n$rules"
-}
-
-/**
- * Writes a carousel (docs/design/single-image-carousel.md) in one text-agent call ([systemPrompt] is
- * `prompts/image/carousel.md`, `{{pages}}` the most pages, `{{examples}}` the closest few-shot examples),
- * so the pages tell one story in one palette. Asked once more if the reply isn't a usable carousel or
- * fails [carouselProblems], with [fits] saying which pages are too full for their square. A [brief]
- * adds the image template the carousel follows; its format is ignored, since pages are always square.
- * The brand is the user's, on every page.
- */
-class CarouselWriter(
-    private val systemPrompt: String,
-    private val examples: List<ImageExample> = emptyList(),
-) {
-    suspend fun write(
-        agent: TextAgent,
-        topic: String,
-        content: String = "",
-        brief: ImageBrief? = null,
-        fits: (InfographicSpec) -> Boolean = { true },
-        maxPages: Int = MAX_CAROUSEL_PAGES,
-    ): ApiResult<Carousel> {
-        val system = systemPrompt
-            .replace("{{pages}}", maxPages.coerceIn(MIN_CAROUSEL_PAGES, MAX_CAROUSEL_PAGES).toString())
-            .replace("{{examples}}", formatImageExamples(pickImageExamples(examples, topic, template = brief?.template?.id)))
-        val user = "Topic: $topic${contentBlock(content)}${carouselTemplateBlock(brief, content)}"
-        val result = askTwice(agent, system, user, ::parseCarousel) { carouselProblems(it, "$topic\n$content", fits) }
-        val brand = brief?.style?.brandName?.ifBlank { null } ?: return result
-        return if (result is ApiResult.Ok) ApiResult.Ok(result.value.copy(pages = result.value.pages.map { it.copy(brand = brand) })) else result
-    }
-}
-
-/** The image template a carousel follows: its content rules, while the carousel rules decide the pages. */
-private fun carouselTemplateBlock(brief: ImageBrief?, content: String): String {
-    brief ?: return ""
-    val source = if (content.isBlank()) "(the topic above)" else "(the technical content above)"
-    return "\n\nImage template: ${brief.template.name}. Plan the carousel by this template: it decides what to show; " +
-        "the carousel rules decide the pages, which are all square.\n\n" + brief.copy(content = source).filled()
 }
 
 /**
