@@ -27,6 +27,7 @@ class ImageStyleStore(
         return base.copy(
             audience = prefs.getString(AUDIENCE, null) ?: base.audience,
             brandName = prefs.getString(BRAND, null) ?: base.brandName,
+            handle = prefs.getString(HANDLE, null) ?: base.handle,
             styleGuide = prefs.getString(STYLE_GUIDE, null) ?: base.styleGuide,
             series = if (prefs.contains(SERIES)) prefs.getBoolean(SERIES, base.series) else base.series,
             mode = ImageMode.of(prefs.getString(MODE, null)) ?: base.mode,
@@ -38,6 +39,7 @@ class ImageStyleStore(
         prefs.edit()
             .putString(AUDIENCE, style.audience.trim())
             .putString(BRAND, style.brandName.trim())
+            .putString(HANDLE, style.handle.trim())
             .putString(STYLE_GUIDE, style.styleGuide.trim())
             .putBoolean(SERIES, style.series)
             .putString(MODE, style.mode.key)
@@ -51,6 +53,7 @@ class ImageStyleStore(
     private companion object {
         const val AUDIENCE = "audience"
         const val BRAND = "brand_name"
+        const val HANDLE = "handle"
         const val STYLE_GUIDE = "style_guide"
         const val SERIES = "series"
         const val MODE = "mode"
@@ -69,6 +72,7 @@ class ImageStyleViewModel(private val store: ImageStyleStore) : ViewModel() {
 
     fun onAudience(text: String) = edit { it.copy(audience = text) }
     fun onBrandName(text: String) = edit { it.copy(brandName = text) }
+    fun onHandle(text: String) = edit { it.copy(handle = text) }
     fun onStyleGuide(text: String) = edit { it.copy(styleGuide = text) }
     fun onSeries(on: Boolean) = edit { it.copy(series = on) }
     fun onMode(mode: ImageMode) = edit { it.copy(mode = mode) }

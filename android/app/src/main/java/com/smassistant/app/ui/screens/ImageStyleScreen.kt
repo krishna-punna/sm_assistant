@@ -50,6 +50,7 @@ fun ImageStyleScreen(onBackToHome: () -> Unit) {
         actions = ImageStyleActions(
             onAudience = viewModel::onAudience,
             onBrandName = viewModel::onBrandName,
+            onHandle = viewModel::onHandle,
             onStyleGuide = viewModel::onStyleGuide,
             onSeries = viewModel::onSeries,
             onMode = viewModel::onMode,
@@ -65,6 +66,7 @@ fun ImageStyleScreen(onBackToHome: () -> Unit) {
 data class ImageStyleActions(
     val onAudience: (String) -> Unit = {},
     val onBrandName: (String) -> Unit = {},
+    val onHandle: (String) -> Unit = {},
     val onStyleGuide: (String) -> Unit = {},
     val onSeries: (Boolean) -> Unit = {},
     val onMode: (ImageMode) -> Unit = {},
@@ -108,6 +110,14 @@ fun ImageStyleContent(state: ImageStyleUiState, actions: ImageStyleActions, onBa
             supportingText = { Text("Shown small in the footer of each image.") },
             singleLine = true,
             modifier = Modifier.fillMaxWidth().testTag("styleBrand"),
+        )
+        OutlinedTextField(
+            value = style.handle,
+            onValueChange = actions.onHandle,
+            label = { Text("Handle (optional)") },
+            supportingText = { Text("Your social handle, shown beside the brand name, e.g. @yourname.") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth().testTag("styleHandle"),
         )
         OutlinedTextField(
             value = style.styleGuide,

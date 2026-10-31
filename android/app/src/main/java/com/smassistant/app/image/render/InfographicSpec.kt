@@ -35,12 +35,44 @@ data class InfographicSpec(
     val revealed: Int? = null,
     /** A series poster's label, drawn small in the header's corner: "2 / 3" (AC-7). */
     val page: String? = null,
+    /** How the header is laid out (AC-9): text beside the art, centred, or art breaking out of the band. */
+    val headerStyle: HeaderStyle = HeaderStyle.SPLIT,
+    /** A short category drawn as a ribbon above the title (AC-9), e.g. "System design"; drawn in capitals. */
+    val category: String? = null,
+    /** Up to [Limits.BADGES] technology badges drawn as pills under the subtitle (AC-9), e.g. "Kafka", "Java 21". */
+    val badges: List<String> = emptyList(),
+    /** The label on the takeaway card's ribbon (AC-9), e.g. "Interview tip"; "Key takeaway" when missing. */
+    val takeawayLabel: String? = null,
+    /** Prompt for a clip-art picture on the takeaway card (AC-9); the light bulb icon when missing. */
+    val footerArt: String? = null,
+    /** Up to [Limits.RECAP] one-line recap points drawn as an icon strip above the takeaway (AC-9). */
+    val recap: List<Recap> = emptyList(),
+    /** The user's social handle (app.yml `image_style`), drawn beside the brand; never written by the model. */
+    val handle: String? = null,
     /**
      * Cards the model wrote beyond [Limits.SECTIONS] that were left out (AC-2). Never silent: the
      * spec checks report it, so the writer is asked to merge them instead of losing them.
      */
     val droppedSections: Int = 0,
 )
+
+/** The header layouts (AC-9). */
+enum class HeaderStyle(val key: String) {
+    /** The title and its ribbon, subtitle and badges on the left, the art on the right. */
+    SPLIT("split"),
+    /** Everything centred under a round icon or picture, for short punchy titles. */
+    CENTERED("centered"),
+    /** Like [SPLIT], with a larger picture that breaks out below the header band. */
+    BREAKOUT("breakout"),
+    ;
+
+    companion object {
+        fun of(key: String?): HeaderStyle = entries.firstOrNull { it.key == key?.trim()?.lowercase() } ?: SPLIT
+    }
+}
+
+/** One point of the footer's recap strip (AC-9): a built-in [icon] ([ICONS]) and a short [label]. */
+data class Recap(val icon: String, val label: String)
 
 enum class InfographicFormat(val key: String, val width: Int) {
     /** Tall cheat sheet like most sample images; at least 2:3 and taller when the content needs it. */
@@ -138,6 +170,8 @@ internal object Limits {
     const val DIAGRAM_NODES = 10
     const val DIAGRAM_EDGES = 14
     const val TEXT = 220
+    const val BADGES = 4
+    const val RECAP = 4
 }
 
 /**
@@ -175,6 +209,18 @@ private fun spec(json: JsonObject, format: InfographicFormat?, palette: Palette?
         hero = json.string("hero")?.takeIf { it.isNotBlank() }?.clip(),
         sections = sections.take(Limits.SECTIONS),
         takeaway = json.string("takeaway")?.takeIf { it.isNotBlank() }?.clip(),
+        headerStyle = HeaderStyle.of(json.string("header_style")),
+        category = json.string("category")?.takeIf { it.isNotBlank() }?.clip(32),
+        badges = json.texts("badges").map { it.clip(20) }.take(Limits.BADGES),
+        takeawayLabel = json.string("takeaway_label")?.takeIf { it.isNotBlank() }?.clip(24),
+        footerArt = json.string("footer_art")?.takeIf { it.isNotBlank() }?.clip(),
+        recap = json.array("recap").mapNotNull { point ->
+            when (point) {
+                is JsonObject -> point.string("label")?.takeIf { it.isNotBlank() }
+                    ?.let { Recap(point.string("icon")?.lowercase()?.takeIf { icon -> icon in ICONS } ?: "check", it.clip(28)) }
+                else -> point.text().takeIf { it.isNotBlank() }?.let { Recap("check", it.clip(28)) }
+            }
+        }.take(Limits.RECAP),
         droppedSections = (sections.size - Limits.SECTIONS).coerceAtLeast(0),
     )
 }

@@ -79,6 +79,11 @@ fun typeset(spec: InfographicSpec): InfographicSpec = spec.copy(
     title = Typography.title(spec.title),
     subtitle = spec.subtitle?.let(Typography::sentence),
     takeaway = spec.takeaway?.let(Typography::sentence),
+    // The category ribbon is the one place capitals are drawn (AC-10).
+    category = spec.category?.let { Typography.clean(it).uppercase() },
+    badges = spec.badges.map(Typography::clean),
+    takeawayLabel = spec.takeawayLabel?.let(Typography::title),
+    recap = spec.recap.map { it.copy(label = Typography.sentence(it.label)) },
     sections = spec.sections.map { section -> section.copy(heading = Typography.title(section.heading), body = typeset(section.body)) },
 )
 
