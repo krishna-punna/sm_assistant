@@ -38,6 +38,7 @@ fun PostDialogs(
     onOpenSettings: () -> Unit,
     onTrimWithAi: (() -> Unit)? = null,
     onCutToFit: () -> Unit = {},
+    onSaveDraft: (() -> Unit)? = null,
 ) {
     when (state) {
         PostState.Idle, PostState.Posting -> Unit
@@ -46,7 +47,24 @@ fun PostDialogs(
             title = { Text("Post to LinkedIn?") },
             text = { ConfirmPostContent(state, onTrimWithAi, onCutToFit, onTextChange) },
             confirmButton = { TextButton(onClick = onConfirm, enabled = state.canPost) { Text("Post") } },
-            dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+            dismissButton = {
+                Row {
+                    if (onSaveDraft != null) {
+                        TextButton(
+                            onClick = onSaveDraft,
+                            enabled = !state.trimming && (state.text.isNotBlank() || state.images.isNotEmpty()),
+                            modifier = Modifier.testTag("saveDraft"),
+                        ) { Text("Save draft") }
+                    }
+                    TextButton(onClick = onDismiss) { Text("Cancel") }
+                }
+            },
+        )
+        PostState.DraftSaved -> AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text("Saved to Drafts") },
+            text = { Text("Find it under Drafts on Home to edit and post it later.") },
+            confirmButton = { TextButton(onClick = onDismiss) { Text("OK") } },
         )
         is PostState.Posted -> {
             val uriHandler = LocalUriHandler.current
