@@ -25,6 +25,19 @@ data class RenderedInfographic(val svg: String, val width: Int, val height: Int,
 /** Narrow cards from which a portrait poster is laid out in 3 columns instead of 2 (SV-7). */
 const val DENSE_SECTIONS = 7
 
+/** Narrow cards from which a portrait or landscape poster may take one more column: 4 on both (AC-1). */
+const val MORE_COLUMNS_SECTIONS = 12
+
+/** How wide LinkedIn shows an image in the feed before it is opened, on any device (AC-1). */
+const val FEED_WIDTH = 550f
+
+/**
+ * How [InfographicRenderer.measure] found a poster: whether it [fits] one readable poster, how many
+ * [cards] it has, the height its content needs against the height its format holds (in layout
+ * units, at the format's width), and the body text size in px when the image is shown at [FEED_WIDTH].
+ */
+data class PosterFit(val fits: Boolean, val cards: Int, val neededHeight: Int, val availableHeight: Int, val feedTextPx: Float)
+
 /**
  * The infographic renderer (docs/design/image-video-pipeline.md): lays an [InfographicSpec] out
  * as a header band, a grid of numbered cards and a takeaway footer, and writes it as SVG that
@@ -38,26 +51,94 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
      * on a wider page with more columns, up to [MAX_WIDEN] times the format's width, so the text is
      * drawn smaller instead; content too long even for that is centred on a page widened to the ratio.
      */
-    /** Whether [spec] fits its format's ratio at the format's own width, with text at full size (no widening). */
-    fun fits(spec: InfographicSpec): Boolean = renderAt(spec, spec.format.width.toFloat(), padSides = false).second
+    /**
+     * Whether [spec] is readable as one poster (AC-1): it fits its format's ratio at the format's own
+     * width, so no text is drawn smaller than designed. Shown in the LinkedIn feed (about [FEED_WIDTH]
+     * px wide on every device), body text is then [PosterFit.feedTextPx] px.
+     */
+    fun fits(spec: InfographicSpec): Boolean = measure(spec).fits
+
+    /** How [spec] fits one poster at its format's width (AC-1), with the numbers to tell the writer when it doesn't. */
+    fun measure(spec: InfographicSpec): PosterFit {
+        val drawn = renderAt(spec, spec.format.width.toFloat(), padSides = false)
+        return PosterFit(
+            fits = drawn.fits,
+            cards = spec.sections.size,
+            neededHeight = drawn.contentHeight.roundToInt(),
+            availableHeight = drawn.ratioHeight.roundToInt(),
+            feedTextPx = BODY_SIZE * FEED_WIDTH / spec.format.width,
+        )
+    }
 
     fun render(spec: InfographicSpec): RenderedInfographic {
         val base = spec.format.width.toFloat()
         var width = base
         while (true) {
             val last = width >= base * MAX_WIDEN
-            val (rendered, fits) = renderAt(spec, width, padSides = last)
-            if (fits || last) return rendered
+            val drawn = renderAt(spec, width, padSides = last)
+            if (drawn.fits || last) return drawn.rendered
             width = min(width * 1.1f, base * MAX_WIDEN)
         }
     }
 
-    private fun renderAt(spec: InfographicSpec, width: Float, padSides: Boolean): Pair<RenderedInfographic, Boolean> {
+    /** One layout attempt: what was drawn, whether it fit the ratio, and the heights compared. */
+    private class Drawn(val rendered: RenderedInfographic, val fits: Boolean, val contentHeight: Float, val ratioHeight: Float)
+
+    private fun renderAt(written: InfographicSpec, width: Float, padSides: Boolean): Drawn {
+        // Every drawn word follows the text standard (AC-10), whatever the model wrote.
+        val spec = typeset(written)
         val palette = spec.palette
         val contentWidth = width - 2 * MARGIN
 
         val header = header(spec, width)
-        val columns = columnsFor(spec, width)
+        val footer = footer(spec, width)
+        // The format's ratio: the sample images' sizes (2:3, 1:1, 3:2).
+        val ratioHeight = when (spec.format) {
+            InfographicFormat.PORTRAIT -> width * 1.5f
+            InfographicFormat.SQUARE -> width
+            InfographicFormat.LANDSCAPE -> width * 2 / 3
+        }
+        fun heightWith(body: Body) = header.height + GAP + body.height + GAP + (footer?.height ?: 0f)
+        // The fewest columns that fit the ratio; when none fits, the layout that comes closest (AC-1).
+        val layouts = columnsFor(spec, width).map { body(spec, width, it) }
+        val (placements, bodyHeight) = layouts.firstOrNull { heightWith(it) <= ratioHeight + 0.5f } ?: layouts.minBy { heightWith(it) }
+
+        val contentHeight = header.height + GAP + bodyHeight + GAP + (footer?.height ?: 0f)
+        val fits = contentHeight <= ratioHeight + 0.5f
+        val height = max(contentHeight, ratioHeight)
+        // The last resort for content that doesn't fit: a page widened to the ratio, the layout centred on it.
+        val pageWidth = if (fits || !padSides) width else height * width / ratioHeight
+        val dx = (pageWidth - width) / 2
+
+        val svg = Svg()
+        svg.rect(0f, 0f, pageWidth, height, fill = palette.background)
+        headerBand(svg, pageWidth, header.height - header.overhang, palette)
+        header.draw(svg, dx, 0f)
+        val bodyTop = header.height + GAP
+        // A reveal step draws only its first sections, where the whole layout puts them, and the footer once all are shown.
+        val shown = spec.revealed ?: spec.sections.size
+        placements.filter { it.index < shown }.forEach { it.block.draw(svg, dx + it.x, bodyTop + it.top) }
+        if (footer != null && shown >= spec.sections.size) {
+            val top = height - footer.height
+            footerBand(svg, pageWidth, top, footer.height, palette)
+            footer.draw(svg, dx, top)
+        }
+        val rendered = RenderedInfographic(
+            svg = svg.document(pageWidth.roundToInt(), height.roundToInt()),
+            width = pageWidth.roundToInt(),
+            height = height.roundToInt(),
+            slots = svg.slots,
+        )
+        return Drawn(rendered, fits, contentHeight, ratioHeight)
+    }
+
+    /** The cards laid out in some number of columns on a page, and the height they take. */
+    private data class Body(val placements: List<Placement>, val height: Float)
+
+    /** Lays the cards out in [columns] columns on a page [width] wide. */
+    private fun body(spec: InfographicSpec, width: Float, columns: Int): Body {
+        val palette = spec.palette
+        val contentWidth = width - 2 * MARGIN
         val columnWidth = (contentWidth - (columns - 1) * GAP) / columns
         // Reading order: wide cards span the page. Between them, narrow cards go in the shortest
         // column, and the last few that can't fill the columns share a row instead of leaving a gap.
@@ -92,50 +173,7 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
             if (leftover > 0) row(run.takeLast(leftover))
             next = end
         }
-        val bodyHeight = max(0f, bottoms.maxOrNull()?.minus(GAP) ?: 0f)
-        val brand = spec.brand?.trim()?.takeIf { it.isNotEmpty() }
-        val footer = if (spec.takeaway != null || brand != null) footer(spec.takeaway, brand, width, palette) else null
-
-        val contentHeight = header.height + GAP + bodyHeight + GAP + (footer?.height ?: 0f)
-        // The format's ratio: the sample images' sizes (2:3, 1:1, 3:2).
-        val ratioHeight = when (spec.format) {
-            InfographicFormat.PORTRAIT -> width * 1.5f
-            InfographicFormat.SQUARE -> width
-            InfographicFormat.LANDSCAPE -> width * 2 / 3
-        }
-        val fits = contentHeight <= ratioHeight + 0.5f
-        val height = max(contentHeight, ratioHeight)
-        // The last resort for content that doesn't fit: a page widened to the ratio, the layout centred on it.
-        val pageWidth = if (fits || !padSides) width else height * width / ratioHeight
-        val dx = (pageWidth - width) / 2
-
-        val svg = Svg()
-        svg.rect(0f, 0f, pageWidth, height, fill = palette.background)
-        // A carousel's cover has no cards: its header fills the page above the footer, the title centred in it.
-        val band = if (spec.page != null && spec.sections.isEmpty()) height - (footer?.height ?: 0f) else header.height
-        svg.rect(0f, 0f, pageWidth, band, fill = palette.header)
-        svg.rect(0f, band - 6, pageWidth, 6f, fill = palette.highlight)
-        header.draw(svg, dx, (band - header.height) / 2)
-        // A carousel page's label sits in the top padding, above the title and the art.
-        spec.page?.let { svg.text(it, dx + width - MARGIN, HEADER_PAD - 12, 20f, palette.headerText, bold = true, anchor = "end", opacity = 0.75f) }
-        // A carousel page's few cards sit in the middle of the space below the header, not at its top.
-        val spare = height - header.height - 2 * GAP - (footer?.height ?: 0f) - bodyHeight
-        val bodyTop = header.height + GAP + if (spec.page != null && fits) max(0f, spare / 2) else 0f
-        // A reveal step draws only its first sections, where the whole layout puts them, and the footer once all are shown.
-        val shown = spec.revealed ?: spec.sections.size
-        placements.filter { it.index < shown }.forEach { it.block.draw(svg, dx + it.x, bodyTop + it.top) }
-        if (footer != null && shown >= spec.sections.size) {
-            val top = height - footer.height
-            svg.rect(0f, top, pageWidth, footer.height, fill = palette.header)
-            footer.draw(svg, dx, top)
-        }
-        val rendered = RenderedInfographic(
-            svg = svg.document(pageWidth.roundToInt(), height.roundToInt()),
-            width = pageWidth.roundToInt(),
-            height = height.roundToInt(),
-            slots = svg.slots,
-        )
-        return rendered to fits
+        return Body(placements, max(0f, bottoms.maxOrNull()?.minus(GAP) ?: 0f))
     }
 
     /** Something drawn at an (x, y) that is decided after its [height] is known. */
@@ -145,15 +183,19 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
     private class Placement(val index: Int, val block: Block, val x: Float, val top: Float)
 
     /**
-     * 2 columns (3 for landscape and wide, and for a portrait poster of [DENSE_SECTIONS] or more narrow
-     * cards, like the dense samples; SV-7) at the format's width, and one more for each such column a
-     * wider page has room for.
+     * The column counts to try, fewest first. At the format's width: 2 (3 for landscape, and for a
+     * portrait poster of [DENSE_SECTIONS] or more narrow cards, like the dense samples; SV-7), and
+     * one more for portrait and landscape posters of [MORE_COLUMNS_SECTIONS] or more narrow cards,
+     * so many cards fit without the text shrinking (AC-1). A wider page has room for one more column
+     * per such column width.
      */
-    private fun columnsFor(spec: InfographicSpec, width: Float): Int {
+    private fun columnsFor(spec: InfographicSpec, width: Float): List<Int> {
         val narrow = spec.sections.count { !isAlwaysWide(it.body) }
         val base = if (spec.format.isWide || spec.format == InfographicFormat.PORTRAIT && narrow >= DENSE_SECTIONS) 3 else 2
         val room = max(base, floor(width / (spec.format.width / base.toFloat())).toInt())
-        return min(room, max(1, narrow))
+        val most = if (narrow >= MORE_COLUMNS_SECTIONS && spec.format != InfographicFormat.SQUARE) room + 1 else room
+        val cap = max(1, narrow)
+        return (min(room, cap)..min(most, cap)).toList()
     }
 
     private fun isAlwaysWide(body: SectionBody) =
@@ -165,63 +207,212 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
 
     // ---- Header and footer ----
 
-    private fun header(spec: InfographicSpec, width: Float): Block {
+    /** The header (AC-9): its height, how far its art breaks out below the band, and how it is drawn. */
+    private class Header(val height: Float, val overhang: Float, val draw: (Svg, Float, Float) -> Unit)
+
+    /** The header band (AC-9): a diagonal gradient with soft circles and a dot grid, and a highlight rule at its foot. */
+    private fun headerBand(svg: Svg, width: Float, band: Float, palette: Palette) {
+        svg.linearGradient("band", palette.header, mix(palette.header, palette.accent(0), 0.4f))
+        svg.rect(0f, 0f, width, band, fill = "url(#band)")
+        svg.circle(width - 70, 60f, 170f, fill = palette.headerText, opacity = 0.06f)
+        svg.circle(width * 0.58f, band - 70, 64f, fill = palette.headerText, opacity = 0.05f)
+        svg.dots(width * 0.42f, 16f, columns = 8, rows = 2, step = 16f, color = palette.headerText, opacity = 0.18f)
+        svg.rect(0f, band - 6, width, 6f, fill = palette.highlight)
+    }
+
+    /** The footer band (AC-9): a gradient that rises from the page in a wave. */
+    private fun footerBand(svg: Svg, width: Float, top: Float, height: Float, palette: Palette) {
+        svg.linearGradient("foot", mix(palette.header, palette.accent(0), 0.35f), palette.header, vertical = true)
+        svg.wave(width, top, height, WAVE, "url(#foot)")
+    }
+
+    /**
+     * The header (AC-9) in one of three layouts ([HeaderStyle]): a category ribbon, the title with
+     * its key words on a highlight pill, the subtitle, technology badges, and the hero picture or
+     * icon. Every word goes through the shared word writer and the text standard (AC-10).
+     */
+    private fun header(spec: InfographicSpec, width: Float): Header {
         val palette = spec.palette
+        val centered = spec.headerStyle == HeaderStyle.CENTERED
+        val breakout = spec.headerStyle == HeaderStyle.BREAKOUT && spec.hero != null
         val art = when {
-            spec.hero != null -> if (spec.format.isWide) 260f else 230f
+            centered -> if (spec.hero != null || spec.icon != null) CENTERED_ART else 0f
+            spec.hero != null -> if (breakout) BREAKOUT_ART else if (spec.format.isWide) 260f else 230f
             spec.icon != null -> 132f
             else -> 0f
         }
-        val textWidth = width - 2 * MARGIN - if (art > 0) art + GAP else 0f
+        val overhang = if (breakout) BREAKOUT_OVERHANG else 0f
+        val textWidth = width - 2 * MARGIN - if (!centered && art > 0) art + GAP else 0f
+        val ribbon = spec.category?.let { wrapText(it, textWidth - 2 * RIBBON_PAD, RIBBON_SIZE, measurer, bold = true, maxLines = 1).first() }
+        val ribbonHeight = if (ribbon != null) RIBBON + 18 else 0f
         var titleSize = 64f
         var title = wrapText(spec.title, textWidth, titleSize, measurer, bold = true)
         if (title.size > 2) {
             titleSize = 52f
             title = wrapText(spec.title, textWidth, titleSize, measurer, bold = true, maxLines = 3)
         }
-        val titleLine = titleSize * 1.16f
+        val titleLine = titleSize * 1.2f
         val subtitle = spec.subtitle?.let { wrapText(it, textWidth, 28f, measurer, maxLines = 3) }.orEmpty()
-        val textHeight = title.size * titleLine + if (subtitle.isEmpty()) 0f else 14 + subtitle.size * 38f
-        val height = HEADER_PAD * 2 + max(textHeight, art)
-        return Block(height) { svg, x, y ->
-            val textTop = y + HEADER_PAD + max(0f, (art - textHeight) / 2)
-            val highlight = spec.highlight?.lowercase()?.split(' ')?.filter { it.isNotBlank() }?.toSet().orEmpty()
-            title.forEachIndexed { i, line ->
-                svg.highlightedLine(line, highlight, x + MARGIN, baseline(textTop + i * titleLine, titleLine, titleSize),
-                    titleSize, palette.headerText, palette.highlight)
-            }
-            svg.lines(subtitle, x + MARGIN, textTop + title.size * titleLine + 14, 28f, 38f, palette.headerText, opacity = 0.82f)
-            if (art > 0) {
-                val artX = x + width - MARGIN - art
-                val artY = y + (height - art) / 2
+        val badgeRows = pillRows(spec.badges, textWidth, BADGE_SIZE)
+        val badgesHeight = if (badgeRows.isEmpty()) 0f else 20 + badgeRows.size * PILL + (badgeRows.size - 1) * 10
+        val textHeight = ribbonHeight + title.size * titleLine + (if (subtitle.isEmpty()) 0f else 14 + subtitle.size * 38f) + badgesHeight
+        val content = if (centered) art + (if (art > 0) 24f else 0f) + textHeight else max(textHeight, art - overhang)
+        val band = HEADER_PAD * 2 + content
+        val highlight = spec.highlight?.lowercase()?.split(' ')?.map { word -> word.trim { !it.isLetterOrDigit() } }?.filter { it.isNotBlank() }?.toSet().orEmpty()
+        return Header(band + overhang, overhang) { svg, x, y ->
+            val left = if (centered) x + width / 2 else x + MARGIN
+            var top = y + HEADER_PAD + if (centered) 0f else max(0f, (art - overhang - textHeight) / 2)
+            if (centered && art > 0) {
+                val cx = x + width / 2
+                svg.circle(cx, top + art / 2, art / 2 + 8, fill = palette.highlight, opacity = 0.25f)
                 if (spec.hero != null) {
+                    svg.illustration(spec.hero, cx - art / 2, top, art, art, art / 2, spec.icon ?: "idea",
+                        tint = mix(palette.highlight, palette.header, 0.75f), iconColor = palette.highlight)
+                } else {
+                    svg.circle(cx, top + art / 2, art / 2, fill = mix(palette.highlight, palette.header, 0.8f))
+                    svg.icon(spec.icon!!, cx - art * 0.28f, top + art * 0.22f, art * 0.56f, palette.highlight)
+                }
+                top += art + 24
+            }
+            if (ribbon != null) {
+                pill(svg, ribbon, left, top, RIBBON, RIBBON_SIZE, RIBBON_PAD, fill = palette.highlight, text = palette.header, centered = centered)
+                top += ribbonHeight
+            }
+            title.forEachIndexed { i, line ->
+                titleLine(svg, line, highlight, left, baseline(top + i * titleLine, titleLine, titleSize), titleSize, palette, centered)
+            }
+            top += title.size * titleLine
+            if (subtitle.isNotEmpty()) {
+                svg.lines(subtitle, left, top + 14, 28f, 38f, palette.headerText, anchor = if (centered) "middle" else "start", opacity = 0.85f)
+                top += 14 + subtitle.size * 38f
+            }
+            if (badgeRows.isNotEmpty()) top += 20
+            badgeRows.forEach { row ->
+                val widths = row.map { pillWidth(it, BADGE_SIZE, BADGE_PAD) }
+                var px = if (centered) left - (widths.sum() + (row.size - 1) * 10) / 2 else left
+                row.forEachIndexed { i, badge ->
+                    svg.rect(px, top, widths[i], PILL, fill = palette.headerText, rx = PILL / 2, opacity = 0.12f)
+                    svg.rect(px, top, widths[i], PILL, fill = "none", stroke = palette.highlight, strokeWidth = 2f, rx = PILL / 2)
+                    svg.text(badge, px + widths[i] / 2, baseline(top, PILL, BADGE_SIZE), BADGE_SIZE, palette.headerText, bold = true, anchor = "middle")
+                    px += widths[i] + 10
+                }
+                top += PILL + 10
+            }
+            if (!centered && art > 0) {
+                val artX = x + width - MARGIN - art
+                val artY = if (breakout) y + band + overhang - art else y + (band - art) / 2
+                if (spec.hero != null) {
+                    // A breakout picture sits on a page-coloured frame, so it reads as stepping out of the band.
+                    if (breakout) svg.rect(artX - 10, artY - 10, art + 20, art + 20, fill = palette.background, rx = 38f)
                     svg.illustration(spec.hero, artX, artY, art, art, 28f, spec.icon ?: "idea",
                         tint = mix(palette.highlight, palette.header, 0.75f), iconColor = palette.highlight)
                 } else {
                     svg.circle(artX + art / 2, artY + art / 2, art / 2, fill = mix(palette.highlight, palette.header, 0.8f))
                     svg.icon(spec.icon!!, artX + art * 0.22f, artY + art * 0.22f, art * 0.56f, palette.highlight)
                 }
+                // Sparkles beside the art, like the trending infographic headers.
+                svg.icon("star", artX - 34, artY + 6, 26f, palette.highlight, 2.4f)
+                svg.icon("star", artX + art - 6, max(y + 8, artY - 22), 20f, palette.headerText, 2f)
             }
         }
     }
 
-    /** The takeaway with its light bulb, and the [brand] name small on the right; either may be missing. */
-    private fun footer(takeaway: String?, brand: String?, width: Float, palette: Palette): Block {
-        val iconSize = 44f
-        val brandLines = brand?.let { wrapText(it, width / 4, 22f, measurer, bold = true, maxLines = 2) }.orEmpty()
-        val brandWidth = if (brandLines.isEmpty()) 0f else brandLines.maxOf { measurer.width(it, 22f, true, FontFamily.SANS) } + GAP
-        val lines = takeaway?.let {
-            wrapText(it, width - 2 * MARGIN - iconSize - 20 - brandWidth, 26f, measurer, bold = true, maxLines = 4)
-        }.orEmpty()
-        val height = 2 * 30f + maxOf(if (lines.isEmpty()) 0f else iconSize, lines.size * 36f, brandLines.size * 30f)
-        return Block(height) { svg, x, y ->
-            if (lines.isNotEmpty()) {
-                svg.icon("idea", x + MARGIN, y + (height - iconSize) / 2, iconSize, palette.highlight)
-                svg.lines(lines, x + MARGIN + iconSize + 20, y + (height - lines.size * 36f) / 2, 26f, 36f, palette.headerText, bold = true)
+    /** A title line with its [highlight] words on a pill in the highlight colour (AC-9), written by the shared word writer (AC-10). */
+    private fun titleLine(svg: Svg, line: String, highlight: Set<String>, x: Float, baseline: Float, size: Float, palette: Palette, centered: Boolean) {
+        val words = line.split(' ').filter { it.isNotEmpty() }
+        val gap = measurer.width(" ", size, true, FontFamily.SANS)
+        val widths = words.map { measurer.width(it, size, true, FontFamily.SANS) }
+        val start = if (centered) x - (widths.sum() + gap * (words.size - 1)) / 2 else x
+        var cursor = start
+        words.forEachIndexed { i, word ->
+            if (word.lowercase().trim { !it.isLetterOrDigit() } in highlight) {
+                svg.rect(cursor - 10, baseline - size * 0.84f, widths[i] + 20, size * 1.08f, fill = palette.highlight, rx = size * 0.2f)
             }
-            brandLines.forEachIndexed { i, line ->
-                val top = y + (height - brandLines.size * 30f) / 2 + i * 30f
-                svg.text(line, x + width - MARGIN, baseline(top, 30f, 22f), 22f, palette.headerText, bold = true, anchor = "end", opacity = 0.8f)
+            cursor += widths[i] + gap
+        }
+        svg.highlightedLine(line, highlight, start, baseline, size, palette.headerText, palette.header)
+    }
+
+    /** A rounded label (a ribbon or badge) [height] tall, its left edge at [x] or centred on it. */
+    private fun pill(svg: Svg, label: String, x: Float, y: Float, height: Float, size: Float, pad: Float, fill: String, text: String, centered: Boolean = false) {
+        val w = pillWidth(label, size, pad)
+        val left = if (centered) x - w / 2 else x
+        svg.rect(left, y, w, height, fill = fill, rx = height / 2)
+        svg.text(label, left + w / 2, baseline(y, height, size), size, text, bold = true, anchor = "middle")
+    }
+
+    private fun pillWidth(label: String, size: Float, pad: Float) = measurer.width(label, size, true, FontFamily.SANS) + 2 * pad
+
+    /** [labels] as pills broken into rows no wider than [width]. */
+    private fun pillRows(labels: List<String>, width: Float, size: Float): List<List<String>> {
+        val rows = mutableListOf<MutableList<String>>()
+        var used = 0f
+        labels.forEach { label ->
+            val w = min(pillWidth(label, size, BADGE_PAD), width)
+            if (rows.isEmpty() || used + 10 + w > width) {
+                rows += mutableListOf(label)
+                used = w
+            } else {
+                rows.last() += label
+                used += 10 + w
+            }
+        }
+        return rows
+    }
+
+    /**
+     * The footer (AC-9): a recap strip of icon chips, the takeaway on a card with a label ribbon and
+     * clip art, and a bottom line with the brand, the handle and a series poster's "2 / 3". Null when
+     * there is nothing to show.
+     */
+    private fun footer(spec: InfographicSpec, width: Float): Block? {
+        val palette = spec.palette
+        val signature = listOfNotNull(spec.brand?.trim()?.takeIf { it.isNotEmpty() }, spec.handle?.trim()?.takeIf { it.isNotEmpty() })
+            .joinToString(" · ").takeIf { it.isNotEmpty() }
+        val takeaway = spec.takeaway
+        if (takeaway == null && signature == null && spec.recap.isEmpty() && spec.page == null) return null
+        val inner = width - 2 * MARGIN
+        val chipWidth = if (spec.recap.isEmpty()) 0f else (inner - (spec.recap.size - 1) * 12) / spec.recap.size
+        val chips = spec.recap.map { wrapText(it.label, chipWidth - CHIP_ICON - 30, 20f, measurer, bold = true, maxLines = 2) }
+        val recapHeight = if (chips.isEmpty()) 0f else CHIP + 14
+        val art = if (takeaway != null) TAKEAWAY_ART else 0f
+        val lines = takeaway?.let { wrapText(it, inner - 2 * CARD_PAD - art - 20, 26f, measurer, bold = true, maxLines = 4) }.orEmpty()
+        val cardHeight = if (takeaway == null) 0f else max(art, lines.size * 36f) + 2 * 16f + RIBBON / 2 + 4
+        val label = (spec.takeawayLabel ?: "Key takeaway").uppercase()
+        val bottomHeight = if (signature != null || spec.page != null) PILL else 0f
+        val height = WAVE + 14 + recapHeight + (if (cardHeight > 0) RIBBON / 2 + cardHeight else 0f) +
+            (if (bottomHeight > 0) 10 + bottomHeight else 0f) + 18
+        return Block(height) { svg, x, y ->
+            var top = y + WAVE + 14
+            chips.forEachIndexed { i, chip ->
+                val cx = x + MARGIN + i * (chipWidth + 12)
+                svg.rect(cx, top, chipWidth, CHIP, fill = palette.headerText, rx = 18f, opacity = 0.1f)
+                svg.circle(cx + 12 + CHIP_ICON / 2, top + CHIP / 2, CHIP_ICON / 2, fill = palette.highlight)
+                svg.icon(spec.recap[i].icon, cx + 12 + CHIP_ICON * 0.2f, top + CHIP / 2 - CHIP_ICON * 0.3f, CHIP_ICON * 0.6f, palette.header, 2.4f)
+                svg.lines(chip, cx + 24 + CHIP_ICON, top + (CHIP - chip.size * 24f) / 2, 20f, 24f, palette.headerText, bold = true)
+            }
+            top += recapHeight
+            if (takeaway != null) {
+                top += RIBBON / 2
+                val card = cardHeight - RIBBON / 2
+                svg.rect(x + MARGIN, top, inner, card, fill = palette.card, rx = 22f)
+                svg.rect(x + MARGIN, top, 10f, card, fill = palette.highlight, rx = 5f)
+                pill(svg, label, x + MARGIN + CARD_PAD, top - RIBBON / 2, RIBBON, RIBBON_SIZE, RIBBON_PAD, fill = palette.highlight, text = palette.header)
+                val artX = x + MARGIN + CARD_PAD
+                val artY = top + RIBBON / 2 + (card - RIBBON / 2 - art) / 2
+                if (spec.footerArt != null) {
+                    svg.illustration(spec.footerArt, artX, artY, art, art, 18f, "idea", tint = mix(palette.highlight, palette.card, 0.75f), iconColor = palette.accent(0))
+                } else {
+                    svg.circle(artX + art / 2, artY + art / 2, art / 2, fill = mix(palette.highlight, palette.card, 0.7f))
+                    svg.icon("idea", artX + art * 0.22f, artY + art * 0.22f, art * 0.56f, palette.accent(0), 2.4f)
+                }
+                svg.lines(lines, artX + art + 20, top + RIBBON / 2 + (card - RIBBON / 2 - lines.size * 36f) / 2, 26f, 36f, palette.text, bold = true)
+                top += card
+            }
+            if (bottomHeight > 0) {
+                top += 10
+                signature?.let { svg.text(it, x + MARGIN, baseline(top, PILL, 22f), 22f, palette.headerText, bold = true, opacity = 0.85f) }
+                spec.page?.let { pill(svg, it, x + width - MARGIN - pillWidth(it, BADGE_SIZE, BADGE_PAD), top, PILL, BADGE_SIZE, BADGE_PAD, fill = palette.highlight, text = palette.header) }
             }
         }
     }
@@ -234,7 +425,7 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
         val heading = wrapText(section.heading.ifBlank { " " }, width - headingX - CARD_PAD, 28f, measurer, bold = true, maxLines = 2)
         val tab = max(68f, heading.size * 36f + 26)
         val inner = width - 2 * CARD_PAD
-        val body = body(section, inner, color, palette)
+        val body = section.art?.let { withArt(section, it, inner, color, palette) } ?: body(section, inner, color, palette)
         val height = max(minHeight, tab + CARD_PAD + body.height + CARD_PAD)
         return Block(height) { svg, x, y ->
             svg.rect(x, y, width, height, fill = palette.card, stroke = palette.cardBorder, strokeWidth = 2f, rx = 18f)
@@ -245,6 +436,30 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
             section.icon?.let { svg.icon(it, x + CARD_PAD + 56, y + tab / 2 - 15, 30f, "#FFFFFF") }
             svg.lines(heading, x + headingX, y + (tab - heading.size * 36f) / 2, 28f, 36f, "#FFFFFF", bold = true)
             body.draw(svg, x + CARD_PAD, y + tab + CARD_PAD)
+        }
+    }
+
+    /**
+     * A card's content with its clip art (AC-8): beside the content in a card wide enough to keep
+     * the text readable, otherwise a picture band above it. The picture is an AI illustration slot
+     * with a placeholder icon, so the card is complete when no picture is painted.
+     */
+    private fun withArt(section: Section, art: String, width: Float, color: String, palette: Palette): Block {
+        val tint = mix(color, palette.card, 0.88f)
+        val icon = section.icon ?: "idea"
+        if (width >= MIN_SIDE_ART_CARD) {
+            val side = min(CARD_ART, width * 0.3f)
+            val content = body(section, width - side - CARD_ART_GAP, color, palette)
+            return Block(max(content.height, side)) { svg, x, y ->
+                content.draw(svg, x, y)
+                svg.illustration(art, x + width - side, y, side, side, 14f, icon, tint = tint, iconColor = color)
+            }
+        }
+        val band = min(width * 0.5f, CARD_ART)
+        val content = body(section, width, color, palette)
+        return Block(band + CARD_ART_GAP + content.height) { svg, x, y ->
+            svg.illustration(art, x, y, width, band, 14f, icon, tint = tint, iconColor = color)
+            content.draw(svg, x, y + band + CARD_ART_GAP)
         }
     }
 
@@ -550,6 +765,26 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
     private companion object {
         const val MARGIN = 48f
 
+        /** A card's clip art (AC-8): its largest side, the gap to the content, and the narrowest card that puts it beside the content. */
+        const val CARD_ART = 140f
+        const val CARD_ART_GAP = 16f
+        const val MIN_SIDE_ART_CARD = 420f
+
+        /** Header and footer parts (AC-9): ribbon and pill heights, label sizes, art sizes, the breakout and the wave. */
+        const val RIBBON = 40f
+        const val RIBBON_SIZE = 18f
+        const val RIBBON_PAD = 18f
+        const val PILL = 40f
+        const val BADGE_SIZE = 20f
+        const val BADGE_PAD = 18f
+        const val CENTERED_ART = 132f
+        const val BREAKOUT_ART = 300f
+        const val BREAKOUT_OVERHANG = 56f
+        const val TAKEAWAY_ART = 72f
+        const val CHIP = 56f
+        const val CHIP_ICON = 36f
+        const val WAVE = 26f
+
         /** Narrowest diagram box when the layers are laid out side by side. */
         const val MIN_DIAGRAM_NODE = 150f
 
@@ -622,16 +857,18 @@ private class Svg {
         """<svg xmlns="http://www.w3.org/2000/svg" width="$width" height="$height" viewBox="0 0 $width $height">""" +
             out + "</svg>"
 
-    fun rect(x: Float, y: Float, w: Float, h: Float, fill: String, stroke: String? = null, strokeWidth: Float = 0f, rx: Float = 0f) {
+    fun rect(x: Float, y: Float, w: Float, h: Float, fill: String, stroke: String? = null, strokeWidth: Float = 0f, rx: Float = 0f, opacity: Float = 1f) {
         out.append("""<rect x="${n(x)}" y="${n(y)}" width="${n(w)}" height="${n(h)}"""")
         if (rx > 0) out.append(""" rx="${n(rx)}"""")
         out.append(""" fill="$fill"""")
+        if (opacity < 1f) out.append(""" fill-opacity="${n3(opacity)}"""")
         if (stroke != null) out.append(""" stroke="$stroke" stroke-width="${n(max(strokeWidth, 1f))}"""")
         out.append("/>")
     }
 
-    fun circle(cx: Float, cy: Float, r: Float, fill: String, stroke: String? = null) {
+    fun circle(cx: Float, cy: Float, r: Float, fill: String, stroke: String? = null, opacity: Float = 1f) {
         out.append("""<circle cx="${n(cx)}" cy="${n(cy)}" r="${n(r)}" fill="$fill"""")
+        if (opacity < 1f) out.append(""" fill-opacity="${n3(opacity)}"""")
         if (stroke != null) out.append(""" stroke="$stroke" stroke-width="2"""")
         out.append("/>")
     }
@@ -652,7 +889,33 @@ private class Svg {
         if (bold) out.append(""" font-weight="bold"""")
         if (anchor != "start") out.append(""" text-anchor="$anchor"""")
         if (opacity < 1f) out.append(""" opacity="${n(opacity)}"""")
-        out.append(">").append(textContent(content)).append("</text>")
+        // Code keeps its own spacing; every other line goes through the text standard's spacing (AC-10).
+        out.append(">").append(textContent(if (family == FontFamily.MONO) content else Typography.clean(content))).append("</text>")
+    }
+
+    /** A linear gradient [id] from [from] to [to], left to right (or top to bottom), filled with `url(#id)`. */
+    fun linearGradient(id: String, from: String, to: String, vertical: Boolean = false) {
+        val end = if (vertical) """x2="0" y2="1"""" else """x2="1" y2="1""""
+        out.append("""<defs><linearGradient id="$id" x1="0" y1="0" $end><stop offset="0" stop-color="$from"/><stop offset="1" stop-color="$to"/></linearGradient></defs>""")
+    }
+
+    /** A grid of small dots, a decoration for the header band (AC-9). */
+    fun dots(x: Float, y: Float, columns: Int, rows: Int, step: Float, color: String, opacity: Float) {
+        for (row in 0 until rows) for (column in 0 until columns) circle(x + column * step, y + row * step, 2.5f, fill = color, opacity = opacity)
+    }
+
+    /** A band from [top] to [top] + [height] across [width] whose top edge is a gentle wave [amplitude] high (AC-9). */
+    fun wave(width: Float, top: Float, height: Float, amplitude: Float, fill: String) {
+        val waves = max(2, (width / 270f).roundToInt())
+        val step = width / waves
+        val d = StringBuilder("M0 ${n(top + amplitude)}")
+        for (i in 0 until waves) {
+            val x0 = i * step
+            d.append(" Q${n(x0 + step / 4)} ${n(top)} ${n(x0 + step / 2)} ${n(top + amplitude / 2)}")
+            d.append(" T${n(x0 + step)} ${n(top + amplitude)}")
+        }
+        d.append(" L${n(width)} ${n(top + height)} L0 ${n(top + height)} Z")
+        out.append("""<path d="$d" fill="$fill"/>""")
     }
 
     /** One line per entry, the first line box starting at [top]. */
@@ -673,13 +936,22 @@ private class Svg {
     /** A bold title line whose words in [highlight] (lower case) are drawn in [accent]. */
     fun highlightedLine(line: String, highlight: Set<String>, x: Float, y: Float, size: Float, fill: String, accent: String) {
         out.append("""<text x="${n(x)}" y="${n(y)}" font-family="sans-serif" font-size="${n(size)}" font-weight="bold" fill="$fill">""")
-        line.split(' ').forEachIndexed { i, word ->
-            // A non-breaking space: AndroidSVG drops a normal space at the start of a <tspan>, which ran the words together.
-            val text = textContent(if (i == 0) word else "\u00A0$word")
-            val key = word.lowercase().trim { !it.isLetterOrDigit() }
-            if (key in highlight) out.append("""<tspan fill="$accent">$text</tspan>""") else out.append("<tspan>$text</tspan>")
-        }
+        out.append(spacedWords(line) { word -> if (word.lowercase().trim { !it.isLetterOrDigit() } in highlight) accent else null })
         out.append("</text>")
+    }
+
+    /**
+     * The shared writer for text drawn word by word (titles now; badges, ribbons and labels in AC-9):
+     * one `<tspan>` per word, coloured by [fill] when it returns a colour, each word after the first
+     * led by a non-breaking space. AndroidSVG drops a normal space at the start of a `<tspan>`, which
+     * ran title words together (AC-10); a non-breaking space is always drawn.
+     */
+    fun spacedWords(line: String, fill: (String) -> String?): String = buildString {
+        Typography.clean(line).split(' ').filter { it.isNotEmpty() }.forEachIndexed { i, word ->
+            val text = textContent(if (i == 0) word else "$WORD_GAP$word")
+            val color = fill(word)
+            append(if (color != null) """<tspan fill="$color">$text</tspan>""" else "<tspan>$text</tspan>")
+        }
     }
 
     fun icon(name: String, x: Float, y: Float, size: Float, color: String, strokeWidth: Float = 2f) {
@@ -730,3 +1002,6 @@ private class Svg {
 }
 
 private val InfographicFormat.isWide get() = this == InfographicFormat.LANDSCAPE
+
+/** The space drawn between words in a word-by-word line: non-breaking, so AndroidSVG never drops it (AC-10). */
+internal const val WORD_GAP = '\u00A0'

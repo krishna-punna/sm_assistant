@@ -11,6 +11,9 @@ import com.smassistant.app.linkedin.PostToLinkedInUseCase
 import com.smassistant.app.linkedin.SignInExpiry
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
+import com.smassistant.app.pipeline.Pipeline
+import com.smassistant.app.pipeline.StageId
+import com.smassistant.app.pipeline.StageStatus
 import com.smassistant.app.prompt.PreparedPrompt
 import com.smassistant.app.prompt.PromptSet
 import com.smassistant.app.prompt.PromptType
@@ -69,7 +72,7 @@ class AutoPostRunTest {
     @Test
     fun `text post goes topic, prompt, content, hashtags, LinkedIn`() = runTest {
         val outcome = run(scheduler())
-        assertEquals(RunRecord(1000L, true, "Posted “Kafka Partitions”", "https://www.linkedin.com/feed/update/urn:li:share:7"), outcome.record)
+        assertEquals(RunRecord(1000L, true, "Posted “Kafka Partitions”", "https://www.linkedin.com/feed/update/urn:li:share:7"), outcome.record.copy(stages = null))
         assertEquals("Kafka Partitions", outcome.title)
         assertTrue(topics.single().startsWith("Kafka: choose one specific"))
         assertTrue(topics.single().contains("Kafka Consumer Groups"))
@@ -158,11 +161,11 @@ class AutoPostRunTest {
     }
 
     @Test
-    fun `a carousel run records its page count`() = runTest {
-        images = Outcome.Ok((1..5).map { File("carousel-3-p0$it-page.png") })
-        assertEquals(5, run(scheduler(PostType.IMAGE)).record.carouselPages)
+    fun `a poster series run records its poster count`() = runTest {
+        images = Outcome.Ok((1..3).map { File("series-3-p0$it-poster.png") })
+        assertEquals(3, run(scheduler(PostType.IMAGE)).record.seriesParts)
         images = Outcome.Ok(listOf(File("a.png"), File("b.png")))
-        assertNull(run(scheduler(PostType.IMAGE)).record.carouselPages)
+        assertNull(run(scheduler(PostType.IMAGE)).record.seriesParts)
     }
 
     @Test
@@ -275,5 +278,52 @@ class AutoPostRunTest {
         assertTrue(topics.single().contains("Kafka Consumer Groups; Redis Eviction"))
         assertEquals(PostSource.SCHEDULED, history.single().source)
         assertEquals("Kafka Partitions", history.single().title)
+    }
+
+    private fun statuses(p: Pipeline?) = p!!.stages.associate { it.id to it.status }
+
+    @Test
+    fun `a posted run records every stage done`() = runTest {
+        val seen = mutableListOf<Pipeline>()
+        val outcome = run(scheduler(PostType.TEXT_WITH_IMAGE)) { seen += it }
+        assertEquals(
+            listOf(StageId.TOPIC, StageId.PREPARE_PROMPT, StageId.WRITE_POST, StageId.MAKE_IMAGE, StageId.CHECK_LENGTH, StageId.POST),
+            outcome.record.stages!!.stages.map { it.id },
+        )
+        assertTrue(statuses(outcome.record.stages).values.all { it == StageStatus.DONE })
+        // The live updates went through the stages in order, ending with Post.
+        assertEquals(StageStatus.RUNNING, seen.first()[StageId.TOPIC]?.status)
+        assertEquals(StageStatus.DONE, seen.last()[StageId.POST]?.status)
+    }
+
+    @Test
+    fun `a failed run fails the stage it stopped at`() = runTest {
+        images = Outcome.Failed(ApiError.InvalidKey, "Gemini")
+        val stages = statuses(run(scheduler(PostType.IMAGE)).record.stages)
+        assertEquals(StageStatus.DONE, stages[StageId.PREPARE_PROMPT])
+        assertEquals(StageStatus.FAILED, stages[StageId.MAKE_IMAGE])
+        assertEquals(StageStatus.WAITING, stages[StageId.POST])
+        assertNull(stages[StageId.WRITE_POST])
+    }
+
+    @Test
+    fun `a LinkedIn refusal fails the Post stage`() = runTest {
+        reply = ApiResult.Failed(ApiError.InvalidKey)
+        val stages = run(scheduler()).record.stages!!
+        assertEquals(StageStatus.FAILED, stages[StageId.POST]?.status)
+        assertEquals("LinkedIn token expired or invalid. Sign in again in LinkedIn settings.", stages[StageId.POST]?.note)
+    }
+
+    @Test
+    fun `a review-first run ends holding for review`() = runTest {
+        val stages = run(scheduler().copy(reviewFirst = true)).record.stages!!
+        assertEquals(StageStatus.RUNNING, stages[StageId.HOLD]?.status)
+        assertEquals("Waiting for your review", stages.statusLine)
+    }
+
+    @Test
+    fun `no LinkedIn fails the first stage`() = runTest {
+        configured = false
+        assertEquals(StageStatus.FAILED, run(scheduler()).record.stages!![StageId.TOPIC]?.status)
     }
 }

@@ -11,7 +11,7 @@ import kotlinx.serialization.json.contentOrNull
 /**
  * The structured definition of one infographic (docs/design/image-video-pipeline.md): what the
  * text agent writes as JSON, and what [InfographicRenderer] draws. All text is drawn by the app,
- * so it is always spelled right; only [hero] and [SectionBody.Illustration] are AI-painted.
+ * so it is always spelled right; only [hero], [SectionBody.Illustration] and a card's [Section.art] are AI-painted.
  */
 data class InfographicSpec(
     val title: String,
@@ -33,9 +33,46 @@ data class InfographicSpec(
      * where the whole layout puts it, and the footer only once all are shown. Null draws everything.
      */
     val revealed: Int? = null,
-    /** A carousel page's label, drawn small in the header's corner: "3 / 7", or "Swipe →" on the cover. */
+    /** A series poster's label, drawn small in the header's corner: "2 / 3" (AC-7). */
     val page: String? = null,
+    /** How the header is laid out (AC-9): text beside the art, centred, or art breaking out of the band. */
+    val headerStyle: HeaderStyle = HeaderStyle.SPLIT,
+    /** A short category drawn as a ribbon above the title (AC-9), e.g. "System design"; drawn in capitals. */
+    val category: String? = null,
+    /** Up to [Limits.BADGES] technology badges drawn as pills under the subtitle (AC-9), e.g. "Kafka", "Java 21". */
+    val badges: List<String> = emptyList(),
+    /** The label on the takeaway card's ribbon (AC-9), e.g. "Interview tip"; "Key takeaway" when missing. */
+    val takeawayLabel: String? = null,
+    /** Prompt for a clip-art picture on the takeaway card (AC-9); the light bulb icon when missing. */
+    val footerArt: String? = null,
+    /** Up to [Limits.RECAP] one-line recap points drawn as an icon strip above the takeaway (AC-9). */
+    val recap: List<Recap> = emptyList(),
+    /** The user's social handle (app.yml `image_style`), drawn beside the brand; never written by the model. */
+    val handle: String? = null,
+    /**
+     * Cards the model wrote beyond [Limits.SECTIONS] that were left out (AC-2). Never silent: the
+     * spec checks report it, so the writer is asked to merge them instead of losing them.
+     */
+    val droppedSections: Int = 0,
 )
+
+/** The header layouts (AC-9). */
+enum class HeaderStyle(val key: String) {
+    /** The title and its ribbon, subtitle and badges on the left, the art on the right. */
+    SPLIT("split"),
+    /** Everything centred under a round icon or picture, for short punchy titles. */
+    CENTERED("centered"),
+    /** Like [SPLIT], with a larger picture that breaks out below the header band. */
+    BREAKOUT("breakout"),
+    ;
+
+    companion object {
+        fun of(key: String?): HeaderStyle = entries.firstOrNull { it.key == key?.trim()?.lowercase() } ?: SPLIT
+    }
+}
+
+/** One point of the footer's recap strip (AC-9): a built-in [icon] ([ICONS]) and a short [label]. */
+data class Recap(val icon: String, val label: String)
 
 enum class InfographicFormat(val key: String, val width: Int) {
     /** Tall cheat sheet like most sample images; at least 2:3 and taller when the content needs it. */
@@ -54,7 +91,16 @@ enum class InfographicFormat(val key: String, val width: Int) {
     }
 }
 
-data class Section(val heading: String, val body: SectionBody, val icon: String? = null)
+data class Section(
+    val heading: String,
+    val body: SectionBody,
+    val icon: String? = null,
+    /**
+     * Prompt for a small AI clip-art picture drawn in this card beside its content (AC-8), e.g. "a
+     * stopwatch beside a stack of plates". Any card may have one; the AI decides which cards need it.
+     */
+    val art: String? = null,
+)
 
 sealed interface SectionBody {
     data class Bullets(val items: List<String>) : SectionBody
@@ -90,36 +136,30 @@ sealed interface SectionBody {
     }
 }
 
+/** Most posters a drawn series has (AC-7): a guard against runaway replies; the AI uses as few as show everything. */
+const val MAX_SERIES_POSTERS = 6
+
 /**
- * A carousel (docs/design/single-image-carousel.md): square pages that share one palette, drawn in
- * order and posted together. The first page is the cover and the last the summary; the content
- * pages between them hold one or two sections each. [takeaway] is the carousel's one message.
+ * Reads a poster series (AC-7): `{"posters": [definition, ...]}`, at most [MAX_SERIES_POSTERS], every
+ * poster in the first one's format and palette so the series looks like one, each labelled "1 / 3",
+ * "2 / 3" and so on in its header.
  */
-data class Carousel(val pages: List<InfographicSpec>, val takeaway: String? = null)
-
-/** The pages labelled for reading in order: "Swipe →" on the cover, then "2 / 7" and so on. */
-fun Carousel.numbered(): Carousel = copy(
-    pages = pages.mapIndexed { i, page -> page.copy(page = if (i == 0 && pages.size > 1) "Swipe →" else "${i + 1} / ${pages.size}") },
-)
-
-/** Fewest and most pages a carousel has: a cover, content pages and a summary. */
-const val MIN_CAROUSEL_PAGES = 4
-const val MAX_CAROUSEL_PAGES = 10
-
-/** Reads a carousel written by `prompts/image/carousel.md`: every page square, in the carousel's palette, at most [MAX_CAROUSEL_PAGES]. */
-fun parseCarousel(reply: String): Result<Carousel> = jsonObjectIn(reply).mapCatching { root ->
-    val palette = Palette.of(root.string("palette"))
-    val pages = root.array("pages").filterIsInstance<JsonObject>()
-        .mapNotNull { page -> runCatching { spec(page, InfographicFormat.SQUARE, palette) }.getOrNull() }
-        .take(MAX_CAROUSEL_PAGES)
-    require(pages.isNotEmpty()) { "no pages in the reply" }
-    Carousel(pages, root.string("takeaway")?.ifEmpty { null })
+fun parseSeries(reply: String): Result<List<InfographicSpec>> = jsonObjectIn(reply).mapCatching { root ->
+    val first = root.array("posters").filterIsInstance<JsonObject>().firstOrNull() ?: error("no posters in the reply")
+    val lead = spec(first, null, null)
+    val posters = root.array("posters").filterIsInstance<JsonObject>()
+        .mapNotNull { poster -> runCatching { spec(poster, lead.format, lead.palette) }.getOrNull() }
+        .take(MAX_SERIES_POSTERS)
+    posters.mapIndexed { i, poster -> poster.copy(page = "${i + 1} / ${posters.size}") }
 }
 
 /** Upper limits that keep a definition drawable, whatever the model wrote. */
 internal object Limits {
-    /** Up to 11 cards, like the densest samples (docs/requirements/18, SV-7). */
-    const val SECTIONS = 11
+    /**
+     * Up to 16 cards (AC-2): a guard against runaway replies, not a design target. The AI decides
+     * how many cards a poster needs; the readability check decides whether they fit one poster.
+     */
+    const val SECTIONS = 16
     const val ITEMS = 7
     const val CODE_LINES = 14
     const val TABLE_COLUMNS = 4
@@ -130,6 +170,8 @@ internal object Limits {
     const val DIAGRAM_NODES = 10
     const val DIAGRAM_EDGES = 14
     const val TEXT = 220
+    const val BADGES = 4
+    const val RECAP = 4
 }
 
 /**
@@ -155,6 +197,7 @@ private fun jsonObjectIn(reply: String): Result<JsonObject> {
 private fun spec(json: JsonObject, format: InfographicFormat?, palette: Palette?): InfographicSpec {
     val title = json.string("title")
     require(!title.isNullOrBlank()) { "the infographic has no title" }
+    val sections = json.array("sections").filterIsInstance<JsonObject>().mapNotNull(::section)
     return InfographicSpec(
         title = title.clip(80),
         highlight = json.string("highlight")?.takeIf { it.isNotBlank() },
@@ -164,8 +207,21 @@ private fun spec(json: JsonObject, format: InfographicFormat?, palette: Palette?
         palette = palette ?: Palette.of(json.string("palette")),
         icon = json.string("icon")?.lowercase()?.takeIf { it in ICONS },
         hero = json.string("hero")?.takeIf { it.isNotBlank() }?.clip(),
-        sections = json.array("sections").filterIsInstance<JsonObject>().mapNotNull(::section).take(Limits.SECTIONS),
+        sections = sections.take(Limits.SECTIONS),
         takeaway = json.string("takeaway")?.takeIf { it.isNotBlank() }?.clip(),
+        headerStyle = HeaderStyle.of(json.string("header_style")),
+        category = json.string("category")?.takeIf { it.isNotBlank() }?.clip(32),
+        badges = json.texts("badges").map { it.clip(20) }.take(Limits.BADGES),
+        takeawayLabel = json.string("takeaway_label")?.takeIf { it.isNotBlank() }?.clip(24),
+        footerArt = json.string("footer_art")?.takeIf { it.isNotBlank() }?.clip(),
+        recap = json.array("recap").mapNotNull { point ->
+            when (point) {
+                is JsonObject -> point.string("label")?.takeIf { it.isNotBlank() }
+                    ?.let { Recap(point.string("icon")?.lowercase()?.takeIf { icon -> icon in ICONS } ?: "check", it.clip(28)) }
+                else -> point.text().takeIf { it.isNotBlank() }?.let { Recap("check", it.clip(28)) }
+            }
+        }.take(Limits.RECAP),
+        droppedSections = (sections.size - Limits.SECTIONS).coerceAtLeast(0),
     )
 }
 
@@ -209,6 +265,7 @@ private fun section(json: JsonObject): Section? {
         heading = json.string("heading").orEmpty().clip(60),
         body = body,
         icon = json.string("icon")?.lowercase()?.takeIf { it in ICONS },
+        art = json.string("art")?.takeIf { it.isNotBlank() && body !is SectionBody.Illustration }?.clip(),
     )
 }
 

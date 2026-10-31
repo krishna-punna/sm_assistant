@@ -19,7 +19,7 @@ val TEMPLATE_LAYOUTS: Map<String, TemplateLayout> = mapOf(
     ),
     "concept" to TemplateLayout(
         listOf(ImageSize.SQUARE, ImageSize.PORTRAIT),
-        "a few bullets cards around the one concept and its mechanism, at most one illustration, and a takeaway",
+        "a few bullets cards around the one concept and its mechanism, clip art where it helps, and a takeaway",
     ),
     "architecture" to TemplateLayout(
         listOf(ImageSize.LANDSCAPE, ImageSize.PORTRAIT),
@@ -105,7 +105,8 @@ val InfographicFormat.image: ImageSize
  */
 data class ImageLabel(val templateId: String, val format: ImageSize, val painted: Boolean = false)
 
-private val LABELLED = Regex("""^tpl-([a-z]+)-([a-z]+)-(painted-)?""")
+/** A template label, after the series part a poster of a series (AC-6) carries in front of it. */
+private val LABELLED = Regex("""^(?:series-\d+-p\d+-)?tpl-([a-z]+)-([a-z]+)-(painted-)?""")
 
 /** [file] renamed to carry its template and format; the file itself when it can't be renamed. */
 fun labelImage(file: File, templateId: String, format: ImageSize, painted: Boolean = false): File {

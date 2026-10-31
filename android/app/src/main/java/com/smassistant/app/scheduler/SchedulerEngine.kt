@@ -6,11 +6,15 @@ import androidx.work.Constraints
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.workDataOf
+import com.smassistant.app.pipeline.Pipeline
 import java.time.Instant
 import java.time.ZoneId
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 /**
  * Plans scheduler runs with WorkManager (SC-NFR1): one unique one-time work per scheduler, due at
@@ -50,6 +54,8 @@ class SchedulerEngine(
         val request = OneTimeWorkRequestBuilder<AutoPostWorker>()
             .setInputData(workDataOf(AutoPostWorker.KEY_ID to id, AutoPostWorker.KEY_MANUAL to true))
             .setConstraints(NETWORK)
+            .addTag(RUN_TAG)
+            .addTag(runTag(id))
             .build()
         workManager.enqueueUniqueWork(runNowName(id), ExistingWorkPolicy.KEEP, request)
     }
@@ -89,6 +95,8 @@ class SchedulerEngine(
             .setInitialDelay((at - now()).coerceAtLeast(0), TimeUnit.MILLISECONDS)
             .setConstraints(NETWORK)
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, RETRY_AFTER_MINUTES, TimeUnit.MINUTES)
+            .addTag(RUN_TAG)
+            .addTag(runTag(scheduler.id))
             .build()
         workManager.enqueueUniqueWork(workName(scheduler.id), policy, request)
     }
@@ -101,6 +109,12 @@ class SchedulerEngine(
         fun workName(id: String) = "scheduled-post-$id"
         fun runNowName(id: String) = "scheduled-post-now-$id"
 
+        /** Every run carries [RUN_TAG] and its scheduler's [runTag], so the list can follow its stages (docs/requirements/20, PS-7). */
+        const val RUN_TAG = "scheduled-post"
+        private const val RUN_TAG_PREFIX = "scheduled-post-id:"
+        fun runTag(id: String) = RUN_TAG_PREFIX + id
+        fun schedulerOf(tags: Set<String>): String? = tags.firstOrNull { it.startsWith(RUN_TAG_PREFIX) }?.removePrefix(RUN_TAG_PREFIX)
+
         /** [scheduler] with its next run after [now], or none when it is off or can't run. */
         fun planned(scheduler: AutoPostScheduler, now: Long, zone: ZoneId): AutoPostScheduler {
             if (!scheduler.enabled || scheduler.problem() != null) return scheduler.copy(nextRunAt = null)
@@ -109,3 +123,16 @@ class SchedulerEngine(
         }
     }
 }
+
+/**
+ * The stages of every scheduler's run going now, by scheduler id (docs/requirements/20, PS-7), from the
+ * progress each [AutoPostWorker] publishes. It works whichever screen started the run, and after the
+ * screen was closed and opened again.
+ */
+fun runningStages(context: Context): Flow<Map<String, Pipeline>> =
+    WorkManager.getInstance(context).getWorkInfosByTagFlow(SchedulerEngine.RUN_TAG).map { infos ->
+        infos.filter { it.state == WorkInfo.State.RUNNING }.mapNotNull { info ->
+            val id = SchedulerEngine.schedulerOf(info.tags) ?: return@mapNotNull null
+            Pipeline.decode(info.progress.getString(AutoPostWorker.KEY_STAGES))?.let { id to it }
+        }.toMap()
+    }

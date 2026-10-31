@@ -13,7 +13,7 @@ import com.smassistant.app.history.PostSource
 import com.smassistant.app.image.ImageRequest
 import com.smassistant.app.image.appGenerateImages
 import com.smassistant.app.image.imageLabel
-import com.smassistant.app.image.isCarousel
+import com.smassistant.app.image.isSeries
 import com.smassistant.app.linkedin.PostToLinkedInUseCase
 import com.smassistant.app.linkedin.SignInExpiry
 import com.smassistant.app.linkedin.appPostToLinkedIn
@@ -22,6 +22,12 @@ import com.smassistant.app.linkedin.linkedInErrorMessage
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
 import com.smassistant.app.net.userMessage
+import com.smassistant.app.pipeline.Pipeline
+import com.smassistant.app.pipeline.Pipelines
+import com.smassistant.app.pipeline.StageId
+import com.smassistant.app.pipeline.StageReporter
+import com.smassistant.app.pipeline.StageStatus
+import com.smassistant.app.pipeline.reportStage
 import com.smassistant.app.prompt.PreparePromptsUseCase
 import com.smassistant.app.prompt.PromptSet
 import com.smassistant.app.prompt.PromptType
@@ -32,6 +38,7 @@ import com.smassistant.app.video.videoLabel
 import java.io.File
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withContext
 
 /**
  * How a run went. [title] is the prepared prompt's title once there was one; [retry] is true when
@@ -67,7 +74,21 @@ class AutoPostRun(
     /** Titles of recent scheduled posts from the post history, so every scheduler steers away from them. */
     private val historyTitles: () -> List<String> = { emptyList() },
 ) {
-    suspend operator fun invoke(scheduler: AutoPostScheduler): RunOutcome {
+    /**
+     * Runs [scheduler] once; [onStages] hears every change of its stages while it runs (PS-7), and the
+     * record carries where it ended: a failure fails the stage it was on.
+     */
+    suspend operator fun invoke(scheduler: AutoPostScheduler, onStages: (Pipeline) -> Unit = {}): RunOutcome {
+        val tracking = StageReporter.Tracking(Pipelines.scheduler(scheduler.postType.promptType, scheduler.reviewFirst), onStages)
+        val outcome = withContext(tracking.reporter) { run(scheduler) }
+        // A skipped run did nothing, so the card keeps the earlier run's stages.
+        if (outcome.skipped) return outcome
+        val stages = if (outcome.record.ok) tracking.pipeline else tracking.pipeline.failCurrent(outcome.record.message)
+        return outcome.copy(record = outcome.record.copy(stages = stages))
+    }
+
+    private suspend fun run(scheduler: AutoPostScheduler): RunOutcome {
+        reportStage(StageId.TOPIC, StageStatus.RUNNING)
         val topic = scheduler.currentTopic() ?: return failed("Choose at least one technical content type.")
         scheduler.pending?.let { waiting ->
             return RunOutcome(
@@ -78,8 +99,10 @@ class AutoPostRun(
         if (!linkedIn.isConfigured()) return failed(linkedInErrorMessage(ApiError.NotConfigured))
         val expiry = signInExpiry()
         if (expiry is SignInExpiry.Expired) return failed(expiry.message().orEmpty())
+        reportStage(StageId.TOPIC, StageStatus.DONE)
 
         val type = scheduler.postType.promptType
+        reportStage(StageId.PREPARE_PROMPT, StageStatus.RUNNING)
         val prompts = when (val outcome = preparePrompt(topicRequest(topic, (scheduler.recentTitles + historyTitles()).distinct()), type)) {
             is Outcome.Ok -> outcome.value
             else -> return failed(outcome, "prepare the prompt", TEXT_NOT_SET_UP)
@@ -90,11 +113,21 @@ class AutoPostRun(
         val contentPrompt = prompts.content ?: prompts.post
         if (postPrompt == null || contentPrompt == null) return failed("The agent didn't write a prompt, so nothing was posted.")
         val title = postPrompt.title
+        reportStage(StageId.PREPARE_PROMPT, StageStatus.DONE)
 
         val (text, media) = coroutineScope {
             // Image and Video posts have no written post: the title is the caption, before the hashtags.
-            val writing = async { if (type.post) generateText(postPrompt.prompt) else Outcome.Ok(postPrompt.title) }
-            val making = async { media(type.media, ImageRequest(contentPrompt.prompt, scheduler.imageTemplate, scheduler.imageFormat)) }
+            val writing = async {
+                if (!type.post) return@async Outcome.Ok(postPrompt.title)
+                reportStage(StageId.WRITE_POST, StageStatus.RUNNING)
+                generateText(postPrompt.prompt).also { if (it is Outcome.Ok) reportStage(StageId.WRITE_POST, StageStatus.DONE) }
+            }
+            val making = async {
+                val stage = if (type.media == MediaPurpose.VIDEO) StageId.MAKE_VIDEO else StageId.MAKE_IMAGE
+                if (type.media != null) reportStage(stage, StageStatus.RUNNING)
+                media(type.media, ImageRequest(contentPrompt.prompt, scheduler.imageTemplate, scheduler.imageFormat))
+                    .also { if (it is Outcome.Ok && type.media != null) reportStage(stage, StageStatus.DONE) }
+            }
             writing.await() to making.await()
         }
         val markdown = when (text) {
@@ -111,25 +144,33 @@ class AutoPostRun(
         }
 
         val template = files.firstNotNullOfOrNull { imageLabel(it)?.templateId ?: videoLabel(it)?.templateId }
-        val pages = files.size.takeIf { isCarousel(files) }
+        val parts = files.size.takeIf { isSeries(files) }
+        reportStage(StageId.CHECK_LENGTH, StageStatus.RUNNING)
         val post = linkedIn.prepare(markdown)
         if (post.text.isBlank()) return failed("The agent wrote an empty post, so nothing was posted.", title)
         if (!post.fitsLimit) {
             return failed("The post was ${post.overLimitBy} characters over LinkedIn's ${linkedIn.limit}-character limit with the hashtags, so it wasn't posted.", title)
         }
 
+        reportStage(StageId.CHECK_LENGTH, StageStatus.DONE)
+
         if (scheduler.reviewFirst) {
+            reportStage(StageId.HOLD, StageStatus.RUNNING)
             return RunOutcome(
-                RunRecord(now(), ok = true, message = "Ready for your review: “$title”", awaitingReview = true, template = template, carouselPages = pages),
+                RunRecord(now(), ok = true, message = "Ready for your review: “$title”", awaitingReview = true, template = template, seriesParts = parts),
                 title,
                 held = PendingPost(title, post.text, files.map { it.path }, now(), template),
             )
         }
 
+        reportStage(StageId.POST, StageStatus.RUNNING)
         return when (val result = linkedIn.post(post.text, files, PostSource.SCHEDULED, title)) {
-            is ApiResult.Ok -> RunOutcome(RunRecord(now(), ok = true, message = "Posted “$title”", postUrl = result.value.url, template = template, carouselPages = pages), title)
+            is ApiResult.Ok -> {
+                reportStage(StageId.POST, StageStatus.DONE)
+                RunOutcome(RunRecord(now(), ok = true, message = "Posted “$title”", postUrl = result.value.url, template = template, seriesParts = parts), title)
+            }
             is ApiResult.Failed -> RunOutcome(
-                RunRecord(now(), ok = false, message = linkedInErrorMessage(result.error), template = template, carouselPages = pages),
+                RunRecord(now(), ok = false, message = linkedInErrorMessage(result.error), template = template, seriesParts = parts),
                 title,
                 retry = isTransient(result.error),
             )

@@ -2,6 +2,7 @@ package com.smassistant.app.scheduler
 
 import com.smassistant.app.data.ImageSize
 import com.smassistant.app.data.MediaPurpose
+import com.smassistant.app.pipeline.Pipeline
 import com.smassistant.app.prompt.PromptType
 import java.time.DayOfWeek
 import java.time.LocalTime
@@ -41,8 +42,8 @@ enum class PostType(val label: String, val promptType: PromptType) {
 /**
  * How the last run went, shown on the scheduler list. [postUrl] opens the post when it was published;
  * [awaitingReview] is true when the run made a post that waits for the user's approval; [template]
- * is the id of the image template its first image followed; [carouselPages] counts the pages when
- * its images were one carousel (SC-I7).
+ * is the id of the image template its first image followed; [seriesParts] counts the posters when
+ * its images were one poster series (AC-7).
  */
 data class RunRecord(
     val at: Long,
@@ -51,7 +52,9 @@ data class RunRecord(
     val postUrl: String? = null,
     val awaitingReview: Boolean = false,
     val template: String? = null,
-    val carouselPages: Int? = null,
+    val seriesParts: Int? = null,
+    /** Where the run got to, stage by stage (docs/requirements/20, PS-7). */
+    val stages: Pipeline? = null,
 )
 
 /**
@@ -155,7 +158,8 @@ object SchedulerJson {
                 run.postUrl?.let { put("postUrl", it) }
                 if (run.awaitingReview) put("awaitingReview", true)
                 run.template?.let { put("template", it) }
-                run.carouselPages?.let { put("carouselPages", it) }
+                run.seriesParts?.let { put("seriesParts", it) }
+                run.stages?.let { put("stages", it.toJson()) }
             })
         }
         put("reviewFirst", s.reviewFirst)
@@ -203,7 +207,8 @@ object SchedulerJson {
                     postUrl = run.string("postUrl"),
                     awaitingReview = run.bool("awaitingReview") ?: false,
                     template = run.string("template"),
-                    carouselPages = run.long("carouselPages")?.toInt(),
+                    seriesParts = (run.long("seriesParts") ?: run.long("carouselPages"))?.toInt(),
+                    stages = Pipeline.fromJson(run["stages"]),
                 )
             },
             reviewFirst = json.bool("reviewFirst") ?: defaults.reviewFirst,

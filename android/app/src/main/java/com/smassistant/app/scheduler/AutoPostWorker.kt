@@ -6,6 +6,7 @@ import android.os.Build
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
+import androidx.work.workDataOf
 import com.smassistant.app.linkedin.SignInExpiry
 import com.smassistant.app.linkedin.appSignInExpiry
 
@@ -24,12 +25,13 @@ class AutoPostWorker(context: Context, params: WorkerParameters) : CoroutineWork
 
         val notifier = RunNotifier(applicationContext)
         runInForeground(notifier, scheduler)
-        val outcome = appAutoPostRun(applicationContext)(scheduler)
+        // Each change of the run's stages is the work's progress, which the Scheduled Posts list shows live (docs/requirements/20, PS-7).
+        val outcome = appAutoPostRun(applicationContext)(scheduler) { stages -> setProgressAsync(workDataOf(KEY_STAGES to stages.encode())) }
         if (outcome.retry && runAttemptCount < MAX_RETRIES) return Result.retry()
 
         val saved = store.update(id) {
             if (outcome.skipped) {
-                it.copy(lastRun = outcome.record)
+                it.copy(lastRun = outcome.record.copy(stages = it.lastRun?.stages))
             } else {
                 it.advanced(outcome.title.takeIf { outcome.record.ok }).copy(lastRun = outcome.record, pending = outcome.held ?: it.pending)
             }
@@ -67,6 +69,7 @@ class AutoPostWorker(context: Context, params: WorkerParameters) : CoroutineWork
         private const val PROGRESS_ID = 0x50_52
         const val KEY_ID = "scheduler_id"
         const val KEY_MANUAL = "manual"
+        const val KEY_STAGES = "stages"
         const val MAX_RETRIES = 2
     }
 }

@@ -83,50 +83,11 @@ class PostToLinkedInTest {
         assertTrue(published.isEmpty())
     }
 
-    private val pages = (1..3).map { File("carousel-9-p0$it-page.png") }
-    private val pdf = File("Caching.pdf")
-
-    private fun withPdf(made: File?) = PostToLinkedInUseCase(
-        tags = { tags },
-        tagsEnabled = { enabled },
-        configured = { configured },
-        publish = { text, images -> published += text; attached += images; docReply(images) },
-        carouselPdf = { _, title -> titles += title; made },
-    )
-
-    private val titles = mutableListOf<String>()
-    private var docReply: suspend (List<File>) -> ApiResult<LinkedInPost> = { ApiResult.Ok(LinkedInPost("urn:li:share:1")) }
-
     @Test
-    fun `a carousel is posted as one PDF document titled from the first line`() = runTest(dispatcher) {
-        assertEquals(ApiResult.Ok(LinkedInPost("urn:li:share:1")), withPdf(pdf).post("Caching in 5 steps\n\nMore\n#java", pages))
-        assertEquals(listOf(pdf), attached)
-        assertEquals(listOf("Caching in 5 steps"), titles)
-        assertEquals("Carousel", documentTitle("#java #kafka"))
-    }
-
-    @Test
-    fun `a carousel falls back to its pages as images when the document fails`() = runTest(dispatcher) {
-        docReply = { media -> if (media == listOf(pdf)) ApiResult.Failed(ApiError.BadResponse("no document upload URL")) else ApiResult.Ok(LinkedInPost("urn:li:share:2")) }
-        assertEquals(ApiResult.Ok(LinkedInPost("urn:li:share:2")), withPdf(pdf).post("Caching", pages))
-        assertEquals(listOf(pdf) + pages, attached)
-
-        attached.clear()
-        assertEquals(ApiResult.Ok(LinkedInPost("urn:li:share:2")), withPdf(null).post("Caching", pages))
-        assertEquals(pages, attached)
-    }
-
-    @Test
-    fun `a sign-in problem with the document isn't retried, and separate images never become a PDF`() = runTest(dispatcher) {
-        docReply = { ApiResult.Failed(ApiError.InvalidKey) }
-        assertEquals(ApiResult.Failed(ApiError.InvalidKey), withPdf(pdf).post("Caching", pages))
-        assertEquals(listOf(pdf), attached)
-
-        attached.clear()
-        docReply = { ApiResult.Ok(LinkedInPost("urn:li:share:3")) }
-        withPdf(pdf).post("Caching", listOf(File("a.png"), File("b.png")))
-        assertEquals(listOf(File("a.png"), File("b.png")), attached)
-        assertTrue(titles.size == 1)
+    fun `a poster series goes out as one multi-image post, in order`() = runTest(dispatcher) {
+        val parts = (1..3).map { File("series-9-p0$it-poster.png") }
+        assertEquals(ApiResult.Ok(LinkedInPost("urn:li:share:1")), useCase.post("Caching in 3 parts", parts))
+        assertEquals(parts, attached)
     }
 
     @Test

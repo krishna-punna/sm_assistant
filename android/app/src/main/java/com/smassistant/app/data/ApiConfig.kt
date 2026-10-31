@@ -151,6 +151,28 @@ fun parseImageCheckRules(input: InputStream): ImageCheckRules {
     )
 }
 
+/**
+ * The longest prompt each image agent reads (app.yml `image_prompt_budgets`, AC-6), in characters;
+ * a service missing here, or set to 0, reads long prompts (Gemini). Content longer than an agent's
+ * budget is never cut: it is split over a numbered poster series.
+ */
+data class ImagePromptBudgets(val budgets: Map<ApiService, Int> = DEFAULT_IMAGE_PROMPT_BUDGETS) {
+    /** The budget for [service], or null when it reads long prompts. */
+    fun of(service: ApiService): Int? = budgets[service]?.takeIf { it > 0 }
+}
+
+/** Cloudflare caps prompts at 2,048 characters; Pollinations sends the prompt in the URL. Gemini reads long prompts. */
+val DEFAULT_IMAGE_PROMPT_BUDGETS = mapOf(ApiService.CLOUDFLARE to 2000, ApiService.POLLINATIONS to 1500)
+
+fun parseImagePromptBudgets(input: InputStream): ImagePromptBudgets {
+    val root = Yaml().load<Any?>(input) as? Map<*, *> ?: emptyMap<String, Any?>()
+    val entry = root["image_prompt_budgets"] as? Map<*, *> ?: return ImagePromptBudgets()
+    val read = ApiService.entries.mapNotNull { service ->
+        entry[service.configKey]?.toString()?.toIntOrNull()?.takeIf { it >= 0 }?.let { service to it }
+    }.toMap()
+    return ImagePromptBudgets(DEFAULT_IMAGE_PROMPT_BUDGETS + read)
+}
+
 /** An image shape the app allows (docs/design/image-templates.md): never 4:5, 9:16 or 16:9. */
 enum class ImageSize(val key: String, val words: String) {
     PORTRAIT("portrait", "portrait 2:3"),
@@ -179,18 +201,22 @@ enum class ImageMode(val key: String) {
 }
 
 /**
- * Whether a request's content is made into one image or a carousel (docs/requirements/18, SV-5):
- * Auto makes one poster and has content that doesn't fit written shorter, Single always makes one
- * image (smaller text when it is long), Carousel always makes a carousel.
+ * How a request's content is fitted to images (docs/requirements/18, SV-5; AC-5): Auto makes one
+ * poster and has content that doesn't fit written denser, Single always makes one image (smaller
+ * text when it is long). Images are never a carousel: a saved or configured "carousel" reads as Auto.
  */
 enum class ImageLayout(val key: String) {
     AUTO("auto"),
     SINGLE("single"),
-    CAROUSEL("carousel"),
     ;
 
     companion object {
-        fun of(key: String?): ImageLayout? = entries.firstOrNull { it.key.equals(key?.trim(), ignoreCase = true) }
+        fun of(key: String?): ImageLayout? = key?.trim()?.let { k ->
+            if (k.equals(REMOVED_CAROUSEL, ignoreCase = true)) AUTO else entries.firstOrNull { it.key.equals(k, ignoreCase = true) }
+        }
+
+        /** The removed carousel layout's key (AC-5). */
+        private const val REMOVED_CAROUSEL = "carousel"
     }
 }
 
@@ -201,6 +227,7 @@ enum class ImageLayout(val key: String) {
  * image_style:
  *   audience: "developers, senior engineers and architects"
  *   brand_name: ""
+ *   handle: ""
  *   style_guide: ""
  *   series: false
  *   format: auto
@@ -218,6 +245,8 @@ data class ImageStyle(
     val format: ImageSize? = null,
     val mode: ImageMode = ImageMode.AUTO,
     val layout: ImageLayout = ImageLayout.AUTO,
+    /** The user's social handle, e.g. "@krishna", drawn beside the brand in the footer (AC-9). */
+    val handle: String = "",
 )
 
 /**
@@ -255,6 +284,7 @@ fun parseImageStyle(input: InputStream): ImageStyle {
     return ImageStyle(
         audience = entry["audience"]?.toString()?.trim() ?: defaults.audience,
         brandName = entry["brand_name"]?.toString()?.trim() ?: defaults.brandName,
+        handle = entry["handle"]?.toString()?.trim() ?: defaults.handle,
         styleGuide = entry["style_guide"]?.toString()?.trim() ?: defaults.styleGuide,
         series = entry["series"]?.toString()?.toBooleanStrictOrNull() ?: defaults.series,
         format = ImageSize.of(entry["format"]?.toString()),

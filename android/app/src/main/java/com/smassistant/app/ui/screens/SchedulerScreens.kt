@@ -51,6 +51,7 @@ import com.smassistant.app.image.parseImageTemplates
 import com.smassistant.app.linkedin.PostState
 import com.smassistant.app.linkedin.PostViewModel
 import com.smassistant.app.linkedin.appPostToLinkedIn
+import com.smassistant.app.pipeline.Pipeline
 import com.smassistant.app.prompt.loadPromptAsset
 import com.smassistant.app.scheduler.AutoPostScheduler
 import com.smassistant.app.scheduler.Frequency
@@ -65,6 +66,8 @@ import com.smassistant.app.scheduler.SchedulersUiState
 import com.smassistant.app.scheduler.SchedulersViewModel
 import com.smassistant.app.scheduler.TechTopics
 import com.smassistant.app.scheduler.formatRunTime
+import com.smassistant.app.scheduler.runningStages
+import com.smassistant.app.ui.components.PipelineRow
 import com.smassistant.app.ui.components.PostDialogs
 import com.smassistant.app.ui.components.PrimaryButton
 import com.smassistant.app.ui.components.SelectDropdown
@@ -79,7 +82,7 @@ import java.time.LocalTime
 @Composable
 fun SchedulersScreen(onAdd: () -> Unit, onEdit: (String) -> Unit, onSignIn: () -> Unit, onBackToHome: () -> Unit) {
     val appContext = LocalContext.current.applicationContext
-    val viewModel = viewModel { SchedulersViewModel(SchedulerStore(appContext)) { SchedulerEngine(appContext) } }
+    val viewModel = viewModel { SchedulersViewModel(SchedulerStore(appContext), running = runningStages(appContext)) { SchedulerEngine(appContext) } }
     val state by viewModel.state.collectAsStateWithLifecycle()
     // Approving a post waiting for review uses the same confirm dialog as Post in LinkedIn.
     val postViewModel = viewModel { PostViewModel(appPostToLinkedIn(appContext), appSmartTrim(appContext)) }
@@ -181,6 +184,7 @@ fun SchedulersContent(
         state.schedulers.forEach { scheduler ->
             SchedulerCard(
                 scheduler = scheduler,
+                stages = state.running[scheduler.id] ?: scheduler.lastRun?.stages,
                 templateNames = templateNames,
                 onEnabledChange = { onEnabledChange(scheduler.id, it) },
                 onEdit = { onEdit(scheduler.id) },
@@ -212,6 +216,8 @@ fun SchedulersContent(
 @Composable
 private fun SchedulerCard(
     scheduler: AutoPostScheduler,
+    /** The run going now, else the last run's stages. */
+    stages: Pipeline?,
     templateNames: Map<String, String>,
     onEnabledChange: (Boolean) -> Unit,
     onEdit: () -> Unit,
@@ -242,11 +248,12 @@ private fun SchedulerCard(
                 },
                 style = MaterialTheme.typography.bodySmall,
             )
+            stages?.let { PipelineRow(it, Modifier.padding(vertical = 4.dp)) }
             scheduler.lastRun?.let { run ->
                 Text(
                     (if (run.ok) "✓ " else "✗ ") + formatRunTime(run.at) + ": " + run.message +
                         run.template?.let { " · ${scheduler.postType.label} · ${templateName(it, templateNames)}" }.orEmpty() +
-                        run.carouselPages?.let { " · Carousel · $it pages" }.orEmpty(),
+                        run.seriesParts?.let { " · Series · $it posters" }.orEmpty(),
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.testTag("lastRun-${scheduler.id}"),
                     color = if (run.ok) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.error,
