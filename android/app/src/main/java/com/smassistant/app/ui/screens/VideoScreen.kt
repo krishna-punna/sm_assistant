@@ -79,7 +79,7 @@ fun VideoScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToH
 @Composable
 fun VideoResult(video: GeneratedVideo, posting: Boolean, onPost: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        VideoPlayer(video.file, aspectRatio = 1f)
+        VideoPlayer(video.file, aspectRatio = video.format.width.toFloat() / video.format.height)
         Text(
             "${video.slides.size} slides, ${videoLengthLabel(video.seconds)}",
             style = MaterialTheme.typography.bodySmall,

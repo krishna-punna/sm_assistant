@@ -38,12 +38,20 @@ const val VIDEO_MAKER = "the video maker"
 
 /**
  * A generated video: a slideshow of [slides], [seconds] long, or an AI clip from a text-to-video
- * model when [slides] is empty (its length is the model's, so [seconds] is 0).
+ * model when [slides] is empty (its length is the model's, so [seconds] is 0), in [format].
  */
-data class GeneratedVideo(val file: File, val slides: List<File>, val seconds: Int = DEFAULT_VIDEO_SECONDS)
+data class GeneratedVideo(
+    val file: File,
+    val slides: List<File>,
+    val seconds: Int = DEFAULT_VIDEO_SECONDS,
+    val format: VideoFormat = DEFAULT_VIDEO_FORMAT,
+)
 
 /** A slide ready for the video, and the seconds its scene asked for (null: an equal share). */
 internal data class DrawnSlide(val file: File, val seconds: Int? = null)
+
+/** The slides of a video and the size they were drawn for. */
+internal data class DrawnVideo(val slides: List<DrawnSlide>, val format: VideoFormat)
 
 /**
  * The video pipeline's parts: the text agent that plans the deck, how each slide is drawn, the
@@ -88,14 +96,15 @@ class GenerateVideoUseCase(
         val drawn = decks?.let { parts -> parts.textAgent()?.let { writer -> deckSlides(parts, writer, topic, slides, length) } }
             ?: paintedSlides(topic, slides)
             ?: return Outcome.NoAgent
-        val drawnSlides = when (drawn) {
+        val video = when (drawn) {
             is Outcome.Ok -> drawn.value
             is Outcome.Failed -> return drawn
             Outcome.NoAgent -> return Outcome.NoAgent
         }
-        val images = drawnSlides.map { it.file }
-        return maker.make(images, newVideoFile(), sceneMillis(drawnSlides.map { it.seconds }, length)).fold(
-            onSuccess = { Outcome.Ok(GeneratedVideo(it, images, length)) },
+        val images = video.slides.map { it.file }
+        val millis = sceneMillis(video.slides.map { it.seconds }, length)
+        return maker.make(images, newVideoFile(), millis, video.format.width, video.format.height).fold(
+            onSuccess = { Outcome.Ok(GeneratedVideo(it, images, length, video.format)) },
             onFailure = { Outcome.Failed(ApiError.BadResponse(it.message ?: "couldn't encode the video"), VIDEO_MAKER) },
         )
     }
@@ -106,7 +115,7 @@ class GenerateVideoUseCase(
         topic: String,
         slides: Int,
         seconds: Int,
-    ): Outcome<List<DrawnSlide>> {
+    ): Outcome<DrawnVideo> {
         val content = parts.content?.let { step ->
             when (val result = step.write(writer, topic)) {
                 is ApiResult.Failed -> return Outcome.Failed(result.error, writer.service.displayName)
@@ -117,6 +126,7 @@ class GenerateVideoUseCase(
             val choice = templates.chooser.choose(writer, content.ifBlank { topic })
             VideoBrief(choice.primary, content, seconds, style = templates.style())
         }
+        val format = brief?.format ?: DEFAULT_VIDEO_FORMAT
         val deck = when (val result = parts.writer.write(writer, topic, slides, seconds / slides, content, brief)) {
             is ApiResult.Failed -> return Outcome.Failed(result.error, writer.service.displayName)
             is ApiResult.Ok -> result.value
@@ -124,24 +134,26 @@ class GenerateVideoUseCase(
         val illustrator = agent()
         val images = coroutineScope {
             deck.slides.zip(deck.scenes).map { (slide, scene) ->
-                async { parts.pipeline.draw(slide, illustrator, ILLUSTRATIONS_PER_SLIDE)?.let { DrawnSlide(it, scene.seconds) } }
+                // Every slide is drawn at the video's size, whatever the deck said.
+                val sized = slide.copy(format = format.infographic)
+                async { parts.pipeline.draw(sized, illustrator, ILLUSTRATIONS_PER_SLIDE)?.let { DrawnSlide(it, scene.seconds) } }
             }.awaitAll()
         }.filterNotNull()
         return if (images.size >= MIN_SLIDES) {
-            Outcome.Ok(images)
+            Outcome.Ok(DrawnVideo(images, format))
         } else {
             Outcome.Failed(ApiError.BadResponse("only ${images.size} slide could be drawn"), INFOGRAPHIC_RENDERER)
         }
     }
 
     /** The fallback without a text agent; null when there's no video agent either. */
-    private suspend fun paintedSlides(topic: String, slides: Int): Outcome<List<DrawnSlide>>? {
+    private suspend fun paintedSlides(topic: String, slides: Int): Outcome<DrawnVideo>? {
         val selected = agent() ?: return null
         val results = coroutineScope {
             (1..slides).map { slide -> async { selected.generate(slidePrompt(topic, slide, slides), 1) } }.awaitAll()
         }
         val images = results.filterIsInstance<ApiResult.Ok<List<File>>>().flatMap { it.value }
-        if (images.size >= MIN_SLIDES) return Outcome.Ok(images.map { DrawnSlide(it) })
+        if (images.size >= MIN_SLIDES) return Outcome.Ok(DrawnVideo(images.map { DrawnSlide(it) }, DEFAULT_VIDEO_FORMAT))
         val error = results.filterIsInstance<ApiResult.Failed>().firstOrNull()?.error
             ?: ApiError.BadResponse("only ${images.size} slide came back")
         return Outcome.Failed(error, selected.service.displayName)
@@ -155,7 +167,7 @@ class GenerateVideoUseCase(
 
 /**
  * The video generator the screens and the scheduler use: the default text agent writes the content, picks the video template and plans the deck, the selected video
- * agent and model paint the illustrations, slides are drawn at 1080 px (the video's size) and
+ * agent and model paint the illustrations, slides are drawn at the video's size (1080 x 1920, 1080 x 1080 or 1920 x 1080) and
  * encoded on the device, as long as the length picked on the screen.
  */
 fun appGenerateVideo(context: Context): GenerateVideoUseCase {

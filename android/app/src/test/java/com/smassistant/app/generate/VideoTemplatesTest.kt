@@ -43,6 +43,15 @@ class VideoTemplatesTest {
     }
 
     @Test
+    fun `diagram, comparison and data videos are landscape 16-9, the rest vertical 9-16`() {
+        val formats = templates.associate { it.id to videoFormatOf(it) }
+        assertEquals(setOf("architecture", "comparison", "data"), formats.filterValues { it == VideoFormat.LANDSCAPE }.keys)
+        assertTrue(formats.filterKeys { it !in setOf("architecture", "comparison", "data") }.values.all { it == VideoFormat.VERTICAL })
+        assertEquals(listOf(1080 to 1920, 1080 to 1080, 1920 to 1080), VideoFormat.entries.map { it.width to it.height })
+        assertEquals(listOf("9:16", "1:1", "16:9"), VideoFormat.entries.map { it.ratio })
+    }
+
+    @Test
     fun `only the video sizes are mentioned`() {
         for (size in listOf("2:3", "3:2", "4:5")) assertFalse(size, asset.contains(size))
     }
