@@ -37,6 +37,22 @@ fun infographicProblems(spec: InfographicSpec, subject: String, minSections: Int
 }
 
 /**
+ * The checks on a poster series (AC-7): at least 2 posters, each a complete poster ([infographicProblems]
+ * with [subject]) that [fits] one readable poster, with no title repeated, since each poster covers the
+ * next part of the content.
+ */
+fun seriesProblems(posters: List<InfographicSpec>, subject: String, fits: (InfographicSpec) -> Boolean = { true }): List<String> = buildList {
+    if (posters.size < 2) add("it has ${posters.size} poster; a series has 2 or more, each covering the next part of the content")
+    posters.forEachIndexed { i, poster ->
+        infographicProblems(poster, subject).forEach { add("poster ${i + 1}: $it") }
+        if (!fits(poster)) add("poster ${i + 1} (\"${poster.title}\") is still too dense to read; move some of its cards to another poster")
+    }
+    posters.groupBy { it.title.trim().lowercase() }.filterValues { it.size > 1 }.keys.forEach {
+        add("more than one poster is titled \"$it\"; give each poster a title for its own part")
+    }
+}
+
+/**
  * The checks of the image template the definition follows (docs/design/image-templates.md, "Checks
  * and review"), on top of [infographicProblems]: the cards the template needs, and for the Data and
  * Code templates that the numbers and code shown come from the [content]. Any other template id

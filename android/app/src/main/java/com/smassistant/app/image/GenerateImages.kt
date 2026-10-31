@@ -204,8 +204,9 @@ class GenerateImagesUseCase(
      * One infographic: written, drawn and reviewed. One the review scores too low is written again
      * with the review's problems, up to [Infographics.retries] times, and the best-scored is kept.
      * One made from a [brief] is labelled with its template and format; the format is never switched.
-     * With [condense], a definition too long for its format at full text size is written again once,
-     * shorter (docs/requirements/18, SV-5), and drawn with smaller text if it still doesn't fit.
+     * With [condense], a definition too dense for one readable poster is written again once with the
+     * measured numbers (AC-4); still too dense, it becomes a numbered poster series (AC-7), and only
+     * when no series can be made is it drawn with smaller text.
      */
     private suspend fun infographic(
         parts: Infographics,
@@ -233,6 +234,9 @@ class GenerateImagesUseCase(
                 condensing = false
                 val shorter = parts.writer.write(writer, topic, idea, content, feedback + condenseFeedback(fit), brief)
                 if (shorter is ApiResult.Ok) spec = shorter.value
+                // Still too dense: a numbered poster series, so nothing is cut (AC-7).
+                val still = parts.pipeline.measure(spec)
+                if (!still.fits) series(parts, writer, topic, content, still, illustrator, brief)?.let { return Outcome.Ok(it) }
             }
             val file = parts.pipeline.draw(spec, illustrator)?.let { drawn -> brief?.let { labelImage(drawn, it.template.id, spec.format.image) } ?: drawn }
             if (file == null) {
@@ -246,6 +250,34 @@ class GenerateImagesUseCase(
         }
         return best?.let { Outcome.Ok(listOf(it.first)) }
             ?: Outcome.Failed(ApiError.BadResponse("the infographic couldn't be drawn"), INFOGRAPHIC_RENDERER)
+    }
+
+    /**
+     * Content too dense for one readable poster even after it was written denser, as a numbered
+     * poster series (AC-7): planned by the writer, each poster drawn, labelled with its template and
+     * format, and numbered as one series so it is shown and posted together, in order. Null when no
+     * series of 2 or more could be written and drawn, so the one poster is drawn with smaller text.
+     */
+    private suspend fun series(
+        parts: Infographics,
+        writer: TextAgent,
+        topic: String,
+        content: String,
+        fit: PosterFit,
+        illustrator: ImageAgent?,
+        brief: ImageBrief?,
+    ): List<File>? {
+        val posters = when (val result = parts.writer.writeSeries(writer, topic, content, fit, brief, parts.pipeline::fits)) {
+            is ApiResult.Failed -> return null
+            is ApiResult.Ok -> result.value.takeIf { it.size >= 2 } ?: return null
+        }
+        val drawn = coroutineScope { posters.map { poster -> async { parts.pipeline.draw(poster, illustrator) } }.awaitAll() }
+        if (drawn.any { it == null }) return null
+        val id = System.currentTimeMillis()
+        return drawn.filterNotNull().mapIndexed { i, file ->
+            val labelled = brief?.let { labelImage(file, it.template.id, posters[i].format.image) } ?: file
+            labelSeriesPart(labelled, id, i + 1)
+        }
     }
 
     /**

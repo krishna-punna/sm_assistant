@@ -2,8 +2,12 @@ package com.smassistant.app.image
 
 import com.smassistant.app.agents.TextAgent
 import com.smassistant.app.image.render.InfographicSpec
+import com.smassistant.app.image.render.MAX_SERIES_POSTERS
+import com.smassistant.app.image.render.PosterFit
 import com.smassistant.app.image.render.infographicProblems
 import com.smassistant.app.image.render.parseInfographic
+import com.smassistant.app.image.render.parseSeries
+import com.smassistant.app.image.render.seriesProblems
 import com.smassistant.app.image.render.templateProblems
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
@@ -47,6 +51,36 @@ class InfographicWriter(
         // The brief's format is the one the image is made in, whatever the model chose, and the brand is the user's.
         return if (brief != null && result is ApiResult.Ok) {
             ApiResult.Ok(result.value.copy(format = brief.format.infographic, brand = brief.style.brandName.ifBlank { null }))
+        } else {
+            result
+        }
+    }
+
+    /**
+     * A numbered poster series (AC-7), for content still too dense for one readable poster after it
+     * was written denser ([fit] has the measured numbers): 2 to [MAX_SERIES_POSTERS] full posters in one
+     * format and palette, each covering the next part of the content, nothing left out. Asked once
+     * more when the reply fails [seriesProblems], with [fits] saying which posters are still too dense.
+     */
+    suspend fun writeSeries(
+        agent: TextAgent,
+        topic: String,
+        content: String,
+        fit: PosterFit,
+        brief: ImageBrief? = null,
+        fits: (InfographicSpec) -> Boolean = { true },
+    ): ApiResult<List<InfographicSpec>> {
+        val picked = pickImageExamples(examples, topic, template = brief?.template?.id)
+        val system = systemPrompt.replace("{{examples}}", formatImageExamples(picked))
+        val user = "Topic: $topic${contentBlock(content)}${templateBlock(brief, content)}\n\n" +
+            "The content is too dense for one readable poster: ${fit.cards} cards need ${fit.neededHeight} units of height and the " +
+            "format holds ${fit.availableHeight}. Don't leave anything out: plan a numbered poster series instead, " +
+            "2 to $MAX_SERIES_POSTERS posters, as few as show everything. Each poster is a complete infographic in the shape above " +
+            "with its own title for its part, and covers the next part of the content in order; together they cover all of it. " +
+            "Use one palette and format for every poster.\n\nReply with {\"posters\": [the first poster's JSON, the second poster's JSON]} only."
+        val result = askTwice(agent, system, user, ::parseSeries) { seriesProblems(it, "$topic\n$content", fits) }
+        return if (brief != null && result is ApiResult.Ok) {
+            ApiResult.Ok(result.value.map { it.copy(format = brief.format.infographic, brand = brief.style.brandName.ifBlank { null }) })
         } else {
             result
         }

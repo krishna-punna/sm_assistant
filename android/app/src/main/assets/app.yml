@@ -74,7 +74,7 @@ image_prompt_budgets:
 # format: auto (the app picks per image), portrait (2:3), square (1:1) or landscape (3:2).
 # mode: auto (the image agent paints the poster; the app draws it instead when the review finds its text wrong),
 #   drawn (the app draws the text), painted (the image agent paints the whole image) or both (two of each).
-# layout: auto (one poster; content too dense is merged to fit) or single (one image, smaller text). Images are never a carousel.
+# layout: auto (one poster; content too dense for one poster becomes a numbered poster series, 1/N) or single (one image, smaller text). Images are never a carousel.
 image_style:
   audience: "developers, senior engineers and architects"
   brand_name: ""

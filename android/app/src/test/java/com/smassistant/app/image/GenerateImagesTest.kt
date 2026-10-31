@@ -379,15 +379,32 @@ class GenerateImagesTest {
         assertEquals(listOf(ImageLayout.AUTO, ImageLayout.SINGLE), ImageLayout.entries)
     }
 
+    /** A two-poster series reply covering the "Caching" content. */
+    private fun cachingSeries() = """{"posters": [${caching().replace("\"Caching\"", "\"Reads Caching\"")}, ${caching().replace("\"Caching\"", "\"Expiry Caching\"")}]}"""
+
     @Test
-    fun `a poster still too long after condensing is drawn as one`() = runTest {
-        val writer = ScriptedTextAgent(ApiResult.Ok(tooLong()), ApiResult.Ok(tooLong()))
+    fun `a poster still too dense after condensing becomes a numbered poster series (AC-7)`() = runTest {
+        val writer = ScriptedTextAgent(ApiResult.Ok(tooLong()), ApiResult.Ok(tooLong()), ApiResult.Ok(cachingSeries()))
+        val parts = Infographics({ writer }, InfographicWriter("Plan.{{examples}}"), pipeline)
+
+        val outcome = GenerateImagesUseCase("{{prompt}}", { null }, IMAGES_PER_REQUEST, infographics = parts)(" Caching ")
+
+        assertEquals(Outcome.Ok(listOf(File("Reads.png"), File("Expiry.png"))), outcome)
+        assertEquals(3, writer.calls.size)
+        val ask = writer.calls[2].second
+        assertTrue(ask, ask.contains("plan a numbered poster series") && ask.contains("Don't leave anything out"))
+        assertTrue(ask, ask.contains("8 cards need "))
+    }
+
+    @Test
+    fun `when no series can be written the dense poster is drawn as one`() = runTest {
+        val writer = ScriptedTextAgent(ApiResult.Ok(tooLong()), ApiResult.Ok(tooLong()), ApiResult.Ok("no JSON here"))
         val parts = Infographics({ writer }, InfographicWriter("Plan.{{examples}}"), pipeline)
 
         val outcome = GenerateImagesUseCase("{{prompt}}", { null }, IMAGES_PER_REQUEST, infographics = parts)(" Caching ")
 
         assertEquals(Outcome.Ok(listOf(File("Caching.png"))), outcome)
-        assertEquals(2, writer.calls.size)
+        assertEquals(4, writer.calls.size)
     }
 
     @Test
