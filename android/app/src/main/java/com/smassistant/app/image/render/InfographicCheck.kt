@@ -8,6 +8,9 @@ import kotlin.math.sqrt
 /** Fewest cards a Generate Image infographic may have; fewer reads as an unfinished image. */
 const val MIN_SECTIONS = 3
 
+/** Most cards one poster definition may have ([Limits.SECTIONS], AC-2). */
+val MAX_CARDS: Int get() = Limits.SECTIONS
+
 /** Smallest side an AI illustration may have before it is painted into its slot. */
 const val MIN_ILLUSTRATION_SIDE = 256
 
@@ -23,6 +26,9 @@ const val MIN_INFOGRAPHIC_SIDE = 1024
 fun infographicProblems(spec: InfographicSpec, subject: String, minSections: Int = MIN_SECTIONS): List<String> = buildList {
     if (spec.sections.size < minSections) {
         add("it has ${spec.sections.size} sections; write at least $minSections cards that cover the topic")
+    }
+    if (spec.droppedSections > 0) {
+        add("it has ${spec.sections.size + spec.droppedSections} cards, more than the $MAX_CARDS one poster can hold; merge related cards so every point is kept in at most $MAX_CARDS")
     }
     if (subject.isNotBlank() && !sharesAWord(spec.title, subject)) {
         add("the title \"${spec.title}\" doesn't name the topic; use the topic's own words in the title")

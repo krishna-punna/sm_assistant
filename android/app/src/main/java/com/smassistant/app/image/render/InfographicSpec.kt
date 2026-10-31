@@ -35,6 +35,11 @@ data class InfographicSpec(
     val revealed: Int? = null,
     /** A carousel page's label, drawn small in the header's corner: "3 / 7", or "Swipe →" on the cover. */
     val page: String? = null,
+    /**
+     * Cards the model wrote beyond [Limits.SECTIONS] that were left out (AC-2). Never silent: the
+     * spec checks report it, so the writer is asked to merge them instead of losing them.
+     */
+    val droppedSections: Int = 0,
 )
 
 enum class InfographicFormat(val key: String, val width: Int) {
@@ -118,8 +123,11 @@ fun parseCarousel(reply: String): Result<Carousel> = jsonObjectIn(reply).mapCatc
 
 /** Upper limits that keep a definition drawable, whatever the model wrote. */
 internal object Limits {
-    /** Up to 11 cards, like the densest samples (docs/requirements/18, SV-7). */
-    const val SECTIONS = 11
+    /**
+     * Up to 16 cards (AC-2): a guard against runaway replies, not a design target. The AI decides
+     * how many cards a poster needs; the readability check decides whether they fit one poster.
+     */
+    const val SECTIONS = 16
     const val ITEMS = 7
     const val CODE_LINES = 14
     const val TABLE_COLUMNS = 4
@@ -155,6 +163,7 @@ private fun jsonObjectIn(reply: String): Result<JsonObject> {
 private fun spec(json: JsonObject, format: InfographicFormat?, palette: Palette?): InfographicSpec {
     val title = json.string("title")
     require(!title.isNullOrBlank()) { "the infographic has no title" }
+    val sections = json.array("sections").filterIsInstance<JsonObject>().mapNotNull(::section)
     return InfographicSpec(
         title = title.clip(80),
         highlight = json.string("highlight")?.takeIf { it.isNotBlank() },
@@ -164,8 +173,9 @@ private fun spec(json: JsonObject, format: InfographicFormat?, palette: Palette?
         palette = palette ?: Palette.of(json.string("palette")),
         icon = json.string("icon")?.lowercase()?.takeIf { it in ICONS },
         hero = json.string("hero")?.takeIf { it.isNotBlank() }?.clip(),
-        sections = json.array("sections").filterIsInstance<JsonObject>().mapNotNull(::section).take(Limits.SECTIONS),
+        sections = sections.take(Limits.SECTIONS),
         takeaway = json.string("takeaway")?.takeIf { it.isNotBlank() }?.clip(),
+        droppedSections = (sections.size - Limits.SECTIONS).coerceAtLeast(0),
     )
 }
 
