@@ -2,6 +2,7 @@ package com.smassistant.app.scheduler
 
 import com.smassistant.app.data.ImageSize
 import com.smassistant.app.data.MediaPurpose
+import com.smassistant.app.pipeline.Pipeline
 import com.smassistant.app.prompt.PromptType
 import java.time.DayOfWeek
 import java.time.LocalTime
@@ -52,6 +53,8 @@ data class RunRecord(
     val awaitingReview: Boolean = false,
     val template: String? = null,
     val carouselPages: Int? = null,
+    /** Where the run got to, stage by stage (docs/requirements/20, PS-7). */
+    val stages: Pipeline? = null,
 )
 
 /**
@@ -156,6 +159,7 @@ object SchedulerJson {
                 if (run.awaitingReview) put("awaitingReview", true)
                 run.template?.let { put("template", it) }
                 run.carouselPages?.let { put("carouselPages", it) }
+                run.stages?.let { put("stages", it.toJson()) }
             })
         }
         put("reviewFirst", s.reviewFirst)
@@ -204,6 +208,7 @@ object SchedulerJson {
                     awaitingReview = run.bool("awaitingReview") ?: false,
                     template = run.string("template"),
                     carouselPages = run.long("carouselPages")?.toInt(),
+                    stages = Pipeline.fromJson(run["stages"]),
                 )
             },
             reviewFirst = json.bool("reviewFirst") ?: defaults.reviewFirst,

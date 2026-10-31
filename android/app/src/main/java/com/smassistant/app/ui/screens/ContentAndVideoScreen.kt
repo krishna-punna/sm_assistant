@@ -19,12 +19,17 @@ import com.smassistant.app.generate.ContentAndVideo
 import com.smassistant.app.generate.GenerateContentAndMediaUseCase
 import com.smassistant.app.generate.appGenerateTechnicalContent
 import com.smassistant.app.generate.appSmartTrim
+import com.smassistant.app.generate.finish
+import com.smassistant.app.generate.mediaStages
 import com.smassistant.app.linkedin.PostState
 import com.smassistant.app.linkedin.PostViewModel
 import com.smassistant.app.linkedin.appPostToLinkedIn
 import com.smassistant.app.navigation.Feature
+import com.smassistant.app.pipeline.Pipelines
+import com.smassistant.app.pipeline.StageId
 import com.smassistant.app.ui.components.ErrorCard
 import com.smassistant.app.ui.components.GeneratingRow
+import com.smassistant.app.ui.components.LocalChatInputId
 import com.smassistant.app.ui.components.MarkdownText
 import com.smassistant.app.ui.components.MediaAgentDropdown
 import com.smassistant.app.ui.components.PostDialogs
@@ -32,6 +37,7 @@ import com.smassistant.app.ui.components.PostInLinkedInButton
 import com.smassistant.app.ui.components.PostLengthNote
 import com.smassistant.app.ui.components.PromptCard
 import com.smassistant.app.ui.components.TextAgentDropdown
+import com.smassistant.app.ui.components.TrackPostStage
 import com.smassistant.app.ui.components.VideoLengthDropdown
 import com.smassistant.app.video.appGenerateVideo
 import java.io.File
@@ -47,7 +53,7 @@ fun ContentAndVideoScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit,
             GenerateContentAndMediaUseCase.VIDEO_NOT_SET_UP,
         )
     }
-    val viewModel = viewModel { sessionChatViewModel(appContext, Feature.CONTENT_AND_VIDEO.name, createSavedStateHandle(), ContentAndMediaSaver(VideoSaver)) { prompt -> useCase(prompt) } }
+    val viewModel = viewModel { sessionChatViewModel(appContext, Feature.CONTENT_AND_VIDEO.name, createSavedStateHandle(), ContentAndMediaSaver(VideoSaver), pipeline = Pipelines.contentAndVideo, finished = { r, p -> r.finish(p) }) { prompt -> useCase(prompt) } }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val postViewModel = viewModel { PostViewModel(appPostToLinkedIn(appContext), appSmartTrim(appContext)) }
     val postState by postViewModel.state.collectAsStateWithLifecycle()
@@ -70,22 +76,26 @@ fun ContentAndVideoScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit,
         },
         inputContent = { PromptCard("Your prompt", it, collapsedLines = 4) },
         resultContent = { result ->
+            val postKey = LocalChatInputId.current
             // As in Content & Image: find the result's item so a half can be retried in place.
-            val id = state.items.filterIsInstance<ChatItem.Result<ContentAndVideo>>().firstOrNull { it.value === result }?.id
+            val item = state.items.filterIsInstance<ChatItem.Result<ContentAndVideo>>().firstOrNull { it.value === result }
+            val id = item?.id
+            val inputId = item?.forInput
             ContentAndVideoResult(
                 result = result,
                 lengthNote = { PostLengthNote(postViewModel.measure(it), postViewModel.limit) },
                 posting = postState == PostState.Posting,
                 onRetryText = {
-                    id?.let { viewModel.updateResult(it, { r -> r.copy(retryingText = true) }, useCase::retryText) }
+                    id?.let { viewModel.updateResult(it, { r -> r.copy(retryingText = true) }, setOf(StageId.WRITE_POST), useCase::retryText) }
                 },
                 onRetryVideo = {
-                    id?.let { viewModel.updateResult(it, { r -> r.copy(retryingMedia = true) }, useCase::retryMedia) }
+                    id?.let { viewModel.updateResult(it, { r -> r.copy(retryingMedia = true) }, inputId?.let { state.pipelines[it] }?.let(::mediaStages).orEmpty(), useCase::retryMedia) }
                 },
-                onPost = { video -> postViewModel.start(result.markdown.orEmpty(), listOfNotNull(video)) },
+                onPost = { video -> postViewModel.start(result.markdown.orEmpty(), listOfNotNull(video), postKey) },
             )
         },
     )
+    TrackPostStage(postState, postViewModel.key, viewModel::markStage)
     PostDialogs(
         state = postState,
         onTextChange = postViewModel::onTextChange,

@@ -37,6 +37,7 @@ Status values: **done** (implemented and matches the requirement), **partial** (
 | [13-single-image-carousel.md](13-single-image-carousel.md) | One image per request, or a carousel when the content needs it | SC-1…4 |
 | [14-separate-image-video.md](14-separate-image-video.md) | Separate image and video pipelines; one poster like the samples | SV-1…12 |
 | [15-isolated-pipelines.md](15-isolated-pipelines.md) | Fully isolated image and video pipelines (IP-1…7) | SP-1…16 |
+| [16-pipeline-status.md](16-pipeline-status.md) | Pipeline stages and status on the five posting screens and the scheduler (PL-1…6) | PS-1…10 |
 
 ## Phases
 

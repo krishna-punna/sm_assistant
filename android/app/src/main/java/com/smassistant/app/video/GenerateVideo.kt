@@ -19,6 +19,9 @@ import com.smassistant.app.media.SlideshowMaker
 import com.smassistant.app.media.nearestImageFormat
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
+import com.smassistant.app.pipeline.StageId
+import com.smassistant.app.pipeline.StageStatus
+import com.smassistant.app.pipeline.reportStage
 import com.smassistant.app.prompt.loadPromptAsset
 import com.smassistant.app.video.render.AndroidImageInspector
 import com.smassistant.app.video.render.AndroidInfographicComposer
@@ -134,12 +137,16 @@ class GenerateVideoUseCase(
             is Outcome.Failed -> return drawn
             Outcome.NoAgent -> return Outcome.NoAgent
         }
+        reportStage(StageId.DRAW_SLIDES, StageStatus.DONE)
+        reportStage(StageId.MAKE_VIDEO, StageStatus.RUNNING)
         val video = sizeGuard?.let { guard -> guarded(made, guard) } ?: made
         val images = video.slides.map { it.file }
         val (frames, millis) = timeline(video, sceneMillis(video.slides.map { it.seconds }, length))
         // A video made from a template carries it and its size in the file name, so saved results keep them.
         val output = newVideoFile().let { file -> video.templateId?.let { labelVideo(file, it, video.format) } ?: file }
-        return maker.make(frames, output, millis, video.format.width, video.format.height).fold(
+        val encoded = maker.make(frames, output, millis, video.format.width, video.format.height)
+        if (encoded.isSuccess) reportStage(StageId.MAKE_VIDEO, StageStatus.DONE)
+        return encoded.fold(
             onSuccess = { Outcome.Ok(GeneratedVideo(it, images, length, video.format)) },
             onFailure = { Outcome.Failed(ApiError.BadResponse(it.message ?: "couldn't encode the video"), VIDEO_MAKER) },
         )
@@ -181,6 +188,7 @@ class GenerateVideoUseCase(
         slides: Int,
         seconds: Int,
     ): Outcome<DrawnVideo> {
+        reportStage(StageId.WRITE_SLIDES, StageStatus.RUNNING)
         val content = parts.content?.let { step ->
             when (val result = step.write(writer, topic)) {
                 is ApiResult.Failed -> return Outcome.Failed(result.error, writer.service.displayName)
@@ -197,10 +205,15 @@ class GenerateVideoUseCase(
         var best: Pair<DrawnVideo, Int>? = null
         var failure: Outcome.Failed? = null
         repeat(if (reviewer == null) 1 else parts.retries + 1) {
+            // A deck the review sent back is written again, so writing runs again and drawing waits.
+            reportStage(StageId.WRITE_SLIDES, StageStatus.RUNNING)
+            reportStage(StageId.DRAW_SLIDES, StageStatus.WAITING)
             val deck = when (val result = parts.writer.write(writer, topic, slides, seconds / slides, content, brief, feedback)) {
                 is ApiResult.Failed -> return best?.let { Outcome.Ok(it.first) } ?: Outcome.Failed(result.error, writer.service.displayName)
                 is ApiResult.Ok -> result.value
             }
+            reportStage(StageId.WRITE_SLIDES, StageStatus.DONE)
+            reportStage(StageId.DRAW_SLIDES, StageStatus.RUNNING)
             val video = when (val drawn = drawDeck(parts, deck, format, brief?.template?.id)) {
                 is Outcome.Ok -> drawn.value
                 is Outcome.Failed -> {
@@ -263,6 +276,9 @@ class GenerateVideoUseCase(
      */
     private suspend fun paintedSlides(topic: String, slides: Int): Outcome<DrawnVideo>? {
         val selected = agent() ?: return null
+        // Painted straight from the prompt: there is no deck to write (docs/requirements/20).
+        reportStage(StageId.WRITE_SLIDES, StageStatus.SKIPPED)
+        reportStage(StageId.DRAW_SLIDES, StageStatus.RUNNING)
         val format = DEFAULT_VIDEO_SIZE
         val paintAt = nearestImageFormat(format.width.toFloat(), format.height.toFloat())
         val results = coroutineScope {
