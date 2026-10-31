@@ -15,6 +15,7 @@ import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.smassistant.app.chat.ImagesSaver
 import com.smassistant.app.chat.sessionChatViewModel
+import com.smassistant.app.data.MediaPurpose
 import com.smassistant.app.generate.GenerateContentAndMediaUseCase
 import com.smassistant.app.generate.appSmartTrim
 import com.smassistant.app.image.appGenerateImages
@@ -68,7 +69,7 @@ fun ImageScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToH
         onSetUpAgent = onSetUpAgent,
         onBackToHome = onBackToHome,
         header = {
-            TextAgentDropdown(label = "Text agent", showModel = true)
+            TextAgentDropdown(showModel = true, purpose = MediaPurpose.IMAGE)
             MediaAgentDropdown()
             ImageTemplatePickers()
         },

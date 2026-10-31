@@ -1,5 +1,6 @@
 package com.smassistant.app.media
 
+import com.smassistant.app.data.MediaPurpose
 import java.io.File
 import java.nio.file.Files
 import java.util.concurrent.TimeUnit
@@ -33,6 +34,23 @@ class MediaCacheTest {
 
         assertFalse(old.exists())
         assertTrue(fresh.exists())
+    }
+
+    @Test
+    fun `images and videos have their own folders, and clearing covers both`() {
+        assertEquals(File(dir, "generated"), cacheFolder(dir, null))
+        assertEquals(File(dir, "generated/images"), cacheFolder(dir, MediaPurpose.IMAGE))
+        assertEquals(File(dir, "generated/videos"), cacheFolder(dir, MediaPurpose.VIDEO))
+
+        val now = System.currentTimeMillis()
+        val image = MediaCache(cacheFolder(dir, MediaPurpose.IMAGE)).save(byteArrayOf(1), "png")
+        val video = MediaCache(cacheFolder(dir, MediaPurpose.VIDEO)).newFile("mp4").apply { writeBytes(byteArrayOf(2)) }
+        listOf(image, video).forEach { it.setLastModified(now - TimeUnit.DAYS.toMillis(8)) }
+
+        MediaCache(cacheFolder(dir, null)).clearOlderThan(now = now)
+
+        assertFalse(image.exists())
+        assertFalse(video.exists())
     }
 
     @Test

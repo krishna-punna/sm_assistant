@@ -33,6 +33,7 @@ object Routes {
     const val API_STATUS = "settings/status"
     const val THEMES = "settings/themes"
     const val IMAGE_STYLE = "settings/image-style"
+    const val VIDEO_STYLE = "settings/video-style"
     const val SCHEDULERS = "schedulers"
     const val SCHEDULER_EDIT = "schedulers/{id}"
     const val NEW_SCHEDULER_ID = "new"

@@ -43,25 +43,38 @@ import com.smassistant.app.video.videoLengthLabel
  * "Agent: Gemini ▾" above a text feature's conversation: picks which set-up agent writes the
  * next result. The choice is the same default as on the AI Agent screen, so it sticks.
  *
- * The image and video screens show it as "Text agent" with a "Text model" picker ([showModel]),
- * because there the text agent and model write the content that the separate image or video
- * agent and model then draw (docs/requirements/14).
+ * With a [purpose] it is the "Image text agent" or "Video text agent" with its own "… text model"
+ * picker ([showModel]): there the text agent and model write the content that the separate image
+ * or video agent and model then draw, and images and videos each keep their own (SP-12).
  */
 @Composable
-fun TextAgentDropdown(label: String = "Agent", showModel: Boolean = false) {
+fun TextAgentDropdown(label: String = "Agent", showModel: Boolean = false, purpose: MediaPurpose? = null) {
     val appContext = LocalContext.current.applicationContext
     val preferences = remember { AgentPreferences(appContext) }
     val store = remember { ApiSettingsStore(appContext) }
     val agents = remember { TEXT_AGENTS.filter { store.load(it).isUsableAgent() } }
     if (agents.isEmpty()) return
     // Same rule as AgentSelector: the default if it's set up, otherwise the first set-up agent.
-    var selected by remember { mutableStateOf(preferences.defaultTextAgent?.takeIf { it in agents } ?: agents.first()) }
-    AgentDropdown(agents, selected, label = label) {
-        preferences.defaultTextAgent = it
+    var selected by remember { mutableStateOf(preferences.defaultTextAgentFor(purpose)?.takeIf { it in agents } ?: agents.first()) }
+    AgentDropdown(agents, selected, label = textAgentLabel(purpose, label), testTag = textAgentTag(purpose)) {
+        preferences.setDefaultTextAgent(purpose, it)
         selected = it
     }
     AgentStatusHint(selected, remember(selected) { store.lastStatus(selected) })
-    if (showModel) TextModelDropdown(store, selected)
+    if (showModel) TextModelDropdown(store, selected, purpose)
+}
+
+/** "Image text agent" or "Video text agent" for a [purpose]; [label] for the plain text features. */
+fun textAgentLabel(purpose: MediaPurpose?, label: String = "Agent"): String = when (purpose) {
+    null -> label
+    MediaPurpose.IMAGE -> "Image text agent"
+    MediaPurpose.VIDEO -> "Video text agent"
+}
+
+private fun textAgentTag(purpose: MediaPurpose?) = when (purpose) {
+    null -> "agentDropdown"
+    MediaPurpose.IMAGE -> "imageTextAgentDropdown"
+    MediaPurpose.VIDEO -> "videoTextAgentDropdown"
 }
 
 /**
@@ -91,20 +104,20 @@ fun AgentStatusHint(service: ApiService, status: ConnectionStatus?) {
     )
 }
 
-/** "Text model: … ▾": the models last listed on the agent's settings screen; hidden until there are some. */
+/** "Image text model: … ▾" or "Video text model": the models last listed on the agent's settings screen; hidden until there are some. */
 @Composable
-private fun TextModelDropdown(store: ApiSettingsStore, agent: ApiService) {
-    var model by remember(agent) { mutableStateOf(store.load(agent).model) }
+private fun TextModelDropdown(store: ApiSettingsStore, agent: ApiService, purpose: MediaPurpose?) {
+    var model by remember(agent) { mutableStateOf(store.loadForText(agent, purpose).model) }
     val listed = remember(agent) { store.cachedModels(agent)?.lists?.text.orEmpty() }
     if (listed.isEmpty()) return
     val options = if (listed.any { it.id == model }) listed else listOf(AiModel(model)) + listed
     SelectDropdown(
-        label = "Text model",
+        label = textAgentLabel(purpose, "Text").removeSuffix(" agent") + " model",
         selected = model,
         options = options.map { it.id },
         optionLabel = { id -> options.firstOrNull { it.id == id }?.label ?: id },
         onSelect = {
-            store.saveTextModel(agent, it)
+            store.saveTextModel(agent, it, purpose)
             model = it
         },
         testTag = "textModelDropdown",
@@ -112,9 +125,9 @@ private fun TextModelDropdown(store: ApiSettingsStore, agent: ApiService) {
 }
 
 /**
- * "Image agent: Gemini ▾" and "Image model: … ▾" on the image features, or "Video agent" and
- * "Video model" on the video features ([purpose]): images and video slides each keep their own
- * agent and model. The agent picker lists only
+ * "Image agent: Gemini ▾" and "Image model: … ▾" on the image features, or "Video slide agent"
+ * and "Video slide model" on the video features ([purpose]): images and video slides each keep
+ * their own agent and model (SP-12). The agent picker lists only
  * set-up agents and is hidden unless there's a choice; the model picker shows the models last
  * listed on the agent's settings screen and is hidden until there are some.
  */
@@ -125,18 +138,19 @@ fun MediaAgentDropdown(purpose: MediaPurpose = MediaPurpose.IMAGE) {
     val store = remember { ApiSettingsStore(appContext) }
     val agents = remember { IMAGE_AGENTS.filter { store.load(it).forMedia(purpose).isUsableImageAgent(it) } }
     if (agents.isEmpty()) return
-    val name = if (purpose == MediaPurpose.VIDEO) "Video" else "Image"
+    val name = if (purpose == MediaPurpose.VIDEO) "Video slide" else "Image"
+    val tag = if (purpose == MediaPurpose.VIDEO) "video" else "image"
     // Same rule as ImageAgentSelector: the default if it's set up, otherwise the first set-up agent.
     var selected by remember { mutableStateOf(preferences.defaultMediaAgent(purpose)?.takeIf { it in agents } ?: agents.first()) }
     if (agents.size > 1) {
-        AgentDropdown(agents, selected, label = "$name agent", testTag = "${name.lowercase()}AgentDropdown") {
+        AgentDropdown(agents, selected, label = "$name agent", testTag = "${tag}AgentDropdown") {
             preferences.setDefaultMediaAgent(purpose, it)
             selected = it
         }
     }
     // The text agent's picker already warns about it; only a different media agent needs its own warning.
     val textAgent = remember {
-        TEXT_AGENTS.filter { store.load(it).isUsableAgent() }.let { text -> preferences.defaultTextAgent?.takeIf { it in text } ?: text.firstOrNull() }
+        TEXT_AGENTS.filter { store.load(it).isUsableAgent() }.let { text -> preferences.defaultTextAgentFor(purpose)?.takeIf { it in text } ?: text.firstOrNull() }
     }
     if (selected != textAgent) AgentStatusHint(selected, remember(selected) { store.lastStatus(selected) })
     MediaModelDropdown(store, selected, purpose, name)
@@ -261,7 +275,7 @@ private fun MediaModelDropdown(store: ApiSettingsStore, agent: ApiService, purpo
             store.saveMediaModel(agent, purpose, it)
             model = it
         },
-        testTag = "${name.lowercase()}ModelDropdown",
+        testTag = "${if (purpose == MediaPurpose.VIDEO) "video" else "image"}ModelDropdown",
     )
 }
 

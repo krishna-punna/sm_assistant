@@ -9,9 +9,10 @@ import com.smassistant.app.agents.appAgentSelector
 import com.smassistant.app.agents.appImageAgentSelector
 import com.smassistant.app.chat.Outcome
 import com.smassistant.app.data.AppConfig
-import com.smassistant.app.data.ImageSize
 import com.smassistant.app.data.ImageLayout
+import com.smassistant.app.data.ImageSize
 import com.smassistant.app.data.ImageStyle
+import com.smassistant.app.data.MediaPurpose
 import com.smassistant.app.image.render.AndroidImageInspector
 import com.smassistant.app.image.render.AndroidImageUpscaler
 import com.smassistant.app.image.render.AndroidInfographicComposer
@@ -345,7 +346,7 @@ fun pickedImageRequest(context: Context, prompt: String): ImageRequest {
  * selected image agent paints the illustrations, and the old style and example assets are the fallback.
  */
 fun appGenerateImages(context: Context): GenerateImagesUseCase {
-    val cache = MediaCache(context)
+    val cache = MediaCache(context, MediaPurpose.IMAGE)
     val examples = parseImageExamples(loadPromptAsset(context, "image/image_examples"))
     return GenerateImagesUseCase(
         styleTemplate = loadPromptAsset(context, "image/image"),
@@ -369,7 +370,7 @@ private val IMAGE_RATIOS = ImageSize.entries.map { it.ratio }
 internal fun appInfographics(context: Context, cache: MediaCache, examples: List<ImageExample>): Infographics {
     val checks = AppConfig.imageChecks(context)
     return Infographics(
-        textAgent = appAgentSelector(context)::textAgent,
+        textAgent = appAgentSelector(context, MediaPurpose.IMAGE)::textAgent,
         writer = InfographicWriter(loadPromptAsset(context, "image/infographic"), examples),
         pipeline = InfographicPipeline(
             renderer = InfographicRenderer(PaintTextMeasurer),

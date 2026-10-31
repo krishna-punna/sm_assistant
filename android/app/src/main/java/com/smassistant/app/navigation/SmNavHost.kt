@@ -27,6 +27,7 @@ import com.smassistant.app.ui.screens.SchedulersScreen
 import com.smassistant.app.ui.screens.TechnicalContentScreen
 import com.smassistant.app.ui.screens.ThemesScreen
 import com.smassistant.app.ui.screens.VideoScreen
+import com.smassistant.app.ui.screens.VideoStyleScreen
 import com.smassistant.app.ui.theme.ThemeId
 
 @Composable
@@ -111,6 +112,9 @@ fun SmNavHost(
         }
         composable(Routes.IMAGE_STYLE) {
             ImageStyleScreen(onBackToHome = backToHome)
+        }
+        composable(Routes.VIDEO_STYLE) {
+            VideoStyleScreen(onBackToHome = backToHome)
         }
         composable(Routes.THEMES) {
             ThemesScreen(onApply = onThemeChosen, onBackToHome = backToHome)

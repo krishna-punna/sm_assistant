@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.pdf.PdfDocument
+import com.smassistant.app.data.MediaPurpose
 import com.smassistant.app.image.render.Carousel
 import java.io.File
 import kotlinx.coroutines.Dispatchers
@@ -24,7 +25,7 @@ private const val PDF_PAGE_POINTS = 1080
  * cache so two carousels with one title don't clash. Null when no page could be read or written.
  */
 class AndroidCarouselPdfMaker(private val dir: File) : CarouselPdfMaker {
-    constructor(context: Context) : this(File(context.cacheDir, "generated"))
+    constructor(context: Context) : this(cacheFolder(context.cacheDir, MediaPurpose.IMAGE))
 
     override suspend fun make(pages: List<File>, title: String): File? = withContext(Dispatchers.IO) {
         runCatching {

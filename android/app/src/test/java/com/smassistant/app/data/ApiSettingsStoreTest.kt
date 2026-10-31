@@ -111,6 +111,22 @@ class ApiSettingsStoreTest {
     }
 
     @Test
+    fun `image and video text models are saved apart and follow the text model until chosen`() {
+        store.saveTextModel(ApiService.GEMINI, "gemini-3-pro")
+        assertEquals("gemini-3-pro", store.loadForText(ApiService.GEMINI, MediaPurpose.IMAGE).model)
+        assertEquals("gemini-3-pro", store.loadForText(ApiService.GEMINI, MediaPurpose.VIDEO).model)
+
+        store.saveTextModel(ApiService.GEMINI, " gemini-3-flash ", MediaPurpose.VIDEO)
+        assertEquals("gemini-3-flash", store.loadForText(ApiService.GEMINI, MediaPurpose.VIDEO).model)
+        assertEquals("gemini-3-pro", store.loadForText(ApiService.GEMINI, MediaPurpose.IMAGE).model)
+        assertEquals("gemini-3-pro", store.load(ApiService.GEMINI).model)
+        assertEquals("gemini-3-pro", store.loadForText(ApiService.GEMINI, null).model)
+
+        store.saveTextModel(ApiService.GEMINI, "", MediaPurpose.VIDEO)
+        assertEquals("gemini-3-pro", store.loadForText(ApiService.GEMINI, MediaPurpose.VIDEO).model)
+    }
+
+    @Test
     fun `fetched model lists are cached with their time`() {
         assertNull(store.cachedModels(ApiService.GEMINI))
         val lists = ModelLists(text = listOf(AiModel("gemini-2.5-flash", "Gemini 2.5 Flash")), image = listOf(AiModel("x")))

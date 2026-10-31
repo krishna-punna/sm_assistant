@@ -89,6 +89,7 @@ enum class SmIcon(
         Icons.Sharp.SharpDateRange, Icons.TwoTone.TwoToneDateRange,
     ),
     IMAGE_STYLE(Icons.Filled.FilledCreate, Icons.Outlined.OutlinedCreate, Icons.Rounded.RoundedCreate, Icons.Sharp.SharpCreate, Icons.TwoTone.TwoToneCreate),
+    VIDEO_STYLE(Icons.Filled.FilledRefresh, Icons.Outlined.OutlinedRefresh, Icons.Rounded.RoundedRefresh, Icons.Sharp.SharpRefresh, Icons.TwoTone.TwoToneRefresh),
     THEMES(Icons.Filled.FilledStar, Icons.Outlined.OutlinedStar, Icons.Rounded.RoundedStar, Icons.Sharp.SharpStar, Icons.TwoTone.TwoToneStar),
     HOME(Icons.Filled.FilledHome, Icons.Outlined.OutlinedHome, Icons.Rounded.RoundedHome, Icons.Sharp.SharpHome, Icons.TwoTone.TwoToneHome),
     HISTORY(

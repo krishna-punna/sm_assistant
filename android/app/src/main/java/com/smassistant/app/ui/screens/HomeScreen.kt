@@ -26,6 +26,7 @@ fun HomeScreen(onNavigate: (String) -> Unit) {
         MenuButton("Default Hash Tags", SmIcon.HASHTAGS) { onNavigate(Routes.DEFAULT_HASHTAGS) }
         MenuButton("API Status", SmIcon.STATUS) { onNavigate(Routes.API_STATUS) }
         MenuButton("Image Style", SmIcon.IMAGE_STYLE) { onNavigate(Routes.IMAGE_STYLE) }
+        MenuButton("Video Style", SmIcon.VIDEO_STYLE) { onNavigate(Routes.VIDEO_STYLE) }
         MenuButton("Themes", SmIcon.THEMES) { onNavigate(Routes.THEMES) }
     }
 }

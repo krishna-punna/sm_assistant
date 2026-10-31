@@ -1,17 +1,19 @@
 package com.smassistant.app.media
 
 import android.content.Context
+import com.smassistant.app.data.MediaPurpose
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 /**
- * Generated images (and later videos) live in `cacheDir/generated/` (docs/tasks GEN-I4,
- * interim answer to Q-13): the system may clear them, and files older than a week are
- * removed when the app starts.
+ * Generated files live in `cacheDir/generated/` (docs/tasks GEN-I4, interim answer to Q-13): images
+ * in `generated/images/` and videos with their slides in `generated/videos/` (SP-16). The system may
+ * clear them, and files older than a week are removed when the app starts.
  */
 class MediaCache(private val dir: File) {
-    constructor(context: Context) : this(File(context.cacheDir, "generated"))
+    /** The whole cache, for clearing old files; [purpose] picks the images or the videos folder. */
+    constructor(context: Context, purpose: MediaPurpose? = null) : this(cacheFolder(context.cacheDir, purpose))
 
     /** Writes [bytes] to a new file with [extension] and returns it. */
     fun save(bytes: ByteArray, extension: String): File {
@@ -26,7 +28,17 @@ class MediaCache(private val dir: File) {
     }
 
     fun clearOlderThan(maxAgeMillis: Long = TimeUnit.DAYS.toMillis(7), now: Long = System.currentTimeMillis()) {
-        dir.listFiles()?.filter { now - it.lastModified() > maxAgeMillis }?.forEach { it.delete() }
+        dir.walkBottomUp().filter { it.isFile && now - it.lastModified() > maxAgeMillis }.forEach { it.delete() }
+    }
+}
+
+/** `generated/` under [cacheDir], or its `images/` or `videos/` folder for [purpose]. */
+fun cacheFolder(cacheDir: File, purpose: MediaPurpose?): File {
+    val base = File(cacheDir, "generated")
+    return when (purpose) {
+        null -> base
+        MediaPurpose.IMAGE -> File(base, "images")
+        MediaPurpose.VIDEO -> File(base, "videos")
     }
 }
 

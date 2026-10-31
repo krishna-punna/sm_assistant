@@ -288,7 +288,7 @@ class GenerateVideoUseCase(
  * encoded on the device, as long as the length picked on the screen.
  */
 fun appGenerateVideo(context: Context): GenerateVideoUseCase {
-    val cache = MediaCache(context)
+    val cache = MediaCache(context, MediaPurpose.VIDEO)
     val checks = AppConfig.imageChecks(context)
     val selector = appImageAgentSelector(context, cache, MediaPurpose.VIDEO)
     return GenerateVideoUseCase(
@@ -300,7 +300,7 @@ fun appGenerateVideo(context: Context): GenerateVideoUseCase {
         newVideoFile = { cache.newFile("mp4") },
         seconds = AgentPreferences(context)::videoSeconds,
         decks = SlideDecks(
-            textAgent = appAgentSelector(context)::textAgent,
+            textAgent = appAgentSelector(context, MediaPurpose.VIDEO)::textAgent,
             writer = SlideDeckWriter(
                 loadPromptAsset(context, "video/video_deck"),
                 parseVideoExamples(loadPromptAsset(context, "video/video_examples")),
