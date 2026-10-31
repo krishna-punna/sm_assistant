@@ -28,6 +28,7 @@ import com.smassistant.app.linkedin.PostViewModel
 import com.smassistant.app.linkedin.appPostToLinkedIn
 import com.smassistant.app.navigation.Feature
 import com.smassistant.app.prompt.loadPromptAsset
+import com.smassistant.app.ui.components.MediaActions
 import com.smassistant.app.ui.components.MediaAgentDropdown
 import com.smassistant.app.ui.components.PostDialogs
 import com.smassistant.app.ui.components.PostInLinkedInButton
@@ -80,7 +81,7 @@ fun VideoScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToH
     )
 }
 
-/** One generated video: the inline player, what it's made of, and Post in LinkedIn (VI-3). */
+/** One generated video: the inline player, what it's made of, Post in LinkedIn (VI-3), then Share and Save to Gallery. */
 @Composable
 fun VideoResult(video: GeneratedVideo, posting: Boolean, onPost: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -96,5 +97,6 @@ fun VideoResult(video: GeneratedVideo, posting: Boolean, onPost: () -> Unit) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         PostInLinkedInButton(onClick = onPost, busy = posting)
+        MediaActions(files = { listOf(video.file) })
     }
 }
