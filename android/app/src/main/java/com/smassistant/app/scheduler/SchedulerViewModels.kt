@@ -1,7 +1,10 @@
 package com.smassistant.app.scheduler
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.smassistant.app.data.ImageSize
+import com.smassistant.app.pipeline.Pipeline
+import com.smassistant.app.pipeline.StageId
 import java.io.File
 import java.time.DayOfWeek
 import java.time.Instant
@@ -9,17 +12,24 @@ import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 /** "Tue 27 Oct, 09:00" for the list and the editor's preview. */
 fun formatRunTime(epochMillis: Long, zone: ZoneId = ZoneId.systemDefault()): String =
     DateTimeFormatter.ofPattern("EEE d MMM, HH:mm", Locale.getDefault()).format(Instant.ofEpochMilli(epochMillis).atZone(zone))
 
 /** [message] is a one-off note for a toast, e.g. after Run now. */
-data class SchedulersUiState(val schedulers: List<AutoPostScheduler> = emptyList(), val message: String? = null)
+data class SchedulersUiState(
+    val schedulers: List<AutoPostScheduler> = emptyList(),
+    val message: String? = null,
+    /** The live stages of the runs going now, by scheduler id. */
+    val running: Map<String, Pipeline> = emptyMap(),
+)
 
 /**
  * Scheduled Posts list (SC-I5): every saved scheduler, its switch, Run now and Delete (SC-8, SC-10).
@@ -28,6 +38,8 @@ data class SchedulersUiState(val schedulers: List<AutoPostScheduler> = emptyList
 class SchedulersViewModel(
     private val store: SchedulerStore,
     private val now: () -> Long = System::currentTimeMillis,
+    /** The stages of each scheduler's run in progress, by scheduler id (docs/requirements/20, PS-7). */
+    running: Flow<Map<String, Pipeline>>? = null,
     engine: () -> SchedulerEngine,
 ) : ViewModel() {
     /** The scheduler whose waiting post is open in the review dialog. */
@@ -36,6 +48,18 @@ class SchedulersViewModel(
     private val engine by lazy(engine)
     private val _state = MutableStateFlow(SchedulersUiState(store.all()))
     val state: StateFlow<SchedulersUiState> = _state.asStateFlow()
+
+    init {
+        if (running != null) viewModelScope.launch {
+            var wasRunning = emptySet<String>()
+            running.collect { live ->
+                // A run that just ended has written its last run; read it so the card shows where it ended.
+                val ended = wasRunning - live.keys
+                wasRunning = live.keys
+                _state.update { it.copy(running = live, schedulers = if (ended.isNotEmpty()) store.all() else it.schedulers) }
+            }
+        }
+    }
 
     /** Re-reads the list, e.g. when the screen comes back after a background run. */
     fun refresh() = _state.update { it.copy(schedulers = store.all()) }
@@ -83,14 +107,15 @@ class SchedulersViewModel(
         store.update(id) { scheduler ->
             val title = scheduler.pending?.title.orEmpty()
             val template = scheduler.pending?.template
-            scheduler.copy(pending = null, lastRun = RunRecord(now(), ok = true, message = "Posted “$title”", postUrl = url, template = template))
+            val stages = scheduler.lastRun?.stages?.done(StageId.HOLD, "Posted to LinkedIn")
+            scheduler.copy(pending = null, lastRun = RunRecord(now(), ok = true, message = "Posted “$title”", postUrl = url, template = template, stages = stages))
         }
         refresh()
     }
 
     /** Throws away [id]'s waiting post, so its next run makes a new one. */
     fun discard(id: String) {
-        store.update(id) { it.copy(pending = null) }
+        store.update(id) { s -> s.copy(pending = null, lastRun = s.lastRun?.let { run -> run.copy(stages = run.stages?.fail(StageId.HOLD, "Discarded")) }) }
         _state.update { it.copy(schedulers = store.all(), message = "Post discarded") }
     }
 }
