@@ -322,7 +322,7 @@ class GenerateVideoTest {
                 SlideDeckWriter("Plan {{slides}} slides of {{seconds}} s.{{examples}}"),
                 pipeline,
                 content,
-                Templates(videoTemplates, TemplateChooser("Pick a {{media}} template.\n{{templates}}", videoTemplates, media = "video")),
+                Templates(videoTemplates, TemplateChooser("Pick a video template.\n{{templates}}", videoTemplates)),
             ),
         )
 
