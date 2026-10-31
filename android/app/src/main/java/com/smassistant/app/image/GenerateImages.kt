@@ -23,7 +23,6 @@ import com.smassistant.app.image.render.InfographicRenderer
 import com.smassistant.app.image.render.PaintTextMeasurer
 import com.smassistant.app.image.render.PosterFit
 import com.smassistant.app.image.render.imageProblem
-import com.smassistant.app.image.render.numbered
 import com.smassistant.app.image.render.reviewJpeg
 import com.smassistant.app.media.AndroidSizeGuard
 import com.smassistant.app.media.MediaCache
@@ -55,8 +54,6 @@ class Infographics(
     val reviewer: ImageReviewer? = null,
     val retries: Int = 1,
     val templates: Templates? = null,
-    /** Writes the carousel pages when the Layout setting is Carousel (docs/requirements/18, SV-5); null never makes one. */
-    val carousel: CarouselWriter? = null,
 )
 
 /**
@@ -189,11 +186,8 @@ class GenerateImagesUseCase(
                     if (painted != null) {
                         Outcome.Ok(listOf(labelImage(painted, paintBrief!!.template.id, paintBrief.format, painted = true)))
                     } else {
-                        // A painted image that couldn't be made is drawn instead. Only the Carousel layout splits
-                        // (docs/requirements/18, SV-5); Auto condenses content too long for one poster.
-                        if (layout == ImageLayout.CAROUSEL) {
-                            carousel(parts, writer, topic, content, illustrator, brief)?.let { return@async Outcome.Ok(it) }
-                        }
+                        // A painted image that couldn't be made is drawn instead. Auto condenses content too
+                        // dense for one poster (AC-4); images are never a carousel (AC-5).
                         infographic(parts, writer, topic, idea, content, illustrator, brief, condense = layout == ImageLayout.AUTO)
                     }
                 }
@@ -201,32 +195,6 @@ class GenerateImagesUseCase(
         }
         val files = outcomes.filterIsInstance<Outcome.Ok<List<File>>>().flatMap { it.value }
         return if (files.isNotEmpty()) Outcome.Ok(files) else outcomes.first() as Outcome.Failed
-    }
-
-    /**
-     * The content as a carousel, made only when the Layout setting is Carousel (docs/requirements/18,
-     * SV-5): the carousel writer plans the pages, then each is drawn and labelled in order. The
-     * pages, or null when no carousel writer is set up or fewer than 2 could be made, so a single
-     * image is drawn instead.
-     */
-    private suspend fun carousel(
-        parts: Infographics,
-        writer: TextAgent,
-        topic: String,
-        content: String,
-        illustrator: ImageAgent?,
-        brief: ImageBrief?,
-    ): List<File>? {
-        val carousels = parts.carousel ?: return null
-        return when (val result = carousels.write(writer, topic, content, brief, parts.pipeline::fits)) {
-            is ApiResult.Failed -> null
-            is ApiResult.Ok -> {
-                val id = System.currentTimeMillis()
-                parts.pipeline.drawPages(result.value.numbered(), illustrator)
-                    .takeIf { it.size >= 2 }
-                    ?.mapIndexed { i, file -> labelCarouselPage(file, id, i + 1) }
-            }
-        }
     }
 
     /**
@@ -398,7 +366,6 @@ internal fun appInfographics(context: Context, cache: MediaCache, examples: List
         reviewer = if (checks.visionReview) ImageReviewer(loadPromptAsset(context, "image/image_review"), ::reviewJpeg, checks.minScore) else null,
         retries = if (checks.visionReview) checks.retries else 0,
         templates = appTemplates(context),
-        carousel = CarouselWriter(loadPromptAsset(context, "image/carousel"), examples),
     )
 }
 

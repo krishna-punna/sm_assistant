@@ -145,32 +145,32 @@ fun ImageStrip(
 }
 
 /**
- * A carousel's pages (docs/design/single-image-carousel.md, SC-I5): one square page at a time,
- * swiped in order, with "Page 2 of 7" above. Tap opens the full preview at that page. The pages are
- * posted together, so there is nothing to select.
+ * A poster series (AC-7): one poster at a time at its own [ratio] (width / height), swiped in
+ * order, with "Series · part 2 of 3" above. Tap opens the full preview at that part. The posters
+ * are posted together, so there is nothing to select.
  */
 @Composable
-fun CarouselPager(pages: List<File>, onOpen: (Int) -> Unit, sizes: List<String?> = emptyList()) {
+fun SeriesPager(pages: List<File>, onOpen: (Int) -> Unit, sizes: List<String?> = emptyList(), ratio: Float = 1f) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         val pager = rememberPagerState { pages.size }
         Text(
-            listOfNotNull("Carousel · page ${pager.currentPage + 1} of ${pages.size}", sizes.getOrNull(pager.currentPage)).joinToString(" · "),
+            listOfNotNull("Series · part ${pager.currentPage + 1} of ${pages.size}", sizes.getOrNull(pager.currentPage)).joinToString(" · "),
             style = MaterialTheme.typography.labelMedium,
-            modifier = Modifier.testTag("carouselCount"),
+            modifier = Modifier.testTag("seriesCount"),
         )
         HorizontalPager(
             pager,
             pageSpacing = 8.dp,
-            modifier = Modifier.fillMaxWidth().testTag("carouselPager"),
+            modifier = Modifier.fillMaxWidth().testTag("seriesPager"),
         ) { page ->
             Box(
                 Modifier
                     .fillMaxWidth()
-                    .aspectRatio(1f)
+                    .aspectRatio(ratio)
                     .clip(RoundedCornerShape(8.dp))
                     .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
                     .clickable(onClickLabel = "Open preview") { onOpen(page) }
-                    .semantics { contentDescription = "Page ${page + 1} of ${pages.size}" },
+                    .semantics { contentDescription = "Part ${page + 1} of ${pages.size}" },
             ) {
                 GeneratedImage(pages[page], Modifier.fillMaxSize(), maxSidePx = 1080, contentScale = ContentScale.Fit)
             }
@@ -187,7 +187,7 @@ fun ImagePreview(
     images: List<File>,
     startIndex: Int,
     onDismiss: () -> Unit,
-    /** What each image is called in the title: "Image", or "Page" for a carousel. */
+    /** What each image is called in the title: "Image", or "Part" for a poster series. */
     noun: String = "Image",
     actions: @Composable (currentIndex: Int) -> Unit,
 ) {

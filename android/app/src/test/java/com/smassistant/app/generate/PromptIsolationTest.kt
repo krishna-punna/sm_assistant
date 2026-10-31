@@ -20,7 +20,7 @@ class PromptIsolationTest {
     fun `each pipeline has its own prompt files`() {
         assertEquals(
             listOf(
-                "carousel.md", "choose_image_template.md", "condense_image_prompt.md", "illustration.md", "image.md",
+                "choose_image_template.md", "condense_image_prompt.md", "illustration.md", "image.md",
                 "image_content.md", "image_examples.md", "image_review.md", "image_templates.md", "infographic.md",
             ),
             names("image"),

@@ -33,7 +33,7 @@ data class InfographicSpec(
      * where the whole layout puts it, and the footer only once all are shown. Null draws everything.
      */
     val revealed: Int? = null,
-    /** A carousel page's label, drawn small in the header's corner: "3 / 7", or "Swipe →" on the cover. */
+    /** A series poster's label, drawn small in the header's corner: "2 / 3" (AC-7). */
     val page: String? = null,
     /**
      * Cards the model wrote beyond [Limits.SECTIONS] that were left out (AC-2). Never silent: the
@@ -93,32 +93,6 @@ sealed interface SectionBody {
         data class Node(val id: String, val label: String, val group: String? = null)
         data class Edge(val from: String, val to: String, val label: String? = null)
     }
-}
-
-/**
- * A carousel (docs/design/single-image-carousel.md): square pages that share one palette, drawn in
- * order and posted together. The first page is the cover and the last the summary; the content
- * pages between them hold one or two sections each. [takeaway] is the carousel's one message.
- */
-data class Carousel(val pages: List<InfographicSpec>, val takeaway: String? = null)
-
-/** The pages labelled for reading in order: "Swipe →" on the cover, then "2 / 7" and so on. */
-fun Carousel.numbered(): Carousel = copy(
-    pages = pages.mapIndexed { i, page -> page.copy(page = if (i == 0 && pages.size > 1) "Swipe →" else "${i + 1} / ${pages.size}") },
-)
-
-/** Fewest and most pages a carousel has: a cover, content pages and a summary. */
-const val MIN_CAROUSEL_PAGES = 4
-const val MAX_CAROUSEL_PAGES = 10
-
-/** Reads a carousel written by `prompts/image/carousel.md`: every page square, in the carousel's palette, at most [MAX_CAROUSEL_PAGES]. */
-fun parseCarousel(reply: String): Result<Carousel> = jsonObjectIn(reply).mapCatching { root ->
-    val palette = Palette.of(root.string("palette"))
-    val pages = root.array("pages").filterIsInstance<JsonObject>()
-        .mapNotNull { page -> runCatching { spec(page, InfographicFormat.SQUARE, palette) }.getOrNull() }
-        .take(MAX_CAROUSEL_PAGES)
-    require(pages.isNotEmpty()) { "no pages in the reply" }
-    Carousel(pages, root.string("takeaway")?.ifEmpty { null })
 }
 
 /** Upper limits that keep a definition drawable, whatever the model wrote. */
