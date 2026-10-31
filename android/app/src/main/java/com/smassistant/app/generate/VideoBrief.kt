@@ -2,6 +2,7 @@ package com.smassistant.app.generate
 
 import com.smassistant.app.data.ImageStyle
 import com.smassistant.app.infographic.InfographicFormat
+import java.io.File
 
 /**
  * The sizes a video is made in: the standard video sizes, never the image ones (Krishna,
@@ -47,3 +48,23 @@ data class VideoBrief(
     fun filled(): String =
         template.fill(content, format.words, style.audience, style.styleGuide, style.brandName, duration = "$seconds seconds")
 }
+
+/** The template and size a video was made with, kept in its file name like an image's ([labelVideo]). */
+data class VideoLabel(val templateId: String, val format: VideoFormat)
+
+private val VIDEO_LABELLED = Regex("""^vtpl-([a-z]+)-([a-z]+)-""")
+
+/** Where a video made from [templateId] at [format] is written: [file] with both in its name. */
+fun labelVideo(file: File, templateId: String, format: VideoFormat): File =
+    File(file.parentFile, "vtpl-$templateId-${format.key}-${file.name}")
+
+/** The template and size in a file name written by [labelVideo]; null for other files. */
+fun videoLabel(file: File): VideoLabel? {
+    val match = VIDEO_LABELLED.find(file.name) ?: return null
+    val format = VideoFormat.of(match.groupValues[2]) ?: return null
+    return VideoLabel(match.groupValues[1], format)
+}
+
+/** "Workflow or Lifecycle · 9:16": the template's name from [templates] and the size's ratio. */
+fun VideoLabel.text(templates: List<ImageTemplate>): String =
+    "${templates.firstOrNull { it.id == templateId }?.name ?: templateId.replaceFirstChar { it.uppercase() }} · ${format.ratio}"

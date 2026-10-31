@@ -1,7 +1,7 @@
 # 11. Video prompt templates
 
 Requirements: [16](../requirements/16-video-prompt-templates.md). Design: [video-templates.md](../design/video-templates.md).
-Status: in progress since 2026-10-30. One PR per implementation task, in order.
+Status: implemented 2026-10-30 (PRs #105–#112); device checks VT-V1 and VT-V2 left. One PR per implementation task, in order.
 Replaces IT-I12 in [10-image-templates.md](10-image-templates.md).
 
 ## Implementation
@@ -15,7 +15,7 @@ Replaces IT-I12 in [10-image-templates.md](10-image-templates.md).
 | VT-I5 | Step-by-step reveal: a `reveal` scene is drawn once per section, adding one each time, sharing the scene's time. | VT-I3 | done |
 | VT-I6 | Short fades between scenes from blended frames. | VT-I3 | done |
 | VT-I7 | Template checks over the storyboard (`templateProblems` across scenes), scene times add up, and the vision review of each scene with the template's rules (one re-plan). | VT-I2 | done |
-| VT-I8 | The template and shape in the video's file name; the Video screen shows "Workflow · 9:16"; scheduled runs record it ("Video · Workflow"). | VT-I2, IT-I13 | todo |
+| VT-I8 | The template and shape in the video's file name; the Video screen shows "Workflow · 9:16"; scheduled runs record it ("Video · Workflow"). | VT-I2, IT-I13 | done |
 
 ## Tests
 
