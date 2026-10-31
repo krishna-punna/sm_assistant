@@ -20,7 +20,7 @@ fun sizeText(width: Int, height: Int): String {
 }
 
 /** The width and height of the image in [file], read without decoding its pixels; null when it isn't an image. */
-fun imagePixels(file: File): Pair<Int, Int>? = runCatching {
+fun imagePixels(file: File): Pair<Int, Int>? = if (!file.isFile) null else runCatching {
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     BitmapFactory.decodeFile(file.path, bounds)
     (bounds.outWidth to bounds.outHeight).takeIf { (w, h) -> w > 0 && h > 0 }
