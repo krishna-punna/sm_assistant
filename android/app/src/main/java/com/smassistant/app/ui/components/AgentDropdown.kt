@@ -28,6 +28,7 @@ import com.smassistant.app.agents.isUsableImageAgent
 import com.smassistant.app.data.AiModel
 import com.smassistant.app.data.ApiService
 import com.smassistant.app.data.ApiSettingsStore
+import com.smassistant.app.data.ConnectionStatus
 import com.smassistant.app.data.ImageFormat
 import com.smassistant.app.data.MediaPurpose
 import com.smassistant.app.data.forMedia
@@ -59,7 +60,35 @@ fun TextAgentDropdown(label: String = "Agent", showModel: Boolean = false) {
         preferences.defaultTextAgent = it
         selected = it
     }
+    AgentStatusHint(selected, remember(selected) { store.lastStatus(selected) })
     if (showModel) TextModelDropdown(store, selected)
+}
+
+/**
+ * What the last API Status check (or settings Test) found wrong with [service] (GEN-6, Q-23): a
+ * warning only, since the check may be old; null when it passed or there's no result.
+ */
+fun agentStatusWarning(service: ApiService, status: ConnectionStatus?): String? {
+    val name = service.displayName
+    return when (status) {
+        null, ConnectionStatus.Checking, ConnectionStatus.Connected, ConnectionStatus.NotConfigured -> null
+        ConnectionStatus.InvalidKey -> "$name rejected its key in the last check. Fix it in AI Agent settings, or generating will fail."
+        ConnectionStatus.NoPermission -> "$name's key lacked permission in the last check, so generating may fail."
+        is ConnectionStatus.Unreachable -> "$name couldn't be reached in the last check (${status.reason})."
+        is ConnectionStatus.Error -> "$name answered with an error (HTTP ${status.httpCode}) in the last check."
+    }
+}
+
+/** The [agentStatusWarning] under an agent picker, in the error colour; nothing when there's none. */
+@Composable
+fun AgentStatusHint(service: ApiService, status: ConnectionStatus?) {
+    val warning = agentStatusWarning(service, status) ?: return
+    Text(
+        "⚠ $warning",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.error,
+        modifier = Modifier.testTag("agentWarning-${service.name}"),
+    )
 }
 
 /** "Text model: … ▾": the models last listed on the agent's settings screen; hidden until there are some. */
@@ -105,6 +134,11 @@ fun MediaAgentDropdown(purpose: MediaPurpose = MediaPurpose.IMAGE) {
             selected = it
         }
     }
+    // The text agent's picker already warns about it; only a different media agent needs its own warning.
+    val textAgent = remember {
+        TEXT_AGENTS.filter { store.load(it).isUsableAgent() }.let { text -> preferences.defaultTextAgent?.takeIf { it in text } ?: text.firstOrNull() }
+    }
+    if (selected != textAgent) AgentStatusHint(selected, remember(selected) { store.lastStatus(selected) })
     MediaModelDropdown(store, selected, purpose, name)
 }
 
