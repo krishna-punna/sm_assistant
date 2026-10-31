@@ -1,6 +1,6 @@
 # Pipeline status
 
-Status: **planned**, implementation in progress (tasks [16](../tasks/16-pipeline-status.md)).
+Status: **implemented** in PRs #136–#141, phone checks left (tasks [16](../tasks/16-pipeline-status.md)).
 Requirements: [20](../requirements/20-pipeline-status.md).
 
 ## What the user sees

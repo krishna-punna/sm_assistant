@@ -90,6 +90,17 @@ data class Pipeline(val stages: List<Stage>) {
         return targets.fold(this) { p, id -> p.fail(id, note) }
     }
 
+    /**
+     * A run stopped with [note] (a scheduled run, docs/requirements/20 PS-7): its running stages fail, or
+     * the first waiting one when none is running and none failed yet.
+     */
+    fun failCurrent(note: String): Pipeline {
+        val running = running.map { it.id }
+        if (running.isNotEmpty()) return running.fold(this) { p, id -> p.fail(id, note) }
+        if (failed != null) return this
+        return stages.firstOrNull { it.status == StageStatus.WAITING }?.let { fail(it.id, note) } ?: this
+    }
+
     /** Running stages from an earlier process can't still be running: they fail with [note]. */
     fun stopped(note: String = STOPPED) = Pipeline(stages.map { if (it.status == StageStatus.RUNNING) it.copy(status = StageStatus.FAILED, note = note) else it })
 

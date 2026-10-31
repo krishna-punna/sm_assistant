@@ -7,6 +7,9 @@ import com.smassistant.app.chat.Outcome
 import com.smassistant.app.data.AppConfig
 import com.smassistant.app.hashtags.HashtagSettingsStore
 import com.smassistant.app.net.ApiResult
+import com.smassistant.app.pipeline.StageId
+import com.smassistant.app.pipeline.StageStatus
+import com.smassistant.app.pipeline.reportStage
 import com.smassistant.app.prompt.loadPromptAsset
 
 /**
@@ -22,12 +25,15 @@ class GenerateTextUseCase(
 ) {
     suspend operator fun invoke(prompt: String): Outcome<String> {
         val selected = agent() ?: return Outcome.NoAgent
+        reportStage(StageId.WRITE_POST, StageStatus.RUNNING)
         val system = lengthGuard?.let { systemPrompt.trimEnd() + "\n\n" + it.instructions() } ?: systemPrompt
         val text = when (val result = selected.generate(system, prompt)) {
             is ApiResult.Ok -> result.value
             is ApiResult.Failed -> return Outcome.Failed(result.error, selected.service.displayName)
         }
-        return Outcome.Ok(lengthGuard?.let { fit(selected, system, text, it) } ?: text)
+        val post = lengthGuard?.let { fit(selected, system, text, it) } ?: text
+        reportStage(StageId.WRITE_POST, StageStatus.DONE)
+        return Outcome.Ok(post)
     }
 
     /**
