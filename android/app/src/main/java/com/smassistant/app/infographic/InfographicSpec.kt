@@ -34,6 +34,8 @@ data class InfographicSpec(
      * where the whole layout puts it, and the footer only once all are shown. Null draws everything.
      */
     val revealed: Int? = null,
+    /** A carousel page's label, drawn small in the header's corner: "3 / 7", or "Swipe →" on the cover. */
+    val page: String? = null,
 )
 
 /** The reveal steps of [this]: one spec per section, each showing one more; just itself with fewer than 2 sections. */
@@ -116,6 +118,11 @@ data class SlideDeck(
  * pages between them hold one or two sections each. [takeaway] is the carousel's one message.
  */
 data class Carousel(val pages: List<InfographicSpec>, val takeaway: String? = null)
+
+/** The pages labelled for reading in order: "Swipe →" on the cover, then "2 / 7" and so on. */
+fun Carousel.numbered(): Carousel = copy(
+    pages = pages.mapIndexed { i, page -> page.copy(page = if (i == 0 && pages.size > 1) "Swipe →" else "${i + 1} / ${pages.size}") },
+)
 
 /** Fewest and most pages a carousel has: a cover, content pages and a summary. */
 const val MIN_CAROUSEL_PAGES = 4

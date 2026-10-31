@@ -3,9 +3,11 @@ package com.smassistant.app.generate
 import com.smassistant.app.data.ImageFormat
 import com.smassistant.app.data.ImageStyle
 import com.smassistant.app.infographic.InfographicFormat
+import com.smassistant.app.infographic.InfographicRenderer
 import com.smassistant.app.infographic.MAX_CAROUSEL_PAGES
 import com.smassistant.app.infographic.Palette
 import com.smassistant.app.infographic.carouselProblems
+import com.smassistant.app.infographic.numbered
 import com.smassistant.app.infographic.parseCarousel
 import com.smassistant.app.net.ApiResult
 import java.io.File
@@ -69,6 +71,22 @@ class CarouselTest {
         assertTrue(agent.calls[0].first.startsWith("Pages: 10."))
         assertTrue(agent.calls[0].second.contains("Image template: Workflow."))
         assertTrue(agent.calls[1].second.contains("write a cover, at least 2 content pages and a summary"))
+    }
+
+    @Test
+    fun `pages are numbered, the cover says swipe, and the label is drawn`() {
+        val numbered = parseCarousel(carousel()).getOrThrow().numbered()
+        assertEquals(listOf("Swipe →", "2 / 5", "3 / 5", "4 / 5", "5 / 5"), numbered.pages.map { it.page })
+        assertTrue(">2 / 5<" in InfographicRenderer().render(numbered.pages[1]).svg)
+    }
+
+    @Test
+    fun `carousel files keep their order and are told apart from separate images`() {
+        val pages = (1..3).map { File("carousel-42-p${it.toString().padStart(2, '0')}-page.png") }
+        assertEquals(CarouselPage(42, 3), carouselPage(pages[2]))
+        assertTrue(isCarousel(pages))
+        assertFalse(isCarousel(pages.take(1)))
+        assertFalse(isCarousel(listOf(pages[0], File("tpl-concept-portrait-a.png"))))
     }
 
     @Test
