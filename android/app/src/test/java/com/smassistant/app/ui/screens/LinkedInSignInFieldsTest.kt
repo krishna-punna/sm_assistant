@@ -3,6 +3,7 @@ package com.smassistant.app.ui.screens
 import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.smassistant.app.linkedin.LinkedInSession
@@ -58,5 +59,11 @@ class LinkedInSignInFieldsTest {
     fun finishingDisablesTheButton() {
         show(LinkedInAuthUiState(finishing = true))
         compose.onNodeWithText("Signing in…").assertIsNotEnabled()
+    }
+
+    @Test
+    fun explainsGoogleLoginAccounts() {
+        show(LinkedInAuthUiState())
+        compose.onNodeWithTag("googleAccountHint").assertExists()
     }
 }

@@ -12,7 +12,7 @@ Status: in progress. One PR per task, in order.
 | 8 | Saved drafts: Save draft in the Post to LinkedIn dialog, which every result's Post button opens (the final text, hashtags included, and the selected media, copied to `filesDir/drafts/`); Drafts on Home lists them to Edit & post (same dialog; posting removes the draft, Save draft updates it) or Delete (`DraftStore`, `DraftsScreen`). | done |
 | 9 | Agent-not-connected warning (GEN-6, Q-23, answered as "warn, don't block"): API Status remembers each result (`ApiSettingsStore.lastStatus`, cleared when the settings are saved again), and the text and media agent pickers show a warning when the picked agent's last check failed (`AgentStatusHint`). | done |
 | 10 | Test button on settings screens (AS-7, Q-22): Test under SAVE on the LinkedIn token form and every AI agent screen runs the API Status check (saving unsaved changes first) and shows the result inline; the result also feeds the #9 warnings. | done |
-| 11 | Sign-in note for Google-login LinkedIn accounts: the WebView can't do "Continue with Google", so the dialog says so and points to the paste-token route. | todo |
+| 11 | Sign-in note for Google-login LinkedIn accounts: the WebView can't do "Continue with Google". The settings screen and the sign-in browser say so (the note turns red once the page goes to accounts.google.com), suggest setting a LinkedIn password, and "Paste a token instead" closes the browser and scrolls to the token form. Custom Tabs + an App Link redirect stays a later option. | done |
 | 12 | Character count and preview while editing: live count against LinkedIn's 3,000 limit with the hashtags that will be appended, in the confirm dialog. | todo |
 
 ## Tests
@@ -23,6 +23,7 @@ Status: in progress. One PR per task, in order.
 | 8 | unit | Media copied out of the cache, updates, titles, delete removes media, JSON (`DraftStoreTest`); save, reopen, re-save and post a draft (`PostToLinkedInTest`); the list, Edit & post and Delete (`DraftsScreenTest`); Home opens it (`NavigationTest`). | done |
 | 9 | unit | Last status stored, cleared on save, every status round-trips (`ApiSettingsStoreTest`); warning text and when it shows (`AgentStatusHintTest`). | done |
 | 10 | unit | Test saves typed values, checks, remembers and clears the result; stops at field errors (`ApiSettingsViewModelTest`); the result line and button (`ApiSettingsFieldsTest`). | done |
+| 11 | unit | Google sign-in pages recognised; the note and its button; the hint on the settings screen (`GoogleSignInNoteTest`, `LinkedInSignInFieldsTest`). | done |
 | 6 | unit | Gallery names, folders and MIME types; share sends content links with a read grant (`MediaExportTest`); Share opens the system sheet, buttons off with nothing selected (`MediaActionsTest`). | done |
 
 ## Validation
@@ -33,4 +34,5 @@ Status: in progress. One PR per task, in order.
 | 8-V | On a device: save an image post as a draft, close the app, reopen Drafts a day later, edit and post it. | todo |
 | 9-V | On a device: break an agent's key, run API Status, open a generator and see the warning; fix the key and see it go. | todo |
 | 10-V | On a device: type a wrong key, tap Test, see Invalid key; fix it, tap Test, see Connected. | todo |
+| 11-V | On a device: tap Continue with Google in the sign-in browser, see the red note, tap Paste a token instead and land on the token form. | todo |
 | 6-V | On a device: share an image to a messaging app, save an image and a video, and find them in the Photos app under "SM Assistant" (and on Android 8–9 after granting storage). | todo |
