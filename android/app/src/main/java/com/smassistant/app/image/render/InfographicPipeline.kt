@@ -41,6 +41,9 @@ class InfographicPipeline(
     /** Whether [spec] fits its format at full text size ([InfographicRenderer.fits]). */
     fun fits(spec: InfographicSpec): Boolean = renderer.fits(spec)
 
+    /** How [spec] fits one readable poster, with the numbers for the writer (AC-1). */
+    fun measure(spec: InfographicSpec): PosterFit = renderer.measure(spec)
+
     suspend fun draw(spec: InfographicSpec, illustrator: ImageAgent?, maxIllustrations: Int = this.maxIllustrations): File? =
         drawSteps(spec, listOf(spec), illustrator, maxIllustrations).singleOrNull()
 
