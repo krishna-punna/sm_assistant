@@ -145,7 +145,8 @@ class ApiSettingsViewModel(
         val current = _state.value
         val changed = current.api.trim() != saved.api || current.key.trim() != saved.key ||
             (current.showAccountId && current.accountId.trim() != saved.accountId)
-        if (changed && !onSave()) return
+        // Nothing saved yet counts as a change, so an empty key shows its field error instead of testing.
+        if ((changed || saved.key.isEmpty()) && !onSave()) return
         _state.update { it.copy(testStatus = ConnectionStatus.Checking) }
         viewModelScope.launch {
             val status = check(service, store.load(service))
