@@ -92,7 +92,7 @@ fun VideoResult(video: GeneratedVideo, posting: Boolean, onPost: () -> Unit) {
         // "Workflow or Lifecycle · 9:16 · 1080×1920" for a video made from a template (docs/design/video-templates.md):
         // the size is the one the MP4 was encoded at (docs/requirements/18, SV-10).
         val label = remember(video.file) {
-            videoLabel(video.file)?.name(runCatching { parseImageTemplates(loadPromptAsset(appContext, "video_templates")) }.getOrDefault(emptyList()))
+            videoLabel(video.file)?.name(runCatching { parseImageTemplates(loadPromptAsset(appContext, "video/video_templates")) }.getOrDefault(emptyList()))
         }
         Text(
             listOfNotNull(label, sizeText(video.format.width, video.format.height), "${video.slides.size} slides, ${videoLengthLabel(video.seconds)}")

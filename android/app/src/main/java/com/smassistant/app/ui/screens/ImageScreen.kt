@@ -119,7 +119,7 @@ fun ImageResult(
     // "Workflow · 2:3 · 2160×3240" under each image made from a template (docs/design/image-templates.md),
     // just the size under any other.
     val labels = remember(images) {
-        val templates = runCatching { parseImageTemplates(loadPromptAsset(appContext, "image_templates")) }.getOrDefault(emptyList())
+        val templates = runCatching { parseImageTemplates(loadPromptAsset(appContext, "image/image_templates")) }.getOrDefault(emptyList())
         images.zip(pixels) { file, size ->
             val words = size?.let { (w, h) -> sizeText(w, h) }
             imageLabel(file)?.text(templates, words) ?: words

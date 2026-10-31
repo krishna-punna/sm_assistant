@@ -195,7 +195,7 @@ fun PromptTypeDropdown() {
 fun ImageTemplatePickers() {
     val appContext = LocalContext.current.applicationContext
     val preferences = remember { AgentPreferences(appContext) }
-    val templates = remember { parseImageTemplates(loadPromptAsset(appContext, "image_templates")) }
+    val templates = remember { parseImageTemplates(loadPromptAsset(appContext, "image/image_templates")) }
     var template by remember { mutableStateOf(preferences.imageTemplate?.takeIf { id -> templates.any { it.id == id } }) }
     var format by remember { mutableStateOf(preferences.imageFormat) }
     TemplateFormatPickers(

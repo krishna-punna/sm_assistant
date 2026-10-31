@@ -511,7 +511,7 @@ private fun twoDigits(n: Int) = n.toString().padStart(2, '0')
 @Composable
 private fun rememberImageTemplates(): List<ImageTemplate> {
     val appContext = LocalContext.current.applicationContext
-    return remember { runCatching { parseImageTemplates(loadPromptAsset(appContext, "image_templates")) }.getOrDefault(emptyList()) }
+    return remember { runCatching { parseImageTemplates(loadPromptAsset(appContext, "image/image_templates")) }.getOrDefault(emptyList()) }
 }
 
 /** The template's name, or its id capitalised when it isn't known. */
