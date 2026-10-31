@@ -61,8 +61,8 @@ object Typography {
         return word.substring(0, first) + word[first].uppercaseChar() + word.substring(first + 1)
     }
 
-    private val INVISIBLE = Regex("[​‌‍⁠﻿­]")
-    private val ODD_SPACE = Regex("[\\t\\r   -   　]+")
+    private val INVISIBLE = Regex("[\u200B\u200C\u200D\u2060\uFEFF\u00AD]")
+    private val ODD_SPACE = Regex("[\\t\\r\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]+")
     private const val SHOUT_LENGTH = 5
     private val SMALL_WORDS = setOf("a", "an", "the", "and", "or", "nor", "but", "of", "in", "on", "to", "for", "at", "by", "vs", "via", "with", "as", "per")
 
