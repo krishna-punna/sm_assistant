@@ -26,6 +26,7 @@ This knowledge base is derived from the wireframe deck [`requirements/SM Assista
 | 14 | [Prompt types and the image/video content workflow](14-prompt-types-and-media-workflow.md) | Prompt Type on Prepare Prompt; images and videos drawn from no-limit technical content | — (request 2026-10-27) |
 | 15 | [Image prompt templates](15-image-prompt-templates.md) | Krishna's LinkedIn technical image templates; the AI picks one per content and fills it (implemented: [design](../design/image-templates.md)) | — (request 2026-10-30) |
 | 16 | [Video prompt templates](16-video-prompt-templates.md) | Krishna's LinkedIn technical video templates; the agent picks one from the prompt and its technical content and plans the storyboard by it (plan: [design](../design/video-templates.md)) | — (request 2026-10-30) |
+| 17 | [One image or a carousel](17-single-image-or-carousel.md) | One result per image request; the app splits long content into a swipeable carousel, trying landscape first (plan: [design](../design/single-image-carousel.md)) | — (request 2026-10-31) |
 
 ## Slide index
 
