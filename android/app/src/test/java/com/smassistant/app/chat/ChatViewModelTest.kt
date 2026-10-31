@@ -96,6 +96,21 @@ class ChatViewModelTest {
     }
 
     @Test
+    fun `regenerate runs a result's input again in its place`() = runTest(dispatcher) {
+        var calls = 0
+        val vm = ChatViewModel<String> { input -> calls++; Outcome.Ok("$input #$calls") }
+        vm.onInputChange("topic")
+        vm.submit()
+        advanceUntilIdle()
+
+        vm.retry(vm.state.value.items[1])
+        advanceUntilIdle()
+
+        assertEquals(listOf("Input", "Result"), kinds(vm))
+        assertEquals("topic #2", (vm.state.value.items[1] as ChatItem.Result<String>).value)
+    }
+
+    @Test
     fun `no agent shows the set-up item`() = runTest(dispatcher) {
         val vm = ChatViewModel<String> { Outcome.NoAgent }
         vm.onInputChange("topic")

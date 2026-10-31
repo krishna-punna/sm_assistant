@@ -78,6 +78,7 @@ fun ImageScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToH
             )
         },
         noAgentMessage = GenerateContentAndMediaUseCase.IMAGES_NOT_SET_UP,
+        onRegenerate = viewModel::retry,
     )
     PostDialogs(
         state = postState,
