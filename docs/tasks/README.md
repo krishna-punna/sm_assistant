@@ -35,6 +35,7 @@ Status values: **done** (implemented and matches the requirement), **partial** (
 | [11-video-templates.md](11-video-templates.md) | Video prompt templates: the agent picks a video template and plans the storyboard by it (planned) | VT-I1…8 |
 | [12-app-improvements.md](12-app-improvements.md) | App improvements from the 2026-10-29 review (P2: share/save media, post history, drafts, agent warnings, settings Test, sign-in note, character count) | #6…#12 |
 | [13-single-image-carousel.md](13-single-image-carousel.md) | One image per request, or a carousel when the content needs it | SC-1…4 |
+| [14-separate-image-video.md](14-separate-image-video.md) | Separate image and video pipelines; one poster like the samples | SV-1…12 |
 
 ## Phases
 
