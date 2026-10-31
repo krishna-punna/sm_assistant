@@ -77,6 +77,27 @@ private val NUMBER_IN_TEXT = Regex("""\d+(?:\.\d+)?""")
 /** [text] without spaces, lower case, so code compares however it was indented or spaced. */
 private fun squash(text: String) = text.lowercase().filterNot { it.isWhitespace() }
 
+/**
+ * The video template's checks over a whole storyboard (docs/tasks VT-I7): [templateProblems]
+ * across every slide's sections, since a video spreads the template over its scenes; no two
+ * scenes with the same purpose; and, when every scene asks for seconds, that they add up to
+ * about the video's [seconds].
+ */
+fun storyboardProblems(deck: SlideDeck, templateId: String?, content: String, seconds: Int? = null): List<String> = buildList {
+    val all = InfographicSpec(deck.slides.first().title, sections = deck.slides.flatMap { it.sections })
+    addAll(templateProblems(all, templateId, content).map { "across the slides, $it" })
+    deck.scenes.mapNotNull { it.purpose?.trim()?.lowercase()?.takeIf { purpose -> purpose.isNotEmpty() } }
+        .groupBy { it }.filterValues { it.size > 1 }.keys
+        .forEach { add("more than one slide has the purpose \"$it\"; give each slide its own idea") }
+    val asked = deck.scenes.mapNotNull { it.seconds }
+    if (seconds != null && asked.size == deck.scenes.size) {
+        val total = asked.sum()
+        if (total * 2 < seconds || total * 2 > seconds * 3) {
+            add("the slides' seconds add up to $total, but the video is $seconds seconds long; make them add up to about $seconds")
+        }
+    }
+}
+
 /** The checks on a video's deck: every slide has something on it, no two slides repeat, no placeholders. */
 fun slideDeckProblems(deck: SlideDeck): List<String> = buildList {
     deck.slides.forEachIndexed { i, slide ->

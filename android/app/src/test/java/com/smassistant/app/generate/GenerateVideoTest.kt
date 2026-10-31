@@ -1,6 +1,7 @@
 package com.smassistant.app.generate
 
 import com.smassistant.app.agents.ImageAgent
+import com.smassistant.app.agents.TextAgent
 import com.smassistant.app.chat.Outcome
 import com.smassistant.app.infographic.InfographicComposer
 import com.smassistant.app.infographic.InfographicFormat
@@ -106,6 +107,12 @@ class GenerateVideoTest {
     )
     private val deck = """{"palette": "teal", "slides": [
         {"title": "One", "hero": "slide 1 of 4: picture"}, {"title": "Two", "takeaway": "b"},
+        {"title": "Three", "takeaway": "c"}, {"title": "Four", "takeaway": "d"}]}"""
+
+    // A deck the Workflow template's storyboard checks pass: the steps are on a steps card.
+    private val workflowDeck = """{"palette": "teal", "slides": [
+        {"title": "One", "hero": "slide 1 of 4: picture"},
+        {"title": "Two", "sections": [{"heading": "Retry", "type": "steps", "items": ["Request arrives", "Fails", "Retry"]}]},
         {"title": "Three", "takeaway": "c"}, {"title": "Four", "takeaway": "d"}]}"""
 
     private fun deckUseCase(writer: ScriptedTextAgent?, agent: ImageAgent? = this.agent) = GenerateVideoUseCase(
@@ -223,6 +230,31 @@ class GenerateVideoTest {
     }
 
     @Test
+    fun `a slide the review scores too low has the deck planned again with its problems`() = runTest {
+        // First plan: slide 2 fails; second plan: every slide passes.
+        val scores = ArrayDeque(listOf(9, 4, 9, 9, 9, 9, 9, 9).map { if (it == 4) """{"score": 4, "problems": ["text too small"]}""" else """{"score": $it}""" })
+        val seeing = object : TextAgent by ScriptedTextAgent(ApiResult.Ok(deck)) {
+            val calls = mutableListOf<String>()
+            override suspend fun generate(system: String, user: String): ApiResult<String> {
+                calls += user
+                return ApiResult.Ok(deck)
+            }
+            override suspend fun see(system: String, user: String, jpeg: ByteArray) = ApiResult.Ok(synchronized(scores) { scores.removeFirst() })
+        }
+        val useCase = GenerateVideoUseCase(
+            "slide {{slide}} of {{slides}}: {{prompt}}", { agent }, maker, { File("out.mp4") }, seconds = { seconds },
+            decks = SlideDecks({ seeing }, SlideDeckWriter("Plan."), pipeline, reviewer = ImageReviewer("R.", { byteArrayOf(1) })),
+        )
+
+        assertTrue(useCase("Retries") is Outcome.Ok)
+
+        assertEquals(2, seeing.calls.size)
+        assertTrue(seeing.calls[1].contains("A review rejected slides drawn from your last plan"))
+        assertTrue(seeing.calls[1].contains(Regex("- slide \\d: text too small")))
+        assertEquals(0, scores.size)
+    }
+
+    @Test
     fun `deck slides that can't be drawn are left out, and too few fail`() = runTest {
         undrawable = setOf("Two")
         deckUseCase(ScriptedTextAgent(ApiResult.Ok(deck)))("x")
@@ -272,7 +304,7 @@ class GenerateVideoTest {
         val writer = ScriptedTextAgent(
             ApiResult.Ok("1. Request arrives\n2. Retry"),
             ApiResult.Ok("""{"primary": "workflow"}"""),
-            ApiResult.Ok(deck),
+            ApiResult.Ok(workflowDeck),
         )
 
         assertTrue(templateUseCase(writer)("Write a post on retries") is Outcome.Ok)

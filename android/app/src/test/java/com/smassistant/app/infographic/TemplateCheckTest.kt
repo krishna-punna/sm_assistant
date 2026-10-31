@@ -41,4 +41,37 @@ class TemplateCheckTest {
         val made = spec(SectionBody.Code("names.removeIf(String::isEmpty);"))
         assertTrue(templateProblems(made, "code", content).single().contains("isn't in the content"))
     }
+
+    @Test
+    fun `storyboard checks run the template across every slide`() {
+        val deck = SlideDeck(listOf(spec(bullets), spec(SectionBody.Steps(listOf("read", "write")))))
+        // The steps are on the second slide: across the slides the workflow has them.
+        assertEquals(emptyList<String>(), storyboardProblems(deck, "workflow", ""))
+        assertEquals(listOf("across the slides, the Workflow template needs a steps, flow or diagram card with the steps in order"),
+            storyboardProblems(SlideDeck(listOf(spec(bullets), spec(bullets))), "workflow", ""))
+    }
+
+    @Test
+    fun `storyboard data numbers must come from the content and invented ones are found`() {
+        val content = "p99 latency fell from 120 ms to 45 ms."
+        val invented = SlideDeck(listOf(spec(bullets), spec(SectionBody.Stats(listOf(SectionBody.Stats.Stat("60%", "faster"))))))
+        assertTrue(storyboardProblems(invented, "data", content).single().contains("\"60%\""))
+    }
+
+    @Test
+    fun `scenes need their own purpose and seconds near the length`() {
+        val slides = listOf(spec(bullets), spec(bullets), spec(bullets))
+        val repeated = SlideDeck(slides, scenes = listOf(Scene("Hook", 5), Scene("hook ", 5), Scene("Takeaway", 5)))
+        assertEquals(
+            listOf(
+                "more than one slide has the purpose \"hook\"; give each slide its own idea",
+                "the slides' seconds add up to 15, but the video is 60 seconds long; make them add up to about 60",
+            ),
+            storyboardProblems(repeated, null, "", seconds = 60),
+        )
+        val fine = SlideDeck(slides, scenes = listOf(Scene("Hook", 20), Scene("How", 25), Scene("Takeaway", 10)))
+        assertEquals(emptyList<String>(), storyboardProblems(fine, null, "", seconds = 60))
+        // Seconds are only checked when every scene gives them.
+        assertEquals(emptyList<String>(), storyboardProblems(SlideDeck(slides, scenes = listOf(Scene(seconds = 1), Scene(), Scene())), null, "", 60))
+    }
 }

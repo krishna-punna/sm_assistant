@@ -7,6 +7,7 @@ import com.smassistant.app.infographic.infographicProblems
 import com.smassistant.app.infographic.parseInfographic
 import com.smassistant.app.infographic.parseSlideDeck
 import com.smassistant.app.infographic.slideDeckProblems
+import com.smassistant.app.infographic.storyboardProblems
 import com.smassistant.app.infographic.templateProblems
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
@@ -76,7 +77,9 @@ private fun templateBlock(brief: ImageBrief?, content: String): String {
  * The video's "LLM generates content" step: one call plans every slide ([systemPrompt] is
  * `prompts/video_deck.md`, `{{slides}}` the slide count, `{{seconds}}` how long each slide
  * shows, `{{format}}` the video's size, `{{examples}}` the closest few-shot examples), so the slides tell one story in one palette. Asked once more if the reply isn't a usable deck
- * or fails [slideDeckProblems]. A [brief] adds the video template the storyboard follows.
+ * or fails [slideDeckProblems]. A [brief] adds the video template the storyboard follows, and its
+ * checks ([storyboardProblems]). [feedback] carries what a review found wrong with the slides
+ * drawn from the last plan.
  */
 class SlideDeckWriter(
     private val systemPrompt: String,
@@ -89,14 +92,17 @@ class SlideDeckWriter(
         secondsPerSlide: Int,
         content: String = "",
         brief: VideoBrief? = null,
+        feedback: List<String> = emptyList(),
     ): ApiResult<SlideDeck> {
         val system = systemPrompt
             .replace("{{slides}}", slides.toString())
             .replace("{{seconds}}", secondsPerSlide.toString())
             .replace("{{format}}", (brief?.format ?: DEFAULT_VIDEO_FORMAT).words)
             .replace("{{examples}}", formatImageExamples(pickImageExamples(examples, topic, template = brief?.template?.id)))
-        val user = "Topic: $topic${contentBlock(content)}${videoTemplateBlock(brief, content)}"
-        return askTwice(agent, system, user, ::parseSlideDeck, ::slideDeckProblems)
+        val user = "Topic: $topic${contentBlock(content)}${videoTemplateBlock(brief, content)}${deckFeedbackBlock(feedback)}"
+        return askTwice(agent, system, user, ::parseSlideDeck) { deck ->
+            slideDeckProblems(deck) + brief?.let { storyboardProblems(deck, it.template.id, content, it.seconds) }.orEmpty()
+        }
     }
 }
 
@@ -128,6 +134,12 @@ class MediaContentWriter(private val systemPrompt: String) {
 
 private fun contentBlock(content: String) =
     if (content.isBlank()) "" else "\n\nTechnical content to represent:\n${content.trim()}"
+
+private fun deckFeedbackBlock(feedback: List<String>) = if (feedback.isEmpty()) {
+    ""
+} else {
+    "\n\nA review rejected slides drawn from your last plan for this topic:\n${feedback.joinToString("\n") { "- $it" }}\nWrite a new plan that fixes these problems."
+}
 
 private fun feedbackBlock(feedback: List<String>) = if (feedback.isEmpty()) {
     ""
