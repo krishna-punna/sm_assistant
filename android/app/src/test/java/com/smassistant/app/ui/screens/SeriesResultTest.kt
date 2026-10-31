@@ -14,24 +14,24 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** SC-I5: a carousel shows one page at a time and Post in LinkedIn posts every page, in order. */
+/** AC-7: a poster series shows one poster at a time and Post in LinkedIn posts every part, in order. */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "w411dp-h891dp")
-class CarouselResultTest {
+class SeriesResultTest {
     @get:Rule val compose = createComposeRule()
 
-    private val pages = (1..3).map { File("carousel-7-p0$it-page.png") }
+    private val pages = (1..3).map { File("series-7-p0$it-poster.png") }
 
     @Test
-    fun swipesThroughThePagesAndPostsThemAll() {
+    fun swipesThroughThePostersAndPostsThemAll() {
         val posted = mutableListOf<List<File>>()
         compose.setContent { ImageResult(pages, posting = false, onPost = { posted += it }, onBackToHome = {}) }
 
-        compose.onNodeWithText("Carousel · page 1 of 3").assertExists()
+        compose.onNodeWithText("Series · part 1 of 3").assertExists()
         compose.onNodeWithTag("imageStrip").assertDoesNotExist()
-        compose.onNodeWithTag("carouselPager").performTouchInput { swipeLeft() }
+        compose.onNodeWithTag("seriesPager").performTouchInput { swipeLeft() }
         compose.waitForIdle()
-        compose.onNodeWithText("Carousel · page 2 of 3").assertExists()
+        compose.onNodeWithText("Series · part 2 of 3").assertExists()
 
         compose.onNodeWithText("Post in LinkedIn").performClick()
         assertEquals(listOf(pages), posted)
@@ -41,6 +41,6 @@ class CarouselResultTest {
     fun separateImagesKeepTheStrip() {
         compose.setContent { ImageResult(listOf(File("a.png")), posting = false, onPost = {}, onBackToHome = {}) }
         compose.onNodeWithTag("imageStrip").assertExists()
-        compose.onNodeWithTag("carouselPager").assertDoesNotExist()
+        compose.onNodeWithTag("seriesPager").assertDoesNotExist()
     }
 }

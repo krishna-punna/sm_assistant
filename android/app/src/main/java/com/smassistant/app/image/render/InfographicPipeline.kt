@@ -1,5 +1,6 @@
 package com.smassistant.app.image.render
 
+import android.util.Log
 import com.smassistant.app.agents.ImageAgent
 import com.smassistant.app.data.ImageSize
 import com.smassistant.app.media.nearestImageFormat
@@ -9,8 +10,12 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 
-/** At most this many AI illustrations per infographic, to keep image calls close to the old flow. */
-const val MAX_ILLUSTRATIONS = 2
+/**
+ * At most this many AI pictures are painted per poster (AC-8): a guard against runaway replies, not
+ * a design target. The AI decides how much clip art the content needs; a slot past the guard keeps
+ * its drawn placeholder icon, and the skip is logged.
+ */
+const val MAX_ILLUSTRATIONS = 12
 
 /**
  * Draws a [RenderedInfographic] into a high-resolution PNG, painting each illustration over its
@@ -41,16 +46,11 @@ class InfographicPipeline(
     /** Whether [spec] fits its format at full text size ([InfographicRenderer.fits]). */
     fun fits(spec: InfographicSpec): Boolean = renderer.fits(spec)
 
+    /** How [spec] fits one readable poster, with the numbers for the writer (AC-1). */
+    fun measure(spec: InfographicSpec): PosterFit = renderer.measure(spec)
+
     suspend fun draw(spec: InfographicSpec, illustrator: ImageAgent?, maxIllustrations: Int = this.maxIllustrations): File? =
         drawSteps(spec, listOf(spec), illustrator, maxIllustrations).singleOrNull()
-
-    /**
-     * Draws a carousel's pages in parallel, each with at most one illustration (two on the cover),
-     * keeping their order. Pages that can't be drawn are left out.
-     */
-    suspend fun drawPages(carousel: Carousel, illustrator: ImageAgent?): List<File> = coroutineScope {
-        carousel.pages.mapIndexed { i, page -> async { draw(page, illustrator, if (i == 0) maxIllustrations else 1) } }.awaitAll().filterNotNull()
-    }
 
     /**
      * Draws each of [steps], versions of [spec] that show less of it (a video's step-by-step reveal,
@@ -65,6 +65,9 @@ class InfographicPipeline(
     ): List<File> {
         val whole = renderer.render(spec)
         val slots = whole.slots.take(maxIllustrations)
+        if (illustrator != null && whole.slots.size > maxIllustrations) {
+            runCatching { Log.w("InfographicPipeline", "${whole.slots.size} pictures asked for, ${whole.slots.size - maxIllustrations} past the guard of $maxIllustrations keep their icons") }
+        }
         val painted = if (illustrator == null) {
             emptyList()
         } else {

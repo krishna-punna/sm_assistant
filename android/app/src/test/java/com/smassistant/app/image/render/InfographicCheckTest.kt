@@ -40,6 +40,13 @@ class InfographicCheckTest {
     }
 
     @Test
+    fun `cards over the cap are reported so the writer merges them instead of losing them`() {
+        val problems = infographicProblems(good.copy(droppedSections = 3), "Kafka retry strategies")
+        assertEquals(1, problems.size)
+        assertTrue(problems[0], problems[0].contains("${good.sections.size + 3} cards") && problems[0].contains("merge"))
+    }
+
+    @Test
     fun `illustrations that ask for text or diagrams are flagged, ones that forbid text are not`() {
         assertTrue(asksForText("a server rack with labels on each shelf"))
         assertTrue(asksForText("an architecture diagram of microservices"))
@@ -73,5 +80,14 @@ class InfographicCheckTest {
     fun `a mostly white illustration with a small subject still passes`() {
         val pixels = IntArray(10_000) { i -> if (i % 10 == 0) 0xFF2050A0.toInt() else 0xFFFDFDFD.toInt() }
         assertNull(imageProblem(imageFacts(1024, 1024, pixels), 256))
+    }
+
+    @Test
+    fun `card clip art that asks for text is flagged like any illustration (AC-8)`() {
+        val spec = InfographicSpec(
+            title = "Caching", hero = null,
+            sections = List(3) { Section("Card $it", SectionBody.Bullets(listOf("point")), art = if (it == 1) "a sign with the word CACHE" else "a stopwatch") },
+        )
+        assertTrue(infographicProblems(spec, "Caching").any { it.contains("a sign with the word CACHE") })
     }
 }
