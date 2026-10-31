@@ -22,6 +22,7 @@ import com.smassistant.app.linkedin.PostViewModel
 import com.smassistant.app.linkedin.appPostToLinkedIn
 import com.smassistant.app.media.sizeText
 import com.smassistant.app.navigation.Feature
+import com.smassistant.app.pipeline.Pipelines
 import com.smassistant.app.prompt.loadPromptAsset
 import com.smassistant.app.ui.components.MediaActions
 import com.smassistant.app.ui.components.MediaAgentDropdown
@@ -44,7 +45,7 @@ fun VideoScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToH
     val appContext = LocalContext.current.applicationContext
     val viewModel = viewModel {
         val useCase = appGenerateVideo(appContext)
-        sessionChatViewModel(appContext, Feature.VIDEO.name, createSavedStateHandle(), VideoSaver) { prompt -> useCase(prompt) }
+        sessionChatViewModel(appContext, Feature.VIDEO.name, createSavedStateHandle(), VideoSaver, pipeline = Pipelines.video) { prompt -> useCase(prompt) }
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val postViewModel = viewModel { PostViewModel(appPostToLinkedIn(appContext), appSmartTrim(appContext)) }

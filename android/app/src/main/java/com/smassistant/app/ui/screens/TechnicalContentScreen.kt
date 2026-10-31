@@ -17,6 +17,7 @@ import com.smassistant.app.linkedin.PostState
 import com.smassistant.app.linkedin.PostViewModel
 import com.smassistant.app.linkedin.appPostToLinkedIn
 import com.smassistant.app.navigation.Feature
+import com.smassistant.app.pipeline.Pipelines
 import com.smassistant.app.ui.components.MarkdownText
 import com.smassistant.app.ui.components.PostDialogs
 import com.smassistant.app.ui.components.PostInLinkedInButton
@@ -30,7 +31,7 @@ fun TechnicalContentScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit
     val appContext = LocalContext.current.applicationContext
     val viewModel = viewModel {
         val useCase = appGenerateTechnicalContent(appContext)
-        sessionChatViewModel(appContext, Feature.TECHNICAL_CONTENT.name, createSavedStateHandle(), TextSaver) { prompt -> useCase(prompt) }
+        sessionChatViewModel(appContext, Feature.TECHNICAL_CONTENT.name, createSavedStateHandle(), TextSaver, pipeline = Pipelines.text) { prompt -> useCase(prompt) }
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val postViewModel = viewModel { PostViewModel(appPostToLinkedIn(appContext), appSmartTrim(appContext)) }
