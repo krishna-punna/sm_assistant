@@ -148,12 +148,13 @@ class ChatViewModel<R>(
         run(input)
     }
 
-    /** Runs the generation for the input behind [item] again, in place of [item]. */
+    /** Runs the generation for the input behind [item] (a failure, or a result to regenerate) again, in place of [item]. */
     fun retry(item: ChatItem<R>) {
         if (_state.value.busy) return
         val forInput = when (item) {
             is ChatItem.Failure -> item.forInput
             is ChatItem.NoAgent -> item.forInput
+            is ChatItem.Result -> item.forInput
             else -> return
         }
         val input = _state.value.items.filterIsInstance<ChatItem.Input>().firstOrNull { it.id == forInput } ?: return

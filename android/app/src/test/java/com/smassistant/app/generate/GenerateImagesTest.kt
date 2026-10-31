@@ -1,5 +1,6 @@
 package com.smassistant.app.generate
 
+import com.smassistant.app.agents.IMAGES_PER_REQUEST
 import com.smassistant.app.agents.ImageAgent
 import com.smassistant.app.agents.TextAgent
 import com.smassistant.app.infographic.ImageFacts
@@ -306,6 +307,24 @@ class GenerateImagesTest {
             ),
             gemini.painted.toSet(),
         )
+    }
+
+    @Test
+    fun `one image per request, and in Both mode it is the drawn one`() = runTest {
+        assertEquals(1, IMAGES_PER_REQUEST)
+        val writer = ScriptedTextAgent(
+            ApiResult.Ok("1. Request flow"),
+            ApiResult.Ok("""{"primary": "workflow", "alternates": ["architecture"]}"""),
+            ApiResult.Ok(caching()),
+        )
+        val gemini = PaintingAgent()
+
+        val outcome = GenerateImagesUseCase("{{prompt}}", { gemini }, IMAGES_PER_REQUEST, infographics = templated(writer, painter = ImagePainter("Condense.")))
+            .generate(ImageRequest("Caching"))
+
+        assertEquals(1, (outcome as Outcome.Ok).value.size)
+        assertTrue(gemini.painted.none { it.first.startsWith("Rules for") })
+        assertTrue(writer.calls.drop(2).single().second.contains("Image template: Workflow, portrait 2:3."))
     }
 
     @Test

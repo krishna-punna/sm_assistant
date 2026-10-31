@@ -25,8 +25,11 @@ import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 import okhttp3.OkHttpClient
 
-/** How many images one Generate Image submit asks for (interim answer to Q-10). */
-const val IMAGES_PER_REQUEST = 4
+/**
+ * How many images one Generate Image submit makes: one result, regenerated on request instead of
+ * picked from several (docs/design/single-image-carousel.md, SC-I1).
+ */
+const val IMAGES_PER_REQUEST = 1
 
 /** Turns a prompt into image files (docs/tasks AGC-2), with any of [IMAGE_AGENTS]. */
 fun interface ImageAgent {

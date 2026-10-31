@@ -7,7 +7,7 @@ Status: approved 2026-10-31. One PR per implementation task, in order.
 
 | ID | Task | Depends on | Status |
 |----|------|-----------|--------|
-| SC-I1 | One image per request: `IMAGES_PER_REQUEST = 1`; the image screens show one result with Regenerate; Both mode gives the drawn image. | — | todo |
+| SC-I1 | One image per request: `IMAGES_PER_REQUEST = 1`; the image screens show one result with Regenerate; Both mode gives the drawn image. | — | done |
 | SC-I2 | Fit check: `InfographicRenderer.fits(spec)`; an unpicked portrait or square that doesn't fit is drawn as 3:2 landscape when that fits. Layout setting (Auto, Single image, Carousel) in Image Style and app.yml. | SC-I1 | todo |
 | SC-I3 | `Carousel` model, `CarouselWriter` and `prompts/carousel.md` (cover, 3–8 pages, summary, one palette, page budgets); carousel checks. | SC-I2 | todo |
 | SC-I4 | Drawing a carousel: page number and "Swipe" on the cover, each page through the pipeline and the review; Generate Image returns the pages when content doesn't fit one image (or Layout is Carousel); files `carousel-<id>-pNN.png`. | SC-I3 | todo |
@@ -19,7 +19,7 @@ Status: approved 2026-10-31. One PR per implementation task, in order.
 
 | ID | Kind | Test | Status |
 |----|------|------|--------|
-| SC-T1 | unit | One image per request; Both mode draws it (`GenerateImagesTest`). | todo |
+| SC-T1 | unit | One image per request; Both mode draws it (`GenerateImagesTest`). | done |
 | SC-T2 | unit | Too-long portrait becomes landscape; too long for both becomes a carousel; a picked format is never switched (`ImageLayoutTest`). | todo |
 | SC-T3 | unit | Carousel JSON parses; page limits and the 10-page cap are enforced; page numbers drawn (`CarouselTest`). | todo |
 | SC-T4 | unit | A carousel post uploads a document and posts `content.media` with a document URN; a failed document upload falls back to multi-image (`LinkedInClientTest`). | todo |
