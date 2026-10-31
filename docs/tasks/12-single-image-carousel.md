@@ -12,7 +12,7 @@ Status: approved 2026-10-31. One PR per implementation task, in order.
 | SC-I3 | `Carousel` model, `CarouselWriter` and `prompts/carousel.md` (cover, 3–8 pages, summary, one palette, page budgets); carousel checks. | SC-I2 | done |
 | SC-I4 | Drawing a carousel: page number and "Swipe" on the cover, each page through the pipeline and the review; Generate Image returns the pages when content doesn't fit one image (or Layout is Carousel); files `carousel-<id>-pNN.png`. | SC-I3 | done |
 | SC-I5 | Image screens and Content & Image show a carousel as a swipeable pager with "Page N of M"; Post in LinkedIn posts all pages. | SC-I4 | done |
-| SC-I6 | Posting a carousel as a PDF document: PDF from the pages, Documents API upload and status poll, `content.media` document post with the title; multi-image fallback. | SC-I5 | todo |
+| SC-I6 | Posting a carousel as a PDF document: PDF from the pages, Documents API upload and status poll, `content.media` document post with the title; multi-image fallback. | SC-I5 | done |
 | SC-I7 | Scheduled image posts post a carousel as a document; run history says "Carousel · 7 pages". | SC-I6 | todo |
 
 ## Tests
@@ -22,7 +22,7 @@ Status: approved 2026-10-31. One PR per implementation task, in order.
 | SC-T1 | unit | One image per request; Both mode draws it (`GenerateImagesTest`). | done |
 | SC-T2 | unit | Too-long portrait becomes landscape; too long for both becomes a carousel; a picked format is never switched (`ImageLayoutTest`). | todo |
 | SC-T3 | unit | Carousel JSON parses; page limits and the 10-page cap are enforced; page numbers drawn (`CarouselTest`). | done |
-| SC-T4 | unit | A carousel post uploads a document and posts `content.media` with a document URN; a failed document upload falls back to multi-image (`LinkedInClientTest`). | todo |
+| SC-T4 | unit | A carousel post uploads a document and posts `content.media` with a document URN; a failed document upload falls back to multi-image (`LinkedInClientTest`, `PostToLinkedInTest`). | done |
 
 ## Validation
 

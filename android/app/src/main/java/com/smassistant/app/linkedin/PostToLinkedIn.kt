@@ -9,12 +9,15 @@ import com.smassistant.app.data.ApiSettingsStore
 import com.smassistant.app.data.AppConfig
 import com.smassistant.app.generate.PostCut
 import com.smassistant.app.generate.SmartTrimUseCase
+import com.smassistant.app.generate.isCarousel
 import com.smassistant.app.hashtags.HashtagSettingsStore
 import com.smassistant.app.hashtags.Hashtags
 import com.smassistant.app.hashtags.LINKEDIN_POST_LIMIT
 import com.smassistant.app.hashtags.PostText
 import com.smassistant.app.hashtags.postLength
 import com.smassistant.app.markdown.MarkdownToLinkedIn
+import com.smassistant.app.media.AndroidCarouselPdfMaker
+import com.smassistant.app.media.CarouselPdfMaker
 import com.smassistant.app.media.isVideo
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
@@ -35,6 +38,8 @@ class PostToLinkedInUseCase(
     private val configured: () -> Boolean,
     private val publish: suspend (String, List<File>) -> ApiResult<LinkedInPost>,
     val limit: Int = LINKEDIN_POST_LIMIT,
+    /** Makes a carousel's PDF, so it is posted as a swipeable document (SC-I6); null posts its pages as images. */
+    private val carouselPdf: CarouselPdfMaker? = null,
 ) {
     /** The text that would be posted for [markdown], with the default hashtags when they're on. */
     fun prepare(markdown: String): PostText =
@@ -49,7 +54,23 @@ class PostToLinkedInUseCase(
         postLength(text) > limit -> ApiResult.Failed(ApiError.BadResponse("post text is over $limit characters"))
         images.size > MAX_IMAGES -> ApiResult.Failed(ApiError.BadResponse("LinkedIn allows up to $MAX_IMAGES images"))
         images.any(::isVideo) && images.size > 1 -> ApiResult.Failed(ApiError.BadResponse("LinkedIn posts take one video and no images"))
-        else -> publish(text, images)
+        else -> publishMedia(text, images)
+    }
+
+    /**
+     * A carousel's pages go out as one PDF document titled from the post's first line; when the PDF
+     * can't be made or LinkedIn won't take the document, as a multi-image post of the pages instead.
+     * A sign-in problem isn't retried, since the images would fail the same way.
+     */
+    private suspend fun publishMedia(text: String, images: List<File>): ApiResult<LinkedInPost> {
+        val maker = carouselPdf
+        if (maker == null || !isCarousel(images)) return publish(text, images)
+        val posted = maker.make(images, documentTitle(text))?.let { publish(text, listOf(it)) }
+        return when {
+            posted is ApiResult.Ok -> posted
+            posted is ApiResult.Failed && needsLinkedInSettings(posted.error) -> posted
+            else -> publish(text, images)
+        }
     }
 
     companion object {
@@ -57,6 +78,11 @@ class PostToLinkedInUseCase(
         const val MAX_IMAGES = 20
     }
 }
+
+/** A carousel document's title: the post's first line without hashtags, "Carousel" when that leaves nothing. */
+fun documentTitle(text: String): String =
+    text.lineSequence().map { line -> line.split(' ').filterNot { it.startsWith("#") }.joinToString(" ").trim() }
+        .firstOrNull { it.isNotEmpty() }?.take(80)?.trim() ?: "Carousel"
 
 /** The posting flow behind one screen's Post in LinkedIn buttons. */
 sealed interface PostState {
@@ -207,5 +233,6 @@ fun appPostToLinkedIn(context: Context): PostToLinkedInUseCase {
         configured = { settings.load(ApiService.LINKEDIN).let { it.api.isNotBlank() && it.key.isNotBlank() } },
         publish = client::createPost,
         limit = AppConfig.postRules(context).maxCharacters,
+        carouselPdf = AndroidCarouselPdfMaker(context),
     )
 }
