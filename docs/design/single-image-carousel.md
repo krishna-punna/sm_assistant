@@ -1,6 +1,6 @@
 # One image or a carousel
 
-Status: **approved by Krishna 2026-10-31**, being implemented one PR per task.
+Status: **approved by Krishna 2026-10-31**, implemented in PRs #117, #119 and #122–#127; device checks left.
 Requirements: [17](../requirements/17-single-image-or-carousel.md). Tasks: [docs/tasks/13-single-image-carousel.md](../tasks/13-single-image-carousel.md).
 Krishna approved without picking the open choices, so the recommended ones are used: 1:1 carousel pages,
 PDF document posts with a multi-image fallback, and app-drawn images.

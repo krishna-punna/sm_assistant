@@ -245,7 +245,8 @@ private fun SchedulerCard(
             scheduler.lastRun?.let { run ->
                 Text(
                     (if (run.ok) "✓ " else "✗ ") + formatRunTime(run.at) + ": " + run.message +
-                        run.template?.let { " · ${scheduler.postType.label} · ${templateName(it, templateNames)}" }.orEmpty(),
+                        run.template?.let { " · ${scheduler.postType.label} · ${templateName(it, templateNames)}" }.orEmpty() +
+                        run.carouselPages?.let { " · Carousel · $it pages" }.orEmpty(),
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.testTag("lastRun-${scheduler.id}"),
                     color = if (run.ok) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.error,
