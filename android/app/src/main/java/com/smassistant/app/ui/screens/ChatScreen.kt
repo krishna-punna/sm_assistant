@@ -11,6 +11,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -21,6 +22,7 @@ import com.smassistant.app.chat.ChatUiState
 import com.smassistant.app.ui.components.ChatInputBar
 import com.smassistant.app.ui.components.ErrorCard
 import com.smassistant.app.ui.components.GeneratingRow
+import com.smassistant.app.ui.components.LocalChatInputId
 import com.smassistant.app.ui.components.PipelineRow
 import com.smassistant.app.ui.components.SmScreen
 
@@ -94,12 +96,14 @@ fun <R> ChatScreen(
                             "Set up an AI agent",
                             onSetUpAgent,
                         )
-                        is ChatItem.Result -> if (onRegenerate == null) {
-                            resultContent(item.value)
-                        } else {
-                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        is ChatItem.Result -> CompositionLocalProvider(LocalChatInputId provides item.forInput) {
+                            if (onRegenerate == null) {
                                 resultContent(item.value)
-                                TextButton(onClick = { onRegenerate(item) }, enabled = !state.busy) { Text("Regenerate") }
+                            } else {
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    resultContent(item.value)
+                                    TextButton(onClick = { onRegenerate(item) }, enabled = !state.busy) { Text("Regenerate") }
+                                }
                             }
                         }
                     }

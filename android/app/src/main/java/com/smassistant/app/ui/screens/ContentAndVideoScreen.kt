@@ -29,6 +29,7 @@ import com.smassistant.app.pipeline.Pipelines
 import com.smassistant.app.pipeline.StageId
 import com.smassistant.app.ui.components.ErrorCard
 import com.smassistant.app.ui.components.GeneratingRow
+import com.smassistant.app.ui.components.LocalChatInputId
 import com.smassistant.app.ui.components.MarkdownText
 import com.smassistant.app.ui.components.MediaAgentDropdown
 import com.smassistant.app.ui.components.PostDialogs
@@ -36,6 +37,7 @@ import com.smassistant.app.ui.components.PostInLinkedInButton
 import com.smassistant.app.ui.components.PostLengthNote
 import com.smassistant.app.ui.components.PromptCard
 import com.smassistant.app.ui.components.TextAgentDropdown
+import com.smassistant.app.ui.components.TrackPostStage
 import com.smassistant.app.ui.components.VideoLengthDropdown
 import com.smassistant.app.video.appGenerateVideo
 import java.io.File
@@ -74,6 +76,7 @@ fun ContentAndVideoScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit,
         },
         inputContent = { PromptCard("Your prompt", it, collapsedLines = 4) },
         resultContent = { result ->
+            val postKey = LocalChatInputId.current
             // As in Content & Image: find the result's item so a half can be retried in place.
             val item = state.items.filterIsInstance<ChatItem.Result<ContentAndVideo>>().firstOrNull { it.value === result }
             val id = item?.id
@@ -88,10 +91,11 @@ fun ContentAndVideoScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit,
                 onRetryVideo = {
                     id?.let { viewModel.updateResult(it, { r -> r.copy(retryingMedia = true) }, inputId?.let { state.pipelines[it] }?.let(::mediaStages).orEmpty(), useCase::retryMedia) }
                 },
-                onPost = { video -> postViewModel.start(result.markdown.orEmpty(), listOfNotNull(video)) },
+                onPost = { video -> postViewModel.start(result.markdown.orEmpty(), listOfNotNull(video), postKey) },
             )
         },
     )
+    TrackPostStage(postState, postViewModel.key, viewModel::markStage)
     PostDialogs(
         state = postState,
         onTextChange = postViewModel::onTextChange,

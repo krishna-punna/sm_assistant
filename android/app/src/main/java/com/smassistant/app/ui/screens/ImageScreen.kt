@@ -37,12 +37,14 @@ import com.smassistant.app.ui.components.CarouselPager
 import com.smassistant.app.ui.components.ImagePreview
 import com.smassistant.app.ui.components.ImageStrip
 import com.smassistant.app.ui.components.ImageTemplatePickers
+import com.smassistant.app.ui.components.LocalChatInputId
 import com.smassistant.app.ui.components.MediaActions
 import com.smassistant.app.ui.components.MediaAgentDropdown
 import com.smassistant.app.ui.components.PostDialogs
 import com.smassistant.app.ui.components.PostInLinkedInButton
 import com.smassistant.app.ui.components.PromptCard
 import com.smassistant.app.ui.components.TextAgentDropdown
+import com.smassistant.app.ui.components.TrackPostStage
 import java.io.File
 
 /** S10 Generate Image (docs/requirements/06 §6.2): prompt card, image strip, full preview. */
@@ -76,16 +78,18 @@ fun ImageScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToH
         },
         inputContent = { PromptCard("Your prompt", it, collapsedLines = 4) },
         resultContent = { images ->
+            val inputId = LocalChatInputId.current
             ImageResult(
                 images = images,
                 posting = postState == PostState.Posting,
-                onPost = { selected -> postViewModel.start("", selected) },
+                onPost = { selected -> postViewModel.start("", selected, inputId) },
                 onBackToHome = onBackToHome,
             )
         },
         noAgentMessage = GenerateContentAndMediaUseCase.IMAGES_NOT_SET_UP,
         onRegenerate = viewModel::retry,
     )
+    TrackPostStage(postState, postViewModel.key, viewModel::markStage)
     PostDialogs(
         state = postState,
         onTextChange = postViewModel::onTextChange,
