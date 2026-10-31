@@ -25,7 +25,7 @@ class GenerateVideoTest {
         if (slide in failing) ApiResult.Failed(error) else ApiResult.Ok(listOf(File("s$slide.png")))
     }
     private var encoded: List<File>? = null
-    private var slideMillis = 0L
+    private var slideMillis = emptyList<Long>()
     private var encodeResult: (File) -> Result<File> = { Result.success(it) }
     private val maker = SlideshowMaker { slides, output, millis ->
         encoded = slides
@@ -45,7 +45,7 @@ class GenerateVideoTest {
         assertEquals(Outcome.Ok(GeneratedVideo(File("out.mp4"), slides)), outcome)
         assertEquals((1..4).map { "slide $it of 4: URL shortener" }, prompts.sorted())
         assertEquals(slides, encoded)
-        assertEquals(7500L, slideMillis)
+        assertEquals(List(4) { 7500L }, slideMillis)
     }
 
     @Test
@@ -54,7 +54,7 @@ class GenerateVideoTest {
         val outcome = useCase()("x")
 
         assertEquals(10, prompts.size)
-        assertEquals(12_000L, slideMillis)
+        assertEquals(List(10) { 12_000L }, slideMillis)
         assertEquals(120, (outcome as Outcome.Ok).value.seconds)
     }
 
@@ -64,7 +64,7 @@ class GenerateVideoTest {
         useCase()("x")
         assertEquals(listOf(File("s1.png"), File("s3.png"), File("s4.png")), encoded)
         // The slides left share the whole length.
-        assertEquals(10_000L, slideMillis)
+        assertEquals(List(3) { 10_000L }, slideMillis)
     }
 
     @Test
@@ -139,6 +139,20 @@ class GenerateVideoTest {
             ),
             writer.calls,
         )
+    }
+
+    @Test
+    fun `each slide stays up as long as its scene asked, scaled to the length`() = runTest {
+        val timed = """{"palette": "teal", "slides": [
+            {"title": "One", "seconds": 4, "takeaway": "a"}, {"title": "Two", "seconds": 8, "takeaway": "b"},
+            {"title": "Three", "seconds": 8, "takeaway": "c"}, {"title": "Four", "takeaway": "d"}]}"""
+        undrawable = setOf("Three")
+
+        deckUseCase(ScriptedTextAgent(ApiResult.Ok(timed)))("x")
+
+        // Three is left out; Four asked for nothing, so it weighs the average of One and Two (6 s).
+        assertEquals(listOf("One", "Two", "Four").map { File("$it.png") }, encoded)
+        assertEquals(listOf(6_666L, 13_334L, 10_000L), slideMillis)
     }
 
     @Test

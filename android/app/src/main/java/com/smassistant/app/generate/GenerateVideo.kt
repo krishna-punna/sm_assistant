@@ -42,6 +42,9 @@ const val VIDEO_MAKER = "the video maker"
  */
 data class GeneratedVideo(val file: File, val slides: List<File>, val seconds: Int = DEFAULT_VIDEO_SECONDS)
 
+/** A slide ready for the video, and the seconds its scene asked for (null: an equal share). */
+internal data class DrawnSlide(val file: File, val seconds: Int? = null)
+
 /**
  * The video pipeline's parts: the text agent that plans the deck, how each slide is drawn, the
  * [content] step that first writes the no-limit technical content the deck represents, and the
@@ -64,8 +67,9 @@ class SlideDecks(
  * `assets/prompts/video.md`, as before. Slides that fail are left out.
  *
  * The video is as long as the length picked on the screen ([seconds], read on each submit,
- * Requirement 9): that sets how many slides are planned ([slidesFor]) and the slides that
- * come back share the time equally. With video templates the chooser picks one for the technical
+ * Requirement 9): that sets how many slides are planned ([slidesFor]), and the slides that
+ * come back share the time by the seconds each scene asked for ([sceneMillis], at least
+ * [MIN_SCENE_SECONDS] each), or equally when the storyboard gives none. With video templates the chooser picks one for the technical
  * content (the prompt when there is none), and the deck follows it; a failed choice gives the
  * Universal Master.
  */
@@ -84,12 +88,13 @@ class GenerateVideoUseCase(
         val drawn = decks?.let { parts -> parts.textAgent()?.let { writer -> deckSlides(parts, writer, topic, slides, length) } }
             ?: paintedSlides(topic, slides)
             ?: return Outcome.NoAgent
-        val images = when (drawn) {
+        val drawnSlides = when (drawn) {
             is Outcome.Ok -> drawn.value
             is Outcome.Failed -> return drawn
             Outcome.NoAgent -> return Outcome.NoAgent
         }
-        return maker.make(images, newVideoFile(), length * 1000L / images.size).fold(
+        val images = drawnSlides.map { it.file }
+        return maker.make(images, newVideoFile(), sceneMillis(drawnSlides.map { it.seconds }, length)).fold(
             onSuccess = { Outcome.Ok(GeneratedVideo(it, images, length)) },
             onFailure = { Outcome.Failed(ApiError.BadResponse(it.message ?: "couldn't encode the video"), VIDEO_MAKER) },
         )
@@ -101,7 +106,7 @@ class GenerateVideoUseCase(
         topic: String,
         slides: Int,
         seconds: Int,
-    ): Outcome<List<File>> {
+    ): Outcome<List<DrawnSlide>> {
         val content = parts.content?.let { step ->
             when (val result = step.write(writer, topic)) {
                 is ApiResult.Failed -> return Outcome.Failed(result.error, writer.service.displayName)
@@ -118,7 +123,9 @@ class GenerateVideoUseCase(
         }
         val illustrator = agent()
         val images = coroutineScope {
-            deck.slides.map { slide -> async { parts.pipeline.draw(slide, illustrator, ILLUSTRATIONS_PER_SLIDE) } }.awaitAll()
+            deck.slides.zip(deck.scenes).map { (slide, scene) ->
+                async { parts.pipeline.draw(slide, illustrator, ILLUSTRATIONS_PER_SLIDE)?.let { DrawnSlide(it, scene.seconds) } }
+            }.awaitAll()
         }.filterNotNull()
         return if (images.size >= MIN_SLIDES) {
             Outcome.Ok(images)
@@ -128,13 +135,13 @@ class GenerateVideoUseCase(
     }
 
     /** The fallback without a text agent; null when there's no video agent either. */
-    private suspend fun paintedSlides(topic: String, slides: Int): Outcome<List<File>>? {
+    private suspend fun paintedSlides(topic: String, slides: Int): Outcome<List<DrawnSlide>>? {
         val selected = agent() ?: return null
         val results = coroutineScope {
             (1..slides).map { slide -> async { selected.generate(slidePrompt(topic, slide, slides), 1) } }.awaitAll()
         }
         val images = results.filterIsInstance<ApiResult.Ok<List<File>>>().flatMap { it.value }
-        if (images.size >= MIN_SLIDES) return Outcome.Ok(images)
+        if (images.size >= MIN_SLIDES) return Outcome.Ok(images.map { DrawnSlide(it) })
         val error = results.filterIsInstance<ApiResult.Failed>().firstOrNull()?.error
             ?: ApiError.BadResponse("only ${images.size} slide came back")
         return Outcome.Failed(error, selected.service.displayName)
