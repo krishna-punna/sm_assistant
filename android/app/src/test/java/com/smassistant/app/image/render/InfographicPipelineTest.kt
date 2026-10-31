@@ -110,4 +110,21 @@ class InfographicPipelineTest {
         assertEquals(slots.map { nearestImageFormat(it.width, it.height) }.sorted(), asked.filterNotNull().sorted())
         assertEquals(2, asked.size)
     }
+
+    @Test
+    fun `the AI's clip art is painted up to the guard of 12, the rest keep their icons (AC-8)`() = runTest {
+        val many = InfographicSpec(
+            title = "Caching",
+            sections = List(14) { Section("Card $it", SectionBody.Bullets(listOf("point $it")), art = "picture $it") },
+        )
+        val asked = mutableListOf<String>()
+        val agent = ImageAgent { prompt, _ -> synchronized(asked) { asked += prompt }; ApiResult.Ok(listOf(File("p${asked.size}.png"))) }
+
+        InfographicPipeline(InfographicRenderer(), "{{prompt}}", composer).draw(many, agent)
+
+        assertEquals(12, MAX_ILLUSTRATIONS)
+        assertEquals(12, asked.size)
+        assertEquals(14, composed!!.second.size)
+        assertEquals(listOf(null, null), composed!!.second.takeLast(2))
+    }
 }

@@ -11,7 +11,7 @@ import kotlinx.serialization.json.contentOrNull
 /**
  * The structured definition of one infographic (docs/design/image-video-pipeline.md): what the
  * text agent writes as JSON, and what [InfographicRenderer] draws. All text is drawn by the app,
- * so it is always spelled right; only [hero] and [SectionBody.Illustration] are AI-painted.
+ * so it is always spelled right; only [hero], [SectionBody.Illustration] and a card's [Section.art] are AI-painted.
  */
 data class InfographicSpec(
     val title: String,
@@ -59,7 +59,16 @@ enum class InfographicFormat(val key: String, val width: Int) {
     }
 }
 
-data class Section(val heading: String, val body: SectionBody, val icon: String? = null)
+data class Section(
+    val heading: String,
+    val body: SectionBody,
+    val icon: String? = null,
+    /**
+     * Prompt for a small AI clip-art picture drawn in this card beside its content (AC-8), e.g. "a
+     * stopwatch beside a stack of plates". Any card may have one; the AI decides which cards need it.
+     */
+    val art: String? = null,
+)
 
 sealed interface SectionBody {
     data class Bullets(val items: List<String>) : SectionBody
@@ -210,6 +219,7 @@ private fun section(json: JsonObject): Section? {
         heading = json.string("heading").orEmpty().clip(60),
         body = body,
         icon = json.string("icon")?.lowercase()?.takeIf { it in ICONS },
+        art = json.string("art")?.takeIf { it.isNotBlank() && body !is SectionBody.Illustration }?.clip(),
     )
 }
 

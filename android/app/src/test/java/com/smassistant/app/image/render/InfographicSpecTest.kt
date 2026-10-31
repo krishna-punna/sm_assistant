@@ -98,4 +98,13 @@ class InfographicSpecTest {
         assertEquals(InfographicFormat.PORTRAIT, parseInfographic("""{"title": "T", "format": "vertical"}""").getOrThrow().format)
         assertEquals(InfographicFormat.PORTRAIT, parseInfographic("""{"title": "T", "format": "wide"}""").getOrThrow().format)
     }
+
+    @Test
+    fun `any card reads an optional art prompt, and an illustration card keeps its own picture (AC-8)`() {
+        val spec = parseInfographic("""{"title": "Caching", "sections": [
+            {"heading": "Latency", "items": ["fast"], "art": "a stopwatch"},
+            {"heading": "Plain", "items": ["no picture"], "art": "  "},
+            {"heading": "Picture", "type": "illustration", "prompt": "a cache", "art": "ignored"}]}""").getOrThrow()
+        assertEquals(listOf("a stopwatch", null, null), spec.sections.map { it.art })
+    }
 }

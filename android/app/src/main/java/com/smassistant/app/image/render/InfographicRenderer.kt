@@ -279,7 +279,7 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
         val heading = wrapText(section.heading.ifBlank { " " }, width - headingX - CARD_PAD, 28f, measurer, bold = true, maxLines = 2)
         val tab = max(68f, heading.size * 36f + 26)
         val inner = width - 2 * CARD_PAD
-        val body = body(section, inner, color, palette)
+        val body = section.art?.let { withArt(section, it, inner, color, palette) } ?: body(section, inner, color, palette)
         val height = max(minHeight, tab + CARD_PAD + body.height + CARD_PAD)
         return Block(height) { svg, x, y ->
             svg.rect(x, y, width, height, fill = palette.card, stroke = palette.cardBorder, strokeWidth = 2f, rx = 18f)
@@ -290,6 +290,30 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
             section.icon?.let { svg.icon(it, x + CARD_PAD + 56, y + tab / 2 - 15, 30f, "#FFFFFF") }
             svg.lines(heading, x + headingX, y + (tab - heading.size * 36f) / 2, 28f, 36f, "#FFFFFF", bold = true)
             body.draw(svg, x + CARD_PAD, y + tab + CARD_PAD)
+        }
+    }
+
+    /**
+     * A card's content with its clip art (AC-8): beside the content in a card wide enough to keep
+     * the text readable, otherwise a picture band above it. The picture is an AI illustration slot
+     * with a placeholder icon, so the card is complete when no picture is painted.
+     */
+    private fun withArt(section: Section, art: String, width: Float, color: String, palette: Palette): Block {
+        val tint = mix(color, palette.card, 0.88f)
+        val icon = section.icon ?: "idea"
+        if (width >= MIN_SIDE_ART_CARD) {
+            val side = min(CARD_ART, width * 0.3f)
+            val content = body(section, width - side - CARD_ART_GAP, color, palette)
+            return Block(max(content.height, side)) { svg, x, y ->
+                content.draw(svg, x, y)
+                svg.illustration(art, x + width - side, y, side, side, 14f, icon, tint = tint, iconColor = color)
+            }
+        }
+        val band = min(width * 0.5f, CARD_ART)
+        val content = body(section, width, color, palette)
+        return Block(band + CARD_ART_GAP + content.height) { svg, x, y ->
+            svg.illustration(art, x, y, width, band, 14f, icon, tint = tint, iconColor = color)
+            content.draw(svg, x, y + band + CARD_ART_GAP)
         }
     }
 
@@ -594,6 +618,11 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
 
     private companion object {
         const val MARGIN = 48f
+
+        /** A card's clip art (AC-8): its largest side, the gap to the content, and the narrowest card that puts it beside the content. */
+        const val CARD_ART = 140f
+        const val CARD_ART_GAP = 16f
+        const val MIN_SIDE_ART_CARD = 420f
 
         /** Narrowest diagram box when the layers are laid out side by side. */
         const val MIN_DIAGRAM_NODE = 150f

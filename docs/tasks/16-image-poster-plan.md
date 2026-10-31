@@ -25,8 +25,8 @@ Decisions:
 | AC-4 | Retry with measured numbers instead of "at most 11 sections"; a poster series when the retry still doesn't fit. | PR #145; series fallback in AC-7 |
 | AC-5 | Remove the image carousel (Layout = Carousel, `carousel.md`, `CarouselWriter`, PDF posting); keep the multi-image post. Shared grouping becomes "series" (`SeriesFiles`, `SeriesPager`, `RunRecord.seriesParts`), ready for AC-7. | PR #146 |
 | AC-6 | Painted series: `split_image_prompt.md` replaces `condense_image_prompt.md`; per-agent prompt budgets in app.yml. A series passes the review only when every poster does. | PR #147 |
-| AC-7 | Drawn series: the writer may return N posters; results, scheduled posts and history handle N images. Series posters are not sent to the image review (each is drawn from a checked definition). | PR (this) |
-| AC-8 | AI-decided clip art: an optional `art` picture on any card, `MAX_ILLUSTRATIONS` 2 → 12. | todo |
+| AC-7 | Drawn series: the writer may return N posters; results, scheduled posts and history handle N images. Series posters are not sent to the image review (each is drawn from a checked definition). | PR #148 |
+| AC-8 | AI-decided clip art: an optional `art` picture on any card, `MAX_ILLUSTRATIONS` 2 → 12. | PR (this) |
 | AC-10 | Text standard: shared text writer, typography rules, word-gap test, prompt rules, review text check. | todo |
 | AC-9 | Richer header and footer: ribbon, badges, highlight pill, breakout hero, takeaway card, recap strip, handle, 1/N. | todo |
 

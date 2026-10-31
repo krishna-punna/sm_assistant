@@ -202,6 +202,35 @@ class InfographicRendererTest {
     }
 
     @Test
+    fun `any card may carry clip art, drawn inside its card, as many as the AI asks for (AC-8)`() {
+        val pictures = listOf("a stopwatch", "a padlock", "a stack of plates", "a rocket", "a magnifier", "a gear", "a queue of people", "a cloud")
+        val cards = sections.filter { it.body !is SectionBody.Illustration } + Section("Hits", SectionBody.Bullets(listOf("Served from memory")))
+        for (count in listOf(0, 1, 8)) {
+            val withArt = cards.mapIndexed { i, card -> if (i < count) card.copy(art = pictures[i]) else card }
+            for (format in InfographicFormat.IMAGE) {
+                val rendered = renderer.render(spec.copy(hero = null, sections = withArt, format = format))
+                assertEquals("$format with $count pictures", pictures.take(count), rendered.slots.map { it.prompt })
+                rendered.slots.forEach {
+                    assertTrue(it.x >= 0 && it.y >= 0 && it.x + it.width <= rendered.width && it.y + it.height <= rendered.height)
+                    assertTrue("$format: clip art is a picture, not a speck", it.width >= 60 && it.height >= 60)
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `a card picture sits beside the content in a wide card and above it in a narrow one (AC-8)`() {
+        val card = Section("Latency", SectionBody.Bullets(listOf("Reads from memory", "Microseconds, not milliseconds")), art = "a stopwatch")
+        val wide = renderer.render(InfographicSpec(title = "Caching", format = InfographicFormat.LANDSCAPE, sections = listOf(card, card.copy(heading = "Hits"))))
+        val wideSlot = wide.slots.first()
+        assertTrue("square beside the text", wideSlot.width == wideSlot.height)
+
+        val narrow = renderer.render(InfographicSpec(title = "Caching", sections = List(12) { card.copy(heading = "Card $it") }))
+        val band = narrow.slots.first()
+        assertTrue("a band across the narrow card", band.width > band.height)
+    }
+
+    @Test
     fun `wraps text to the width and ends cut text with an ellipsis`() {
         val lines = wrapText("the quick brown fox jumps over the lazy dog", 200f, 24f, ApproxTextMeasurer)
         assertTrue(lines.size > 1)
