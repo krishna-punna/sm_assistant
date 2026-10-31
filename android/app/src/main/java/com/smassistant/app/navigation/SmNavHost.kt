@@ -15,10 +15,12 @@ import com.smassistant.app.ui.screens.AssistantHubScreen
 import com.smassistant.app.ui.screens.ContentAndImageScreen
 import com.smassistant.app.ui.screens.ContentAndVideoScreen
 import com.smassistant.app.ui.screens.DefaultHashtagsScreen
+import com.smassistant.app.ui.screens.DraftsScreen
 import com.smassistant.app.ui.screens.HomeScreen
 import com.smassistant.app.ui.screens.ImageScreen
 import com.smassistant.app.ui.screens.ImageStyleScreen
 import com.smassistant.app.ui.screens.LinkedInSettingsScreen
+import com.smassistant.app.ui.screens.PostHistoryScreen
 import com.smassistant.app.ui.screens.PreparePromptScreen
 import com.smassistant.app.ui.screens.SchedulerEditorScreen
 import com.smassistant.app.ui.screens.SchedulersScreen
@@ -120,6 +122,12 @@ fun SmNavHost(
                 onSignIn = { navController.navigate(Routes.LINKEDIN_SETTINGS) },
                 onBackToHome = backToHome,
             )
+        }
+        composable(Routes.DRAFTS) {
+            DraftsScreen(onSetUpLinkedIn = { navController.navigate(Routes.LINKEDIN_SETTINGS) }, onBackToHome = backToHome)
+        }
+        composable(Routes.POST_HISTORY) {
+            PostHistoryScreen(onBackToHome = backToHome)
         }
         composable(
             Routes.SCHEDULER_EDIT,

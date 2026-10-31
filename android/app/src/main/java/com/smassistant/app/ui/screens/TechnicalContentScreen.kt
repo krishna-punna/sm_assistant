@@ -62,6 +62,7 @@ fun TechnicalContentScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit
         onTrimWithAi = postViewModel::trimWithAi,
         onCutToFit = postViewModel::cutToFit,
         onConfirm = postViewModel::confirm,
+        onSaveDraft = if (postViewModel.canSaveDraft) postViewModel::saveDraft else null,
         onDismiss = postViewModel::dismiss,
         onOpenSettings = onSetUpLinkedIn,
     )

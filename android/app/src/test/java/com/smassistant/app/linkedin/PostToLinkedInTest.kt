@@ -3,7 +3,12 @@ package com.smassistant.app.linkedin
 import com.smassistant.app.agents.TextAgent
 import com.smassistant.app.data.ApiService
 import com.smassistant.app.generate.SmartTrimUseCase
+import com.smassistant.app.drafts.Draft
+import com.smassistant.app.drafts.DraftSaver
 import com.smassistant.app.hashtags.postLength
+import com.smassistant.app.history.PostMedia
+import com.smassistant.app.history.PostSource
+import com.smassistant.app.history.PublishedPost
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
 import kotlinx.coroutines.CompletableDeferred
@@ -32,11 +37,23 @@ class PostToLinkedInTest {
     private val attached = mutableListOf<File>()
     private var reply: suspend () -> ApiResult<LinkedInPost> = { ApiResult.Ok(LinkedInPost("urn:li:share:1")) }
 
+    private val history = mutableListOf<PublishedPost>()
+    private val savedDrafts = mutableListOf<Draft>()
+    private val deletedDrafts = mutableListOf<String>()
+    private val drafts = object : DraftSaver {
+        override fun save(text: String, files: List<File>, id: String?, title: String?) =
+            Draft(id ?: "d${savedDrafts.size}", 1L, title ?: "T", text, files.map { it.path }).also { savedDrafts += it }
+        override fun delete(id: String) { deletedDrafts += id }
+    }
+
     private val useCase = PostToLinkedInUseCase(
         tags = { tags },
         tagsEnabled = { enabled },
         configured = { configured },
         publish = { text, images -> published += text; attached += images; reply() },
+        onPublished = { history += it },
+        now = { 77L },
+        drafts = drafts,
     )
 
     @Before fun setUp() = Dispatchers.setMain(dispatcher)
@@ -281,5 +298,73 @@ class PostToLinkedInTest {
         assertEquals("Hello\n\n#systemdesign #java", confirm.text)
         assertFalse(confirm.trimming)
         assertTrue(confirm.trimMessage != null)
+    }
+
+    @Test
+    fun `a published post goes into the history, a failed one doesn't`() = runTest(dispatcher) {
+        useCase.post("Caching in 3 steps\n\nBody", listOf(File("a.png")))
+        val entry = history.single()
+        assertEquals("Caching in 3 steps", entry.title)
+        assertEquals(PostSource.MANUAL, entry.source)
+        assertEquals(PostMedia.IMAGES, entry.media)
+        assertEquals("https://www.linkedin.com/feed/update/urn:li:share:1", entry.url)
+        assertEquals(77L, entry.postedAt)
+
+        reply = { ApiResult.Failed(ApiError.RateLimited) }
+        useCase.post("Another")
+        assertEquals(1, history.size)
+    }
+
+    @Test
+    fun `an approved scheduler post is recorded as scheduled with its title`() = runTest(dispatcher) {
+        val vm = PostViewModel(useCase)
+        vm.review("Final text #java", title = "Kafka Partitions")
+        vm.confirm()
+        advanceUntilIdle()
+        assertEquals(PostSource.SCHEDULED, history.single().source)
+        assertEquals("Kafka Partitions", history.single().title)
+
+        vm.start("Hello")
+        vm.confirm()
+        advanceUntilIdle()
+        assertEquals(PostSource.MANUAL, history.last().source)
+    }
+
+    @Test
+    fun `save draft keeps the edited text and media, then posting the draft removes it`() = runTest(dispatcher) {
+        val vm = PostViewModel(useCase)
+        vm.start("Hello", listOf(File("a.png")))
+        vm.onTextChange("Hello edited")
+        vm.saveDraft()
+        assertEquals(PostState.DraftSaved, vm.state.value)
+        val draft = savedDrafts.single()
+        assertEquals("Hello edited", draft.text)
+        assertEquals(listOf("a.png"), draft.media)
+
+        vm.openDraft(draft)
+        val confirm = vm.state.value as PostState.Confirm
+        assertEquals("Hello edited", confirm.text)
+        assertEquals(emptyList<String>(), confirm.addedTags)
+        assertEquals(draft.id, confirm.draftId)
+
+        vm.saveDraft()
+        assertEquals(draft.id, savedDrafts.last().id)
+
+        vm.openDraft(draft)
+        vm.confirm()
+        advanceUntilIdle()
+        assertTrue(vm.state.value is PostState.Posted)
+        assertEquals(listOf(draft.id), deletedDrafts)
+    }
+
+    @Test
+    fun `save draft is off without a store and for an empty post`() {
+        val plain = PostViewModel(PostToLinkedInUseCase({ tags }, { false }, { true }, { _, _ -> reply() }))
+        assertFalse(plain.canSaveDraft)
+        val vm = PostViewModel(useCase)
+        vm.review("")
+        vm.saveDraft()
+        assertTrue(vm.state.value is PostState.Confirm)
+        assertTrue(savedDrafts.isEmpty())
     }
 }

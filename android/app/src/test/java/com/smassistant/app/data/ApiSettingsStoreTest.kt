@@ -118,4 +118,25 @@ class ApiSettingsStoreTest {
         assertEquals(CachedModels(lists, 1234L), ApiSettingsStore(context, FakeCipher()).cachedModels(ApiService.GEMINI))
         assertNull(store.cachedModels(ApiService.GROQ))
     }
+
+    @Test
+    fun `the last check is remembered until the settings are saved again`() {
+        assertNull(store.lastStatus(ApiService.GROQ))
+        store.saveLastStatus(ApiService.GROQ, ConnectionStatus.InvalidKey)
+        store.saveLastStatus(ApiService.GROQ, ConnectionStatus.Checking)
+        assertEquals(ConnectionStatus.InvalidKey, ApiSettingsStore(context, FakeCipher()).lastStatus(ApiService.GROQ))
+
+        store.save(ApiService.GROQ, "", "gsk-new")
+        assertNull(store.lastStatus(ApiService.GROQ))
+    }
+
+    @Test
+    fun `every stored status reads back as itself`() {
+        listOf(
+            ConnectionStatus.NotConfigured, ConnectionStatus.Connected, ConnectionStatus.InvalidKey, ConnectionStatus.NoPermission,
+            ConnectionStatus.Unreachable("timeout: read"), ConnectionStatus.Error(503),
+        ).forEach { assertEquals(it, decodeStatus(encodeStatus(it))) }
+        assertNull(encodeStatus(ConnectionStatus.Checking))
+        assertNull(decodeStatus("something else"))
+    }
 }

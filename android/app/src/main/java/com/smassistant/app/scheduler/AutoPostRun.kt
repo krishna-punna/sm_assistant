@@ -15,6 +15,8 @@ import com.smassistant.app.generate.appGenerateVideo
 import com.smassistant.app.generate.imageLabel
 import com.smassistant.app.generate.isCarousel
 import com.smassistant.app.generate.videoLabel
+import com.smassistant.app.history.PostHistoryStore
+import com.smassistant.app.history.PostSource
 import com.smassistant.app.linkedin.PostToLinkedInUseCase
 import com.smassistant.app.linkedin.SignInExpiry
 import com.smassistant.app.linkedin.appSignInExpiry
@@ -62,6 +64,8 @@ class AutoPostRun(
     private val now: () -> Long = System::currentTimeMillis,
     /** The LinkedIn sign-in's expiry; an expired one fails the run before anything is generated. */
     private val signInExpiry: () -> SignInExpiry? = { null },
+    /** Titles of recent scheduled posts from the post history, so every scheduler steers away from them. */
+    private val historyTitles: () -> List<String> = { emptyList() },
 ) {
     suspend operator fun invoke(scheduler: AutoPostScheduler): RunOutcome {
         val topic = scheduler.currentTopic() ?: return failed("Choose at least one technical content type.")
@@ -76,7 +80,7 @@ class AutoPostRun(
         if (expiry is SignInExpiry.Expired) return failed(expiry.message().orEmpty())
 
         val type = scheduler.postType.promptType
-        val prompts = when (val outcome = preparePrompt(topicRequest(topic, scheduler.recentTitles), type)) {
+        val prompts = when (val outcome = preparePrompt(topicRequest(topic, (scheduler.recentTitles + historyTitles()).distinct()), type)) {
             is Outcome.Ok -> outcome.value
             else -> return failed(outcome, "prepare the prompt", TEXT_NOT_SET_UP)
         }
@@ -122,7 +126,7 @@ class AutoPostRun(
             )
         }
 
-        return when (val result = linkedIn.post(post.text, files)) {
+        return when (val result = linkedIn.post(post.text, files, PostSource.SCHEDULED, title)) {
             is ApiResult.Ok -> RunOutcome(RunRecord(now(), ok = true, message = "Posted “$title”", postUrl = result.value.url, template = template, carouselPages = pages), title)
             is ApiResult.Failed -> RunOutcome(
                 RunRecord(now(), ok = false, message = linkedInErrorMessage(result.error), template = template, carouselPages = pages),
@@ -160,7 +164,7 @@ class AutoPostRun(
          * and steering away from the scheduler's recent posts.
          */
         fun topicRequest(topic: String, recentTitles: List<String>): String {
-            val avoid = recentTitles.take(AutoPostScheduler.MAX_RECENT_TITLES)
+            val avoid = recentTitles.take(MAX_AVOID_TITLES)
             return buildString {
                 append("$topic: choose one specific, practical subject within $topic for a technical LinkedIn post, ")
                 append("such as a feature, pattern, pitfall or design problem an experienced developer would want explained.")
@@ -171,6 +175,9 @@ class AutoPostRun(
                 }
             }
         }
+
+        /** How many recent titles a prompt request lists: this scheduler's own, then the history's. */
+        const val MAX_AVOID_TITLES = 25
 
         /** Errors worth a retry in a few minutes. */
         fun isTransient(error: ApiError) = error is ApiError.Unreachable || error == ApiError.RateLimited ||
@@ -190,5 +197,6 @@ fun appAutoPostRun(context: Context): AutoPostRun {
         generateVideo = appGenerateVideo(context)::invoke,
         linkedIn = appPostToLinkedIn(context),
         signInExpiry = appSignInExpiry(context),
+        historyTitles = { PostHistoryStore(context).recentScheduledTitles() },
     )
 }
