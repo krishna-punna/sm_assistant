@@ -312,7 +312,7 @@ class GenerateImagesTest {
         )
         val gemini = PaintingAgent()
 
-        val outcome = GenerateImagesUseCase("{{prompt}}", { gemini }, 4, infographics = templated(writer, painter = ImagePainter("Condense.")))
+        val outcome = GenerateImagesUseCase("{{prompt}}", { gemini }, 4, infographics = templated(writer, ImageStyle(audience = "devs", mode = ImageMode.BOTH), ImagePainter("Condense.")))
             .generate(ImageRequest("Caching"))
 
         assertEquals(4, (outcome as Outcome.Ok).value.size)
@@ -343,7 +343,7 @@ class GenerateImagesTest {
         )
         val gemini = PaintingAgent()
 
-        val outcome = GenerateImagesUseCase("{{prompt}}", { gemini }, IMAGES_PER_REQUEST, infographics = templated(writer, painter = ImagePainter("Condense.")))
+        val outcome = GenerateImagesUseCase("{{prompt}}", { gemini }, IMAGES_PER_REQUEST, infographics = templated(writer, ImageStyle(audience = "devs", mode = ImageMode.BOTH), ImagePainter("Condense.")))
             .generate(ImageRequest("Caching"))
 
         assertEquals(1, (outcome as Outcome.Ok).value.size)
@@ -436,7 +436,7 @@ class GenerateImagesTest {
         val dir = kotlin.io.path.createTempDirectory().toFile()
         val flux = PaintingAgent(onlyFormat = ImageSize.SQUARE, dir = dir)
 
-        val outcome = GenerateImagesUseCase("{{prompt}}", { flux }, 4, infographics = templated(writer, painter = ImagePainter("Condense.")))
+        val outcome = GenerateImagesUseCase("{{prompt}}", { flux }, 4, infographics = templated(writer, ImageStyle(audience = "devs", mode = ImageMode.BOTH), ImagePainter("Condense.")))
             .generate(ImageRequest("Caching"))
 
         // Images 2 and 4 would be landscape and portrait; this agent gets square briefs instead.

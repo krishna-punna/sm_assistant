@@ -48,7 +48,7 @@ class ImageStyleScreenTest {
         compose.onNodeWithText("developers").assertExists()
         compose.onNodeWithText("SM").assertExists()
         compose.onNodeWithTag("styleSeries").assertIsOff()
-        compose.onNodeWithTag("styleMode").assertTextEquals("Both: two of each ▾")
+        compose.onNodeWithTag("styleMode").assertTextEquals("Auto: AI-painted, app-drawn if its text is wrong ▾")
         compose.onNodeWithTag("styleLayout").assertTextEquals("Auto: one poster ▾")
 
         compose.onNodeWithTag("styleAudience").performTextReplacement("architects")

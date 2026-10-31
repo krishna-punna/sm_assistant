@@ -216,7 +216,7 @@ data class ImageStyle(
     val styleGuide: String = "",
     val series: Boolean = false,
     val format: ImageSize? = null,
-    val mode: ImageMode = ImageMode.BOTH,
+    val mode: ImageMode = ImageMode.AUTO,
     val layout: ImageLayout = ImageLayout.AUTO,
 )
 
