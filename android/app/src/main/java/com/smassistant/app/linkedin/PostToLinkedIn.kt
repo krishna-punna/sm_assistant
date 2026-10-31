@@ -126,9 +126,14 @@ class PostViewModel(
     private val _state = MutableStateFlow<PostState>(PostState.Idle)
     val state: StateFlow<PostState> = _state.asStateFlow()
 
+    /** The result the open post came from (its input's id), so its pipeline's Post stage follows the post (docs/requirements/20, PS-5). */
+    var key: Long? = null
+        private set
+
     /** Post in LinkedIn tapped under a result: its text (Markdown, may be empty) and selected images. */
-    fun start(markdown: String, images: List<File> = emptyList()) {
+    fun start(markdown: String, images: List<File> = emptyList(), key: Long? = null) {
         if (_state.value == PostState.Posting) return
+        this.key = key
         _state.value = if (useCase.isConfigured()) {
             val prepared = useCase.prepare(markdown)
             PostState.Confirm(prepared.text, prepared.addedTags, images, useCase.limit)
@@ -143,6 +148,7 @@ class PostViewModel(
      */
     fun review(text: String, images: List<File> = emptyList(), title: String? = null) {
         if (_state.value == PostState.Posting) return
+        key = null
         _state.value = if (useCase.isConfigured()) {
             PostState.Confirm(text, emptyList(), images, useCase.limit, source = PostSource.SCHEDULED, title = title)
         } else {
@@ -153,6 +159,7 @@ class PostViewModel(
     /** Opens a saved draft in the confirm dialog to edit, post, or save again. */
     fun openDraft(draft: Draft) {
         if (_state.value == PostState.Posting) return
+        key = null
         _state.value = PostState.Confirm(draft.text, emptyList(), draft.files, useCase.limit, title = draft.title, draftId = draft.id)
     }
 

@@ -6,8 +6,13 @@ import com.smassistant.app.data.ApiService
 import com.smassistant.app.image.shortened
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
+import com.smassistant.app.pipeline.Pipelines
+import com.smassistant.app.pipeline.StageId
+import com.smassistant.app.pipeline.StageReporter
+import com.smassistant.app.pipeline.StageStatus
 import java.io.File
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -146,5 +151,12 @@ class GenerateTextTest {
         // "**bold**" posts as "bold", so the markup doesn't count.
         tagsOn = false
         assertEquals(4, guard().measure("**bold**").text.length)
+    }
+
+    @Test
+    fun `writing the post is reported as the Write post stage`() = runTest {
+        val tracking = StageReporter.Tracking(Pipelines.text) {}
+        withContext(tracking.reporter) { GenerateTextUseCase("SYSTEM", { FakeAgent(ApiResult.Ok("Post")) })("p") }
+        assertEquals(StageStatus.DONE, tracking.pipeline[StageId.WRITE_POST]?.status)
     }
 }

@@ -30,6 +30,9 @@ import com.smassistant.app.media.SizeGuard
 import com.smassistant.app.media.ratio
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
+import com.smassistant.app.pipeline.StageId
+import com.smassistant.app.pipeline.StageStatus
+import com.smassistant.app.pipeline.reportStage
 import com.smassistant.app.prompt.loadPromptAsset
 import java.io.File
 import kotlin.math.roundToInt
@@ -120,6 +123,7 @@ class GenerateImagesUseCase(
      */
     suspend fun generate(request: ImageRequest): Outcome<List<File>> {
         val outcome = make(request)
+        if (outcome is Outcome.Ok) reportStage(StageId.DRAW_IMAGE, StageStatus.DONE)
         val guard = sizeGuard ?: return outcome
         // The last step: every image is 2:3, 1:1 or 3:2, padded when it is off by more than 2% (docs/requirements/18, SV-9).
         return if (outcome is Outcome.Ok) Outcome.Ok(outcome.value.map { guard.fit(it, IMAGE_RATIOS) }) else outcome
@@ -129,6 +133,9 @@ class GenerateImagesUseCase(
         val topic = request.prompt.trim()
         infographics?.let { parts -> parts.textAgent()?.let { writer -> return infographics(parts, writer, topic, request) } }
         val selected = agent() ?: return Outcome.NoAgent
+        // Painted straight from the prompt: there is no content to write (docs/requirements/20).
+        reportStage(StageId.WRITE_CONTENT, StageStatus.SKIPPED)
+        reportStage(StageId.DRAW_IMAGE, StageStatus.RUNNING)
         // Auto is resolved before the agent is asked, so the model never picks the shape (docs/requirements/18, SV-8).
         val format = request.format ?: infographics?.templates?.style()?.format ?: ImageSize.PORTRAIT
         return when (val result = selected.generate(imagePrompt(topic), count, format)) {
@@ -160,6 +167,7 @@ class GenerateImagesUseCase(
     private suspend fun upscaled(images: List<File>): List<File> = upscaler?.let { up -> images.map { up.upscale(it) } } ?: images
 
     private suspend fun infographics(parts: Infographics, writer: TextAgent, topic: String, request: ImageRequest): Outcome<List<File>> {
+        reportStage(StageId.WRITE_CONTENT, StageStatus.RUNNING)
         val content = parts.content?.let { step ->
             when (val result = step.write(writer, topic)) {
                 is ApiResult.Failed -> return Outcome.Failed(result.error, writer.service.displayName)
@@ -169,6 +177,9 @@ class GenerateImagesUseCase(
         val illustrator = agent()
         val briefs = parts.templates?.let { templates -> briefs(templates, writer, topic, content, request) }
         val layout = parts.templates?.style()?.layout ?: ImageLayout.AUTO
+        // The content and the template are ready; each poster is now laid out, drawn and reviewed.
+        reportStage(StageId.WRITE_CONTENT, StageStatus.DONE)
+        reportStage(StageId.DRAW_IMAGE, StageStatus.RUNNING)
         val outcomes = coroutineScope {
             List(count) { i ->
                 val brief = briefs?.get(i)
