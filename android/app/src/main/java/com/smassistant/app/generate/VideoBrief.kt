@@ -66,5 +66,8 @@ fun videoLabel(file: File): VideoLabel? {
 }
 
 /** "Workflow or Lifecycle · 9:16": the template's name from [templates] and the size's ratio. */
-fun VideoLabel.text(templates: List<ImageTemplate>): String =
-    "${templates.firstOrNull { it.id == templateId }?.name ?: templateId.replaceFirstChar { it.uppercase() }} · ${format.ratio}"
+fun VideoLabel.text(templates: List<ImageTemplate>): String = "${name(templates)} · ${format.ratio}"
+
+/** The name of the template the video was made from, from [templates]. */
+fun VideoLabel.name(templates: List<ImageTemplate>): String =
+    templates.firstOrNull { it.id == templateId }?.name ?: templateId.replaceFirstChar { it.uppercase() }

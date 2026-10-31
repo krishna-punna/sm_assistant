@@ -26,6 +26,8 @@ import com.smassistant.app.generate.appSmartTrim
 import com.smassistant.app.linkedin.PostState
 import com.smassistant.app.linkedin.PostViewModel
 import com.smassistant.app.linkedin.appPostToLinkedIn
+import com.smassistant.app.media.imagePixels
+import com.smassistant.app.media.sizeText
 import com.smassistant.app.navigation.Feature
 import com.smassistant.app.prompt.loadPromptAsset
 import com.smassistant.app.ui.components.CarouselPager
@@ -112,15 +114,21 @@ fun ImageResult(
     var selected by rememberSaveable(images) { mutableStateOf(images.indices.toSet()) }
     var previewIndex by rememberSaveable(images) { mutableStateOf<Int?>(null) }
     val appContext = LocalContext.current.applicationContext
-    // "Workflow · 2:3" under each image made from a template (docs/design/image-templates.md).
+    // Each image's real size, so a wrong shape shows (docs/requirements/18, SV-10).
+    val pixels = remember(images) { images.map { imagePixels(it) } }
+    // "Workflow · 2:3 · 2160×3240" under each image made from a template (docs/design/image-templates.md),
+    // just the size under any other.
     val labels = remember(images) {
         val templates = runCatching { parseImageTemplates(loadPromptAsset(appContext, "image_templates")) }.getOrDefault(emptyList())
-        images.map { file -> imageLabel(file)?.text(templates) }
+        images.zip(pixels) { file, size ->
+            val words = size?.let { (w, h) -> sizeText(w, h) }
+            imageLabel(file)?.text(templates, words) ?: words
+        }
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (carousel) {
-            CarouselPager(images, onOpen = { previewIndex = it })
+            CarouselPager(images, onOpen = { previewIndex = it }, sizes = pixels.map { size -> size?.let { (w, h) -> sizeText(w, h) } })
         } else {
             ImageStrip(
                 images = images,
@@ -128,6 +136,7 @@ fun ImageResult(
                 onToggle = { index -> selected = if (index in selected) selected - index else selected + index },
                 onOpen = { previewIndex = it },
                 labels = labels,
+                ratios = pixels.map { size -> size?.let { (w, h) -> w.toFloat() / h } },
             )
         }
         PostInLinkedInButton(

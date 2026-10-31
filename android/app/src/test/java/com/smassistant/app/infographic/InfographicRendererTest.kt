@@ -36,8 +36,8 @@ class InfographicRendererTest {
         assertTrue(rendered.svg.endsWith("</svg>"))
         assertTrue(rendered.width >= 1080)
         assertEquals(rendered.width * 3 / 2f, rendered.height.toFloat(), 1f)
-        assertTrue(rendered.svg.contains("""<tspan fill="#FACC15"> Internals</tspan>"""))
-        assertTrue(rendered.svg.contains("List&lt;String&gt;"))
+        assertTrue(rendered.svg.contains("<tspan fill=\"#FACC15\">\u00A0Internals</tspan>"))
+        assertTrue(rendered.svg.contains("<![CDATA[List<String>"))
         assertTrue(rendered.svg.contains("Pre-size the list"))
         assertEquals(listOf("a coffee cup on a stack of boxes", "boxes in a row growing"), rendered.slots.map { it.prompt })
         assertFalse(rendered.svg.contains("<foreignObject") || rendered.svg.contains("<image") || rendered.svg.contains("class="))
@@ -197,5 +197,23 @@ class InfographicRendererTest {
     fun `mixes colours`() {
         assertEquals("#FFFFFF", mix("#000000", "#FFFFFF", 1f))
         assertEquals("#808080", mix("#000000", "#FFFFFF", 0.5f))
+    }
+
+    @Test
+    fun `title words keep a space AndroidSVG can't drop, and code keeps every character`() {
+        val code = spec.copy(
+            title = "CompletableFuture vs Reactive",
+            highlight = "Reactive",
+            sections = listOf(Section("Endpoint", SectionBody.Code("Mono<ResponseEntity<OrderDto>> get() {\n  return a.map(t -> b && c);\n}"))),
+        )
+        val svg = renderer.render(code).svg
+
+        // The spaces between title words are non-breaking, so no word starts a <tspan> with a plain space.
+        assertTrue(svg.contains("<tspan>CompletableFuture</tspan><tspan>\u00A0vs</tspan>"))
+        assertFalse(Regex("<tspan[^>]*> ").containsMatchIn(svg))
+        // Code with < > & goes in CDATA, never as entities that AndroidSVG skips.
+        assertTrue(svg.contains("<![CDATA[Mono<ResponseEntity<OrderDto>>"))
+        assertTrue(svg.contains("t\u00A0->\u00A0b\u00A0&&\u00A0c);]]>"))
+        assertFalse(svg.contains("&lt;") || svg.contains("&gt;") || svg.contains("&amp;"))
     }
 }
