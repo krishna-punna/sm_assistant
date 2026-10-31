@@ -315,7 +315,8 @@ class GenerateImagesTest {
         val writer = ScriptedTextAgent(
             ApiResult.Ok("1. Request flow"),
             ApiResult.Ok("""{"primary": "workflow", "alternates": ["architecture"]}"""),
-            ApiResult.Ok(caching()),
+            // A flow card passes the Workflow template's checks, so the definition is written once.
+            ApiResult.Ok(caching().replace("""{"heading": "TTL", "items": ["expire entries"]}""", """{"heading": "Read path", "type": "flow", "nodes": ["App", "Cache", "DB"]}""")),
         )
         val gemini = PaintingAgent()
 
