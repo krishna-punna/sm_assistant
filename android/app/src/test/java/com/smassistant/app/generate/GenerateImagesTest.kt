@@ -420,8 +420,9 @@ class GenerateImagesTest {
         val outcome = GenerateImagesUseCase("{{prompt}}", { null }, IMAGES_PER_REQUEST, infographics = withCarousel).generate(ImageRequest("Caching"))
 
         assertEquals(1, (outcome as Outcome.Ok).value.size)
-        // The content, the template, the carousel asked twice, then the single image.
-        assertEquals(5, writer.calls.size)
+        // The carousel was asked for twice before the single image was written.
+        assertEquals(2, writer.calls.count { it.first.startsWith("Pages.") })
+        assertTrue(writer.calls.last().second.contains("Image template: Workflow"))
     }
 
     @Test
