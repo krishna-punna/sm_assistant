@@ -97,7 +97,7 @@ data class Pipeline(val stages: List<Stage>) {
     val statusLine: String
         get() {
             failed?.let { stage -> return "${stage.id.label} failed" + (stage.note?.let { ": $it" } ?: "") }
-            running.takeIf { it.isNotEmpty() }?.let { now -> return now.joinToString("  ·  ") { it.id.running } }
+            running.takeIf { it.isNotEmpty() }?.let { now -> return now.joinToString("  ·  ") { it.note ?: it.id.running } }
             val last = stages.last()
             val generated = generation.all { it.status == StageStatus.DONE || it.status == StageStatus.SKIPPED }
             return when {
