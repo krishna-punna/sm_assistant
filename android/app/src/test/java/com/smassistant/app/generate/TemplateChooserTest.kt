@@ -57,8 +57,16 @@ class TemplateChooserTest {
     }
 
     @Test
+    fun `the video chooser asks for a video template`() = runTest {
+        val agent = ScriptedTextAgent(ApiResult.Ok("""{"primary": "concept"}"""))
+        TemplateChooser("Pick the {{media}} template.", templates, media = "video").choose(agent, "x")
+        assertEquals("Pick the video template.", agent.calls.single().first)
+    }
+
+    @Test
     fun `the prompt asset lists the templates and every id it names exists`() {
         val prompt = File("src/main/assets/prompts/choose_template.md").readText()
+        assertTrue(prompt.contains("{{media}}"))
         val ids = parseImageTemplates(File("src/main/assets/prompts/image_templates.md").readText()).map { it.id }
         assertTrue(prompt.contains("{{templates}}"))
         val tableIds = Regex("""(?m)^\| [^|]+ \| (\w+) \|$""").findAll(prompt).map { it.groupValues[1] }.filter { it != "Template" }.toList()

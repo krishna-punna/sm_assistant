@@ -27,6 +27,9 @@ Story rules:
 - Write exactly {{slides}} slides that tell one story: slide 1 introduces the problem or idea, the middle slides walk through how it works step by step, and the last slide sums up with best practices and a takeaway. Each slide shows the next step; don't repeat content between slides.
 - Each slide stays on screen for about {{seconds}} seconds, so give it as much as can be read in that time: 1 or 2 sections for up to 10 seconds, 2 or 3 sections for longer. Headings up to 4 words, at most 5 items of up to 8 words, flows of up to 5 nodes of up to 3 words, code at most 8 lines.
 - Every fact must be technically accurate and every word spelled correctly.
+- The user may also give you a video template. Then plan the slides by it: it decides the story's shape and what each slide shows, while these rules decide the JSON.
+- The topic may be an instruction for writing content rather than the content itself: never copy such an instruction onto a slide. Pick one coherent learning objective and the part of the content that serves it, rather than fitting all of it in. Don't invent facts, examples, code, numbers or guarantees.
+- Keep every slide consistent, as in a video series: one palette, the same title and subtitle treatment, the same icon and diagram style, and labels that keep their meaning from slide to slide.
 - "hero" describes a simple flat picture of objects or a scene that fits the slide. It must not ask for words, labels, letters, numbers, logos or diagrams. Use the same visual theme on every slide so the video looks consistent.
 - Icons: database, server, cloud, user, lock, key, gear, check, cross, bolt, clock, chart, code, globe, queue, layers, plug, shield, rocket, warning, idea, book, search, mobile, network, arrow, box, target, star, chat, coffee, terminal, retry, cpu, list.
 - Escape double quotes and backslashes inside strings as JSON requires.

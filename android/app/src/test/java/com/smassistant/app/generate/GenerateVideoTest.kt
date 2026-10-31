@@ -169,6 +169,65 @@ class GenerateVideoTest {
         assertEquals(Outcome.NoAgent, deckUseCase(writer = null, agent = null)("x"))
     }
 
+    private val videoTemplates = listOf(
+        ImageTemplate("universal", "Universal Master", "unsure", "Any video of {{content}}, {{duration}}, {{format}}."),
+        ImageTemplate("workflow", "Workflow or Lifecycle", "steps", "Steps of {{content}}, {{duration}}, {{format}}, for {{audience}}."),
+    )
+
+    private fun templateUseCase(writer: ScriptedTextAgent, content: MediaContentWriter? = MediaContentWriter("Write it all.")) =
+        GenerateVideoUseCase(
+            "slide {{slide}} of {{slides}}: {{prompt}}", { agent }, maker, { File("out.mp4") }, seconds = { seconds },
+            decks = SlideDecks(
+                { writer },
+                SlideDeckWriter("Plan {{slides}} slides of {{seconds}} s.{{examples}}"),
+                pipeline,
+                content,
+                Templates(videoTemplates, TemplateChooser("Pick a {{media}} template.\n{{templates}}", videoTemplates, media = "video")),
+            ),
+        )
+
+    @Test
+    fun `the chooser picks a video template for the content and the deck follows it`() = runTest {
+        val writer = ScriptedTextAgent(
+            ApiResult.Ok("1. Request arrives\n2. Retry"),
+            ApiResult.Ok("""{"primary": "workflow"}"""),
+            ApiResult.Ok(deck),
+        )
+
+        assertTrue(templateUseCase(writer)("Write a post on retries") is Outcome.Ok)
+
+        val (chooseSystem, chooseUser) = writer.calls[1]
+        assertTrue(chooseSystem.startsWith("Pick a video template."))
+        // The chooser reads the technical content, not the prompt.
+        assertEquals("Technical content:\n1. Request arrives\n2. Retry", chooseUser)
+        assertEquals(
+            "Topic: Write a post on retries\n\nTechnical content to represent:\n1. Request arrives\n2. Retry" +
+                "\n\nVideo template: Workflow or Lifecycle, square 1:1, 30 seconds. Plan the slides by this template. " +
+                "The app draws every slide from your JSON and plays them in order without sound, so the template decides " +
+                "the story and what each slide shows; keep its content rules and turn its scenes into slides.\n\n" +
+                "Steps of (the technical content above), 30 seconds, square 1:1, for developers, senior engineers and architects.",
+            writer.calls[2].second,
+        )
+        assertEquals(3, writer.calls.size)
+    }
+
+    @Test
+    fun `a failed choice gives the universal template and the video is still made`() = runTest {
+        val writer = ScriptedTextAgent(ApiResult.Ok("Content."), ApiResult.Failed(ApiError.RateLimited), ApiResult.Ok(deck))
+
+        assertTrue(templateUseCase(writer)("Retries") is Outcome.Ok)
+        assertTrue(writer.calls[2].second.contains("Video template: Universal Master"))
+    }
+
+    @Test
+    fun `without a content step the chooser reads the prompt`() = runTest {
+        val writer = ScriptedTextAgent(ApiResult.Ok("""{"primary": "workflow"}"""), ApiResult.Ok(deck))
+
+        assertTrue(templateUseCase(writer, content = null)(" Retries ") is Outcome.Ok)
+        assertEquals("Technical content:\nRetries", writer.calls[0].second)
+        assertTrue(writer.calls[1].second.contains("Steps of (the topic above)"))
+    }
+
     @Test
     fun `video deck asset keeps its placeholders`() {
         val text = File("src/main/assets/prompts/video_deck.md").readText()
