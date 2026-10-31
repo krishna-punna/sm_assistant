@@ -41,7 +41,8 @@ enum class PostType(val label: String, val promptType: PromptType) {
 /**
  * How the last run went, shown on the scheduler list. [postUrl] opens the post when it was published;
  * [awaitingReview] is true when the run made a post that waits for the user's approval; [template]
- * is the id of the image template its first image followed.
+ * is the id of the image template its first image followed; [carouselPages] counts the pages when
+ * its images were one carousel (SC-I7).
  */
 data class RunRecord(
     val at: Long,
@@ -50,6 +51,7 @@ data class RunRecord(
     val postUrl: String? = null,
     val awaitingReview: Boolean = false,
     val template: String? = null,
+    val carouselPages: Int? = null,
 )
 
 /**
@@ -153,6 +155,7 @@ object SchedulerJson {
                 run.postUrl?.let { put("postUrl", it) }
                 if (run.awaitingReview) put("awaitingReview", true)
                 run.template?.let { put("template", it) }
+                run.carouselPages?.let { put("carouselPages", it) }
             })
         }
         put("reviewFirst", s.reviewFirst)
@@ -200,6 +203,7 @@ object SchedulerJson {
                     postUrl = run.string("postUrl"),
                     awaitingReview = run.bool("awaitingReview") ?: false,
                     template = run.string("template"),
+                    carouselPages = run.long("carouselPages")?.toInt(),
                 )
             },
             reviewFirst = json.bool("reviewFirst") ?: defaults.reviewFirst,

@@ -13,6 +13,7 @@ import com.smassistant.app.generate.appGenerateImages
 import com.smassistant.app.generate.appGenerateTechnicalContent
 import com.smassistant.app.generate.appGenerateVideo
 import com.smassistant.app.generate.imageLabel
+import com.smassistant.app.generate.isCarousel
 import com.smassistant.app.generate.videoLabel
 import com.smassistant.app.linkedin.PostToLinkedInUseCase
 import com.smassistant.app.linkedin.SignInExpiry
@@ -106,6 +107,7 @@ class AutoPostRun(
         }
 
         val template = files.firstNotNullOfOrNull { imageLabel(it)?.templateId ?: videoLabel(it)?.templateId }
+        val pages = files.size.takeIf { isCarousel(files) }
         val post = linkedIn.prepare(markdown)
         if (post.text.isBlank()) return failed("The agent wrote an empty post, so nothing was posted.", title)
         if (!post.fitsLimit) {
@@ -114,16 +116,16 @@ class AutoPostRun(
 
         if (scheduler.reviewFirst) {
             return RunOutcome(
-                RunRecord(now(), ok = true, message = "Ready for your review: “$title”", awaitingReview = true, template = template),
+                RunRecord(now(), ok = true, message = "Ready for your review: “$title”", awaitingReview = true, template = template, carouselPages = pages),
                 title,
                 held = PendingPost(title, post.text, files.map { it.path }, now(), template),
             )
         }
 
         return when (val result = linkedIn.post(post.text, files)) {
-            is ApiResult.Ok -> RunOutcome(RunRecord(now(), ok = true, message = "Posted “$title”", postUrl = result.value.url, template = template), title)
+            is ApiResult.Ok -> RunOutcome(RunRecord(now(), ok = true, message = "Posted “$title”", postUrl = result.value.url, template = template, carouselPages = pages), title)
             is ApiResult.Failed -> RunOutcome(
-                RunRecord(now(), ok = false, message = linkedInErrorMessage(result.error), template = template),
+                RunRecord(now(), ok = false, message = linkedInErrorMessage(result.error), template = template, carouselPages = pages),
                 title,
                 retry = isTransient(result.error),
             )

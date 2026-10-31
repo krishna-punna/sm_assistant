@@ -1,7 +1,7 @@
 # 12. One image or a carousel
 
 Requirements: [17](../requirements/17-single-image-or-carousel.md). Design: [single-image-carousel.md](../design/single-image-carousel.md).
-Status: approved 2026-10-31. One PR per implementation task, in order.
+Status: implemented 2026-10-31 (PRs #117, #119, #122–#127); device checks SC-V1 and SC-V2 left. One PR per implementation task, in order.
 
 ## Implementation
 
@@ -13,7 +13,7 @@ Status: approved 2026-10-31. One PR per implementation task, in order.
 | SC-I4 | Drawing a carousel: page number and "Swipe" on the cover, each page through the pipeline and the review; Generate Image returns the pages when content doesn't fit one image (or Layout is Carousel); files `carousel-<id>-pNN.png`. | SC-I3 | done |
 | SC-I5 | Image screens and Content & Image show a carousel as a swipeable pager with "Page N of M"; Post in LinkedIn posts all pages. | SC-I4 | done |
 | SC-I6 | Posting a carousel as a PDF document: PDF from the pages, Documents API upload and status poll, `content.media` document post with the title; multi-image fallback. | SC-I5 | done |
-| SC-I7 | Scheduled image posts post a carousel as a document; run history says "Carousel · 7 pages". | SC-I6 | todo |
+| SC-I7 | Scheduled image posts post a carousel as a document; run history says "Carousel · 7 pages". | SC-I6 | done |
 
 ## Tests
 

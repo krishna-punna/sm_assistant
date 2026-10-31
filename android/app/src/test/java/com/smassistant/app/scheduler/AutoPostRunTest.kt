@@ -156,6 +156,14 @@ class AutoPostRunTest {
     }
 
     @Test
+    fun `a carousel run records its page count`() = runTest {
+        images = Outcome.Ok((1..5).map { File("carousel-3-p0$it-page.png") })
+        assertEquals(5, run(scheduler(PostType.IMAGE)).record.carouselPages)
+        images = Outcome.Ok(listOf(File("a.png"), File("b.png")))
+        assertNull(run(scheduler(PostType.IMAGE)).record.carouselPages)
+    }
+
+    @Test
     fun `video posts record the template the video followed`() = runTest {
         video = Outcome.Ok(GeneratedVideo(File("vtpl-architecture-landscape-v.mp4"), emptyList()))
         assertEquals("architecture", run(scheduler(PostType.VIDEO)).record.template)
