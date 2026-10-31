@@ -42,7 +42,8 @@ fun ApiStatusScreen(onBackToHome: () -> Unit) {
     val viewModel = viewModel {
         val store = ApiSettingsStore(appContext)
         val checker = ApiConnectionCheck()
-        ApiStatusViewModel(store::load, checker::check)
+        // Each result is remembered for the warning by the agent dropdowns (GEN-6).
+        ApiStatusViewModel(store::load) { service, config -> checker.check(service, config).also { store.saveLastStatus(service, it) } }
     }
     val statuses by viewModel.statuses.collectAsStateWithLifecycle()
     ApiStatusContent(statuses, onTestAgain = viewModel::testAll, onBackToHome = onBackToHome)
