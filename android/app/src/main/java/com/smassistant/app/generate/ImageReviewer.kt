@@ -18,7 +18,7 @@ data class ImageReview(val score: Int, val problems: List<String>)
 /**
  * The last check before an infographic is finished (docs/design/image-video-pipeline.md, "Checks
  * before an image is finished"): the text agent looks at the image ([preview] makes the JPEG it
- * is sent) with [systemPrompt] (`prompts/image_review.md`) and scores how well it matches the
+ * is sent) with [systemPrompt] (`prompts/image/image_review.md` or `prompts/video/video_review.md`) and scores how well it matches the
  * topic and the plan, whether its text is readable and whether its illustrations are clean.
  * An image passes with at least [minScore].
  */

@@ -7,7 +7,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ImageTemplatesTest {
-    private val asset by lazy { File("src/main/assets/prompts/image_templates.md").readText() }
+    private val asset by lazy { File("src/main/assets/prompts/image/image_templates.md").readText() }
     private val templates by lazy { parseImageTemplates(asset) }
 
     @Test

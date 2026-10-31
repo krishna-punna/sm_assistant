@@ -128,7 +128,7 @@ fun Carousel.numbered(): Carousel = copy(
 const val MIN_CAROUSEL_PAGES = 4
 const val MAX_CAROUSEL_PAGES = 10
 
-/** Reads a carousel written by `prompts/carousel.md`: every page square, in the carousel's palette, at most [MAX_CAROUSEL_PAGES]. */
+/** Reads a carousel written by `prompts/image/carousel.md`: every page square, in the carousel's palette, at most [MAX_CAROUSEL_PAGES]. */
 fun parseCarousel(reply: String): Result<Carousel> = jsonObjectIn(reply).mapCatching { root ->
     val palette = Palette.of(root.string("palette"))
     val pages = root.array("pages").filterIsInstance<JsonObject>()

@@ -23,7 +23,7 @@ fun interface InfographicComposer {
 /**
  * The drawing half of the pipeline (docs/design/image-video-pipeline.md): render the definition,
  * ask [illustrator] for the first [maxIllustrations] slots' pictures in parallel (with the house
- * style from `prompts/illustration.md`), and compose them. A failed illustration keeps its
+ * style from `prompts/image/illustration.md` or `prompts/video/illustration.md`), and compose them. A failed illustration keeps its
  * placeholder, and without an illustrator the image is drawn from the definition alone.
  *
  * With an [inspector], every illustration is checked before it is painted in (a blank, transparent

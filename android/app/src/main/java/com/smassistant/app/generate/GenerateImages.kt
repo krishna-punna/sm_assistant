@@ -94,7 +94,7 @@ fun interface ImageUpscaler {
  * on the prompt with no length limit (docs/requirements/14), then [count] definitions of that
  * content are written in parallel, each with its own layout idea, drawn with illustrations from the selected image agent. Without a text
  * agent it falls back to asking the image agent for finished images, with the style from
- * `assets/prompts/image.md` and the few-shot [examples] closest to the topic.
+ * `assets/prompts/image/image.md` and the few-shot [examples] closest to the topic.
  *
  * Every image is checked before it is finished (docs/design/image-video-pipeline.md, "Checks before
  * an image is finished"): the definition by [InfographicWriter], the pictures and the PNG by the
@@ -346,9 +346,9 @@ fun pickedImageRequest(context: Context, prompt: String): ImageRequest {
  */
 fun appGenerateImages(context: Context): GenerateImagesUseCase {
     val cache = MediaCache(context)
-    val examples = parseImageExamples(loadPromptAsset(context, "image_examples"))
+    val examples = parseImageExamples(loadPromptAsset(context, "image/image_examples"))
     return GenerateImagesUseCase(
-        styleTemplate = loadPromptAsset(context, "image"),
+        styleTemplate = loadPromptAsset(context, "image/image"),
         agent = appImageAgentSelector(context, cache)::imageAgent,
         count = IMAGES_PER_REQUEST,
         examples = examples,
@@ -370,31 +370,29 @@ internal fun appInfographics(context: Context, cache: MediaCache, examples: List
     val checks = AppConfig.imageChecks(context)
     return Infographics(
         textAgent = appAgentSelector(context)::textAgent,
-        writer = InfographicWriter(loadPromptAsset(context, "infographic"), examples),
+        writer = InfographicWriter(loadPromptAsset(context, "image/infographic"), examples),
         pipeline = InfographicPipeline(
             renderer = InfographicRenderer(PaintTextMeasurer),
-            illustrationTemplate = loadPromptAsset(context, "illustration"),
+            illustrationTemplate = loadPromptAsset(context, "image/illustration"),
             composer = AndroidInfographicComposer(cache),
             inspector = AndroidImageInspector,
         ),
-        content = appMediaContentWriter(context),
-        reviewer = if (checks.visionReview) ImageReviewer(loadPromptAsset(context, "image_review"), ::reviewJpeg, checks.minScore) else null,
+        content = MediaContentWriter(loadPromptAsset(context, "image/image_content")),
+        reviewer = if (checks.visionReview) ImageReviewer(loadPromptAsset(context, "image/image_review"), ::reviewJpeg, checks.minScore) else null,
         retries = if (checks.visionReview) checks.retries else 0,
         templates = appTemplates(context),
-        carousel = CarouselWriter(loadPromptAsset(context, "carousel"), examples),
+        carousel = CarouselWriter(loadPromptAsset(context, "image/carousel"), examples),
     )
 }
 
-/** The image templates from `prompts/image_templates.md`, their chooser, the Image Style settings and the painter. */
+/** The image templates from `prompts/image/image_templates.md`, their chooser, the Image Style settings and the painter. */
 internal fun appTemplates(context: Context): Templates {
-    val all = parseImageTemplates(loadPromptAsset(context, "image_templates"))
+    val all = parseImageTemplates(loadPromptAsset(context, "image/image_templates"))
     return Templates(
         all,
-        TemplateChooser(loadPromptAsset(context, "choose_template"), all),
+        TemplateChooser(loadPromptAsset(context, "image/choose_image_template"), all),
         ImageStyleStore(context)::load,
-        ImagePainter(loadPromptAsset(context, "condense_image_prompt")),
+        ImagePainter(loadPromptAsset(context, "image/condense_image_prompt")),
     )
 }
 
-/** Writes the no-limit technical content an image or video represents (docs/requirements/14). */
-internal fun appMediaContentWriter(context: Context) = MediaContentWriter(loadPromptAsset(context, "media_content"))

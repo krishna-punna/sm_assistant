@@ -98,7 +98,7 @@ class SlideDecks(
  * technical content on the prompt with no length limit (docs/requirements/14), one call plans
  * all slides of that content as a deck, each slide is drawn with its illustration from the video agent, and [maker] encodes them
  * in order into an MP4. Without a text agent the video agent paints each slide from
- * `assets/prompts/video.md`, as before. Slides that fail are left out.
+ * `assets/prompts/video/video.md`, as before. Slides that fail are left out.
  *
  * The video is as long as the length picked on the screen ([seconds], read on each submit,
  * Requirement 9): that sets how many slides are planned ([slidesFor]), and the slides that
@@ -289,7 +289,7 @@ fun appGenerateVideo(context: Context): GenerateVideoUseCase {
     val checks = AppConfig.imageChecks(context)
     val selector = appImageAgentSelector(context, cache, MediaPurpose.VIDEO)
     return GenerateVideoUseCase(
-        slideTemplate = loadPromptAsset(context, "video"),
+        slideTemplate = loadPromptAsset(context, "video/video"),
         agent = selector::imageAgent,
         maker = Media3SlideshowMaker(context.applicationContext),
         blender = AndroidFrameBlender(cache),
@@ -299,25 +299,25 @@ fun appGenerateVideo(context: Context): GenerateVideoUseCase {
         decks = SlideDecks(
             textAgent = appAgentSelector(context)::textAgent,
             writer = SlideDeckWriter(
-                loadPromptAsset(context, "video_deck"),
-                parseImageExamples(loadPromptAsset(context, "image_examples")),
+                loadPromptAsset(context, "video/video_deck"),
+                parseImageExamples(loadPromptAsset(context, "video/video_examples")),
             ),
             pipeline = InfographicPipeline(
                 renderer = InfographicRenderer(PaintTextMeasurer),
-                illustrationTemplate = loadPromptAsset(context, "illustration"),
+                illustrationTemplate = loadPromptAsset(context, "video/illustration"),
                 composer = AndroidInfographicComposer(cache, scale = 1f),
                 inspector = AndroidImageInspector,
             ),
-            content = appMediaContentWriter(context),
+            content = MediaContentWriter(loadPromptAsset(context, "video/video_content")),
             templates = appVideoTemplates(context),
-            reviewer = if (checks.visionReview) ImageReviewer(loadPromptAsset(context, "image_review"), ::reviewJpeg, checks.minScore) else null,
+            reviewer = if (checks.visionReview) ImageReviewer(loadPromptAsset(context, "video/video_review"), ::reviewJpeg, checks.minScore) else null,
             retries = if (checks.visionReview) checks.retries else 0,
         ),
     )
 }
 
-/** The video templates from `prompts/video_templates.md`, their chooser and the Image Style settings. */
+/** The video templates from `prompts/video/video_templates.md`, their chooser and the Image Style settings. */
 internal fun appVideoTemplates(context: Context): Templates {
-    val all = parseImageTemplates(loadPromptAsset(context, "video_templates"))
-    return Templates(all, TemplateChooser(loadPromptAsset(context, "choose_template"), all, media = "video"), ImageStyleStore(context)::load)
+    val all = parseImageTemplates(loadPromptAsset(context, "video/video_templates"))
+    return Templates(all, TemplateChooser(loadPromptAsset(context, "video/choose_video_template"), all), ImageStyleStore(context)::load)
 }

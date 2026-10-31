@@ -63,7 +63,7 @@ class GenerateImagesTest {
 
     @Test
     fun `image style asset keeps the prompt placeholder`() {
-        assertTrue(File("src/main/assets/prompts/image.md").readText().contains("{{prompt}}"))
+        assertTrue(File("src/main/assets/prompts/image/image.md").readText().contains("{{prompt}}"))
     }
 
     private val drawn = mutableListOf<String>()
@@ -122,7 +122,7 @@ class GenerateImagesTest {
 
     @Test
     fun `media content asset asks for no-limit sectioned content`() {
-        val asset = File("src/main/assets/prompts/media_content.md").readText()
+        val asset = File("src/main/assets/prompts/image/image_content.md").readText()
         listOf("no length limit", "Sections", "Key takeaways").forEach { assertTrue("media_content.md is missing $it", asset.contains(it)) }
     }
 
@@ -592,7 +592,7 @@ class GenerateImagesTest {
 
     @Test
     fun `every template has a layout`() {
-        val ids = parseImageTemplates(File("src/main/assets/prompts/image_templates.md").readText()).map { it.id }
+        val ids = parseImageTemplates(File("src/main/assets/prompts/image/image_templates.md").readText()).map { it.id }
         assertEquals(ids.toSet(), TEMPLATE_LAYOUTS.keys)
     }
 }

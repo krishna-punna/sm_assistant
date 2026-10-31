@@ -30,7 +30,7 @@ val INFOGRAPHIC_LAYOUT_IDEAS = listOf(
 
 /**
  * The "LLM generates content" step of the pipeline: sends the topic to a text agent with
- * [systemPrompt] (`prompts/infographic.md`, its `{{examples}}` filled with the few-shot examples
+ * [systemPrompt] (`prompts/image/infographic.md`, its `{{examples}}` filled with the few-shot examples
  * of the brief's template and those closest to the topic) and reads back the JSON definition. A reply that isn't a usable
  * definition, or that fails [infographicProblems], is asked for once more with the problems
  * named. [feedback] carries what a review found wrong with the last image drawn from it.
@@ -80,7 +80,7 @@ private fun templateBlock(brief: ImageBrief?, content: String): String {
 
 /**
  * The video's "LLM generates content" step: one call plans every slide ([systemPrompt] is
- * `prompts/video_deck.md`, `{{slides}}` the slide count, `{{seconds}}` how long each slide
+ * `prompts/video/video_deck.md`, `{{slides}}` the slide count, `{{seconds}}` how long each slide
  * shows, `{{format}}` the video's size, `{{examples}}` the closest few-shot examples), so the slides tell one story in one palette. Asked once more if the reply isn't a usable deck
  * or fails [slideDeckProblems]. A [brief] adds the video template the storyboard follows, and its
  * checks ([storyboardProblems]). [feedback] carries what a review found wrong with the slides
@@ -113,7 +113,7 @@ class SlideDeckWriter(
 
 /**
  * Writes a carousel (docs/design/single-image-carousel.md) in one text-agent call ([systemPrompt] is
- * `prompts/carousel.md`, `{{pages}}` the most pages, `{{examples}}` the closest few-shot examples),
+ * `prompts/image/carousel.md`, `{{pages}}` the most pages, `{{examples}}` the closest few-shot examples),
  * so the pages tell one story in one palette. Asked once more if the reply isn't a usable carousel or
  * fails [carouselProblems], with [fits] saying which pages are too full for their square. A [brief]
  * adds the image template the carousel follows; its format is ignored, since pages are always square.
@@ -164,7 +164,7 @@ private fun videoTemplateBlock(brief: VideoBrief?, content: String): String {
 
 /**
  * The workflow's first step (docs/requirements/14, MW-1 and MW-2): the text agent writes technical
- * content on the prompt with no length limit ([systemPrompt] is `prompts/media_content.md`), and
+ * content on the prompt with no length limit ([systemPrompt] is `prompts/image/image_content.md` or `prompts/video/video_content.md`), and
  * the infographic or the video's deck is planned from that content rather than the bare prompt.
  */
 class MediaContentWriter(private val systemPrompt: String) {

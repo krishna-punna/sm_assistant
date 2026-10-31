@@ -91,7 +91,7 @@ class CarouselTest {
 
     @Test
     fun `carousel prompt keeps its placeholders and page rules`() {
-        val text = File("src/main/assets/prompts/carousel.md").readText()
+        val text = File("src/main/assets/prompts/image/carousel.md").readText()
         assertTrue("{{pages}}" in text && "{{examples}}" in text)
         assertTrue("Page 1 is the cover" in text)
         assertFalse("{{slides}}" in text)

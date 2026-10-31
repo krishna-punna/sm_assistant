@@ -74,7 +74,7 @@ class ImageReviewerTest {
 
     @Test
     fun `review prompt asset asks for a score and problems as JSON`() {
-        val asset = File("src/main/assets/prompts/image_review.md").readText()
+        val asset = File("src/main/assets/prompts/image/image_review.md").readText()
         listOf("\"score\"", "\"problems\"", "garbled", "cut off").forEach { assertTrue("image_review.md is missing $it", asset.contains(it)) }
     }
 

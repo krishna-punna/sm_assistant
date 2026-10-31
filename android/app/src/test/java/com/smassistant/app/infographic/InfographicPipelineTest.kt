@@ -125,7 +125,7 @@ class InfographicPipelineTest {
 
     @Test
     fun `illustration assets keep their placeholders and forbid text`() {
-        val style = File("src/main/assets/prompts/illustration.md").readText()
+        val style = File("src/main/assets/prompts/image/illustration.md").readText()
         listOf("{{prompt}}", "{{colors}}").forEach { assertTrue(it, style.contains(it)) }
         assertTrue(style.contains("Do not include any text"))
     }

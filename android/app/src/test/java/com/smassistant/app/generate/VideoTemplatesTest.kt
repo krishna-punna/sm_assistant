@@ -7,10 +7,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class VideoTemplatesTest {
-    private val asset by lazy { File("src/main/assets/prompts/video_templates.md").readText() }
+    private val asset by lazy { File("src/main/assets/prompts/video/video_templates.md").readText() }
     private val templates by lazy { parseImageTemplates(asset) }
     private val imageIds by lazy {
-        parseImageTemplates(File("src/main/assets/prompts/image_templates.md").readText()).map { it.id }.toSet()
+        parseImageTemplates(File("src/main/assets/prompts/image/image_templates.md").readText()).map { it.id }.toSet()
     }
 
     @Test

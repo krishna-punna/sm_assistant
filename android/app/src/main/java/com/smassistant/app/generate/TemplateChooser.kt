@@ -24,19 +24,17 @@ data class TemplateChoice(
 
 /**
  * Picks the image or video template for the technical content (docs/design/image-templates.md, "Choosing
- * the template"): the text agent reads the content with [systemPrompt] (`prompts/choose_template.md`,
- * its `{{templates}}` filled with each template's "Use when" line) and names a primary template and
+ * the template"): the text agent reads the content with [systemPrompt] (`prompts/image/choose_image_template.md`
+ * or `prompts/video/choose_video_template.md`, each its own pipeline's, its `{{templates}}` filled with each template's "Use when" line) and names a primary template and
  * up to [TEMPLATE_ALTERNATES] alternates. A failed call or an unusable reply gives the Universal
- * Master, so choosing a template never fails an image or a video. [media] ("image" or "video")
- * fills the prompt's `{{media}}`.
+ * Master, so choosing a template never fails an image or a video.
  */
 class TemplateChooser(
     private val systemPrompt: String,
     private val templates: List<ImageTemplate>,
-    private val media: String = "image",
 ) {
     suspend fun choose(agent: TextAgent, content: String): TemplateChoice {
-        val system = systemPrompt.replace("{{templates}}", templateList()).replace("{{media}}", media)
+        val system = systemPrompt.replace("{{templates}}", templateList())
         return when (val result = agent.generate(system, "Technical content:\n${content.trim()}")) {
             is ApiResult.Failed -> fallback()
             is ApiResult.Ok -> parseTemplateChoice(result.value, templates) ?: fallback()

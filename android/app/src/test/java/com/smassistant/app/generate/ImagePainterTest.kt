@@ -69,7 +69,7 @@ class ImagePainterTest {
 
     @Test
     fun `condense prompt asset keeps the limit and forbids invented facts`() {
-        val asset = File("src/main/assets/prompts/condense_image_prompt.md").readText()
+        val asset = File("src/main/assets/prompts/image/condense_image_prompt.md").readText()
         assertTrue(asset.contains("1,500 characters"))
         assertTrue(asset.contains("Never add facts"))
     }

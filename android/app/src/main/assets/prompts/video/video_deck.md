@@ -41,6 +41,6 @@ Story rules:
 - Icons: database, server, cloud, user, lock, key, gear, check, cross, bolt, clock, chart, code, globe, queue, layers, plug, shield, rocket, warning, idea, book, search, mobile, network, arrow, box, target, star, chat, coffee, terminal, retry, cpu, list.
 - Escape double quotes and backslashes inside strings as JSON requires.
 
-Examples of good infographics for similar topics, as content ideas (they describe finished single images; spread their ideas across the slides):
+Examples of good slide decks for similar topics, as ideas for the story and the slides:
 
 {{examples}}
