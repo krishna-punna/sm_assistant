@@ -7,6 +7,7 @@ import com.smassistant.app.data.AiModel
 import com.smassistant.app.data.ApiConfig
 import com.smassistant.app.data.ApiService
 import com.smassistant.app.data.ApiSettingsStore
+import com.smassistant.app.data.ConnectionStatus
 import com.smassistant.app.data.ModelCatalog
 import com.smassistant.app.data.ModelLists
 import com.smassistant.app.net.ApiResult
@@ -39,6 +40,9 @@ data class ApiSettingsUiState(
     val models: ModelLists = ModelLists(),
     val loadingModels: Boolean = false,
     val modelsError: String? = null,
+    /** Test (AS-7): shown when the screen can check the key; the last result, or Checking while it runs. */
+    val canTest: Boolean = false,
+    val testStatus: ConnectionStatus? = null,
 ) {
     /** The listed models, with the current choice kept even before the list has it. */
     val textOptions get() = withCurrent(model, models.text)
@@ -71,6 +75,8 @@ class ApiSettingsViewModel(
     private val store: ApiSettingsStore,
     private val catalog: ModelCatalog? = null,
     private val now: () -> Long = System::currentTimeMillis,
+    /** The API Status check, for the Test button (AS-7); null hides it. */
+    private val check: (suspend (ApiService, ApiConfig) -> ConnectionStatus)? = null,
 ) : ViewModel() {
     private val _state = MutableStateFlow(
         store.load(service).let {
@@ -85,6 +91,7 @@ class ApiSettingsViewModel(
                 imageModel = it.imageModel,
                 videoModel = it.videoModel,
                 models = store.cachedModels(service)?.lists ?: ModelLists(),
+                canTest = check != null,
             )
         },
     )
@@ -120,13 +127,35 @@ class ApiSettingsViewModel(
         }
     }
 
-    fun onApiChange(api: String) = _state.update { it.copy(api = api, apiError = null) }
+    fun onApiChange(api: String) = _state.update { it.copy(api = api, apiError = null, testStatus = null) }
 
-    fun onKeyChange(key: String) = _state.update { it.copy(key = key, keyError = null) }
+    fun onKeyChange(key: String) = _state.update { it.copy(key = key, keyError = null, testStatus = null) }
 
-    fun onAccountIdChange(accountId: String) = _state.update { it.copy(accountId = accountId, accountIdError = null) }
+    fun onAccountIdChange(accountId: String) = _state.update { it.copy(accountId = accountId, accountIdError = null, testStatus = null) }
 
-    fun onSave() {
+    /**
+     * Test (AS-7, Q-22): checks the key with the same request as API Status and shows the result
+     * under SAVE. Unsaved changes are saved first, so it tests what's on the screen; the result is
+     * remembered for the agent warnings, like API Status.
+     */
+    fun test() {
+        val check = check ?: return
+        if (_state.value.testStatus == ConnectionStatus.Checking) return
+        val saved = store.load(service)
+        val current = _state.value
+        val changed = current.api.trim() != saved.api || current.key.trim() != saved.key ||
+            (current.showAccountId && current.accountId.trim() != saved.accountId)
+        if (changed && !onSave()) return
+        _state.update { it.copy(testStatus = ConnectionStatus.Checking) }
+        viewModelScope.launch {
+            val status = check(service, store.load(service))
+            store.saveLastStatus(service, status)
+            _state.update { it.copy(testStatus = status) }
+        }
+    }
+
+    /** Validates and saves; false (with the errors shown) when a field is wrong. */
+    fun onSave(): Boolean {
         val api = _state.value.api.trim()
         val key = _state.value.key.trim()
         val accountId = _state.value.accountId.trim()
@@ -145,7 +174,7 @@ class ApiSettingsViewModel(
         }
         if (apiError != null || keyError != null || accountIdError != null) {
             _state.update { it.copy(apiError = apiError, keyError = keyError, accountIdError = accountIdError) }
-            return
+            return false
         }
         val before = store.load(service)
         val keyChanged = key != before.key || accountId != before.accountId
@@ -166,6 +195,7 @@ class ApiSettingsViewModel(
             )
         }
         if (keyChanged || _state.value.models.text.isEmpty()) refreshModels()
+        return true
     }
 
     fun messageShown() = _state.update { it.copy(message = null) }
@@ -173,6 +203,6 @@ class ApiSettingsViewModel(
     /** Shows the saved values again, e.g. after LinkedIn sign-in replaced the token. */
     fun reload() {
         val saved = store.load(service)
-        _state.update { it.copy(api = saved.api, key = saved.key, apiError = null, keyError = null) }
+        _state.update { it.copy(api = saved.api, key = saved.key, apiError = null, keyError = null, testStatus = null) }
     }
 }
