@@ -132,7 +132,7 @@ private fun InfographicSpec.texts(): List<String> = listOfNotNull(title, subtitl
 }
 
 private fun InfographicSpec.illustrationPrompts(): List<String> =
-    listOfNotNull(hero) + sections.mapNotNull { (it.body as? SectionBody.Illustration)?.prompt }
+    listOfNotNull(hero) + sections.mapNotNull { (it.body as? SectionBody.Illustration)?.prompt } + sections.mapNotNull { it.art }
 
 private val PLACEHOLDER = Regex("""lorem ipsum|\bTODO\b|\bTBD\b|\[insert|\{\{|<placeholder|\bxxx\b""", RegexOption.IGNORE_CASE)
 

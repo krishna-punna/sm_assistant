@@ -19,7 +19,7 @@ val TEMPLATE_LAYOUTS: Map<String, TemplateLayout> = mapOf(
     ),
     "concept" to TemplateLayout(
         listOf(ImageSize.SQUARE, ImageSize.PORTRAIT),
-        "a few bullets cards around the one concept and its mechanism, at most one illustration, and a takeaway",
+        "a few bullets cards around the one concept and its mechanism, clip art where it helps, and a takeaway",
     ),
     "architecture" to TemplateLayout(
         listOf(ImageSize.LANDSCAPE, ImageSize.PORTRAIT),

@@ -81,4 +81,13 @@ class InfographicCheckTest {
         val pixels = IntArray(10_000) { i -> if (i % 10 == 0) 0xFF2050A0.toInt() else 0xFFFDFDFD.toInt() }
         assertNull(imageProblem(imageFacts(1024, 1024, pixels), 256))
     }
+
+    @Test
+    fun `card clip art that asks for text is flagged like any illustration (AC-8)`() {
+        val spec = InfographicSpec(
+            title = "Caching", hero = null,
+            sections = List(3) { Section("Card $it", SectionBody.Bullets(listOf("point")), art = if (it == 1) "a sign with the word CACHE" else "a stopwatch") },
+        )
+        assertTrue(infographicProblems(spec, "Caching").any { it.contains("a sign with the word CACHE") })
+    }
 }
