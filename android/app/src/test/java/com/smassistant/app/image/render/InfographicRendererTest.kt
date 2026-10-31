@@ -53,6 +53,40 @@ class InfographicRendererTest {
     }
 
     @Test
+    fun `posters of 12, 14 and 16 cards fit at full size, taking a 4th column when 3 are too tall`() {
+        fun poster(cards: Int) = InfographicSpec(
+            title = "Kafka Patterns",
+            sections = List(cards) { Section("Card $it", SectionBody.Bullets(listOf("Short point", "Another point", "Third point"))) },
+        )
+        fun headingXs(svg: String) = Regex("""<text x="([\d.]+)"[^>]*>Card""").findAll(svg).map { it.groupValues[1] }.toSet()
+        for (cards in listOf(12, 14, 16)) {
+            val fit = renderer.measure(poster(cards))
+            assertTrue("$cards cards fit one portrait poster", fit.fits)
+            assertEquals(cards, fit.cards)
+            assertTrue(fit.neededHeight <= fit.availableHeight)
+            assertEquals("$cards cards drawn at the format's width", 1080, renderer.render(poster(cards)).width)
+        }
+        // 16 cards are too tall in 3 columns, so they take 4; 14 still fit in 3 (the fewest that fit win).
+        assertEquals(4, headingXs(renderer.render(poster(16)).svg).size)
+        assertTrue(headingXs(renderer.render(poster(14)).svg).size <= 4)
+        assertEquals(setOf("128", "465.3", "802.7"), headingXs(renderer.render(poster(12)).svg))
+    }
+
+    @Test
+    fun `measure reports the heights compared and the text size in the feed`() {
+        val fit = renderer.measure(spec)
+        assertEquals(spec.sections.size, fit.cards)
+        assertEquals(1620, fit.availableHeight)
+        assertEquals(fit.neededHeight <= fit.availableHeight, fit.fits)
+        assertEquals(renderer.fits(spec), fit.fits)
+        // Body text 24 units on a 1080-wide layout is about 12 px at LinkedIn's 550 px feed width, on any device.
+        assertEquals(12.2f, fit.feedTextPx, 0.1f)
+        assertEquals(12.2f, renderer.measure(spec.copy(format = InfographicFormat.SQUARE)).feedTextPx, 0.1f)
+        val tooMany = spec.copy(format = InfographicFormat.SQUARE, sections = sections + sections)
+        renderer.measure(tooMany).let { assertFalse(it.fits); assertTrue(it.neededHeight > it.availableHeight) }
+    }
+
+    @Test
     fun `everything stays inside the canvas`() {
         for (format in InfographicFormat.entries) {
             val rendered = renderer.render(spec.copy(format = format))
