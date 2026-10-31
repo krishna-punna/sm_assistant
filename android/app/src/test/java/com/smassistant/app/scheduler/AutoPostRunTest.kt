@@ -5,6 +5,8 @@ import com.smassistant.app.data.ImageFormat
 import com.smassistant.app.generate.GenerateContentAndMediaUseCase
 import com.smassistant.app.generate.GeneratedVideo
 import com.smassistant.app.generate.ImageRequest
+import com.smassistant.app.history.PostSource
+import com.smassistant.app.history.PublishedPost
 import com.smassistant.app.linkedin.LinkedInPost
 import com.smassistant.app.linkedin.PostToLinkedInUseCase
 import com.smassistant.app.linkedin.SignInExpiry
@@ -239,5 +241,31 @@ class AutoPostRunTest {
                 "such as a feature, pattern, pitfall or design problem an experienced developer would want explained.",
             AutoPostRun.topicRequest("Angular", emptyList()),
         )
+    }
+
+    @Test
+    fun `scheduled posts go into the history and history titles are avoided`() = runTest {
+        val history = mutableListOf<PublishedPost>()
+        val recorded = PostToLinkedInUseCase(
+            tags = { listOf("#java") },
+            tagsEnabled = { tagsOn },
+            configured = { configured },
+            publish = { body, files -> published += body to files; reply },
+            limit = 60,
+            onPublished = { history += it },
+        )
+        val withHistory = AutoPostRun(
+            preparePrompt = { topic, type -> topics += topic; Outcome.Ok(PromptSet(type, PreparedPrompt("Kafka Partitions", "p"), null)) },
+            generateText = { text },
+            generateImages = { images },
+            generateVideo = { video },
+            linkedIn = recorded,
+            now = { 1000L },
+            historyTitles = { listOf("Redis Eviction", "Kafka Consumer Groups") },
+        )
+        withHistory(scheduler())
+        assertTrue(topics.single().contains("Kafka Consumer Groups; Redis Eviction"))
+        assertEquals(PostSource.SCHEDULED, history.single().source)
+        assertEquals("Kafka Partitions", history.single().title)
     }
 }
