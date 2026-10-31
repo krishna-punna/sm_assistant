@@ -9,6 +9,7 @@ import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -140,6 +141,40 @@ fun ImageStrip(
 }
 
 /**
+ * A carousel's pages (docs/design/single-image-carousel.md, SC-I5): one square page at a time,
+ * swiped in order, with "Page 2 of 7" above. Tap opens the full preview at that page. The pages are
+ * posted together, so there is nothing to select.
+ */
+@Composable
+fun CarouselPager(pages: List<File>, onOpen: (Int) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        val pager = rememberPagerState { pages.size }
+        Text(
+            "Carousel · page ${pager.currentPage + 1} of ${pages.size}",
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.testTag("carouselCount"),
+        )
+        HorizontalPager(
+            pager,
+            pageSpacing = 8.dp,
+            modifier = Modifier.fillMaxWidth().testTag("carouselPager"),
+        ) { page ->
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f)
+                    .clip(RoundedCornerShape(8.dp))
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
+                    .clickable(onClickLabel = "Open preview") { onOpen(page) }
+                    .semantics { contentDescription = "Page ${page + 1} of ${pages.size}" },
+            ) {
+                GeneratedImage(pages[page], Modifier.fillMaxSize(), maxSidePx = 1080, contentScale = ContentScale.Fit)
+            }
+        }
+    }
+}
+
+/**
  * Full image preview (IM-3, slide 8): swipe between images, pinch to zoom, with the
  * actions passed in [actions] (Post in LinkedIn, Back to Home) underneath.
  */
@@ -148,15 +183,17 @@ fun ImagePreview(
     images: List<File>,
     startIndex: Int,
     onDismiss: () -> Unit,
+    /** What each image is called in the title: "Image", or "Page" for a carousel. */
+    noun: String = "Image",
     actions: @Composable (currentIndex: Int) -> Unit,
 ) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.fillMaxSize()) {
             Column(Modifier.safeDrawingPadding().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 val pager = rememberPagerState(initialPage = startIndex) { images.size }
-                Text("Image ${pager.currentPage + 1} of ${images.size}", style = MaterialTheme.typography.titleMedium)
+                Text("$noun ${pager.currentPage + 1} of ${images.size}", style = MaterialTheme.typography.titleMedium)
                 HorizontalPager(pager, modifier = Modifier.weight(1f).fillMaxWidth().testTag("imagePager")) { page ->
-                    ZoomableImage(images[page], "Image ${page + 1} of ${images.size}")
+                    ZoomableImage(images[page], "$noun ${page + 1} of ${images.size}")
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { actions(pager.currentPage) }
             }

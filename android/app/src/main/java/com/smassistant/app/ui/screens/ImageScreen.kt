@@ -18,6 +18,7 @@ import com.smassistant.app.chat.ImagesSaver
 import com.smassistant.app.generate.GenerateContentAndMediaUseCase
 import com.smassistant.app.generate.appGenerateImages
 import com.smassistant.app.generate.imageLabel
+import com.smassistant.app.generate.isCarousel
 import com.smassistant.app.generate.parseImageTemplates
 import com.smassistant.app.generate.text
 import com.smassistant.app.generate.pickedImageRequest
@@ -27,6 +28,7 @@ import com.smassistant.app.linkedin.PostViewModel
 import com.smassistant.app.linkedin.appPostToLinkedIn
 import com.smassistant.app.navigation.Feature
 import com.smassistant.app.prompt.loadPromptAsset
+import com.smassistant.app.ui.components.CarouselPager
 import com.smassistant.app.ui.components.ImageTemplatePickers
 import com.smassistant.app.ui.components.MediaAgentDropdown
 import com.smassistant.app.ui.components.ImagePreview
@@ -93,6 +95,7 @@ fun ImageScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToH
 /**
  * One generation: the strip, then Post in LinkedIn for the selected images (IM-4, IM-5).
  * The preview posts the image it shows. Content & Image also posts its text through [onPost].
+ * A carousel's pages are shown one at a time and always posted together (SC-I5).
  */
 @Composable
 fun ImageResult(
@@ -102,6 +105,7 @@ fun ImageResult(
     onBackToHome: () -> Unit,
     canPostWithoutImages: Boolean = false,
 ) {
+    val carousel = remember(images) { isCarousel(images) }
     var selected by rememberSaveable(images) { mutableStateOf(images.indices.toSet()) }
     var previewIndex by rememberSaveable(images) { mutableStateOf<Int?>(null) }
     val appContext = LocalContext.current.applicationContext
@@ -112,25 +116,29 @@ fun ImageResult(
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        ImageStrip(
-            images = images,
-            selected = selected,
-            onToggle = { index -> selected = if (index in selected) selected - index else selected + index },
-            onOpen = { previewIndex = it },
-            labels = labels,
-        )
+        if (carousel) {
+            CarouselPager(images, onOpen = { previewIndex = it })
+        } else {
+            ImageStrip(
+                images = images,
+                selected = selected,
+                onToggle = { index -> selected = if (index in selected) selected - index else selected + index },
+                onOpen = { previewIndex = it },
+                labels = labels,
+            )
+        }
         PostInLinkedInButton(
-            onClick = { onPost(images.filterIndexed { index, _ -> index in selected }) },
-            enabled = canPostWithoutImages || selected.isNotEmpty(),
+            onClick = { onPost(if (carousel) images else images.filterIndexed { index, _ -> index in selected }) },
+            enabled = carousel || canPostWithoutImages || selected.isNotEmpty(),
             busy = posting,
         )
     }
     previewIndex?.let { start ->
-        ImagePreview(images, start, onDismiss = { previewIndex = null }) { current ->
+        ImagePreview(images, start, onDismiss = { previewIndex = null }, noun = if (carousel) "Page" else "Image") { current ->
             PostInLinkedInButton(
                 onClick = {
                     previewIndex = null
-                    onPost(listOf(images[current]))
+                    onPost(if (carousel) images else listOf(images[current]))
                 },
                 busy = posting,
             )
