@@ -31,6 +31,7 @@ import com.smassistant.app.ui.components.ImageTemplatePickers
 import com.smassistant.app.ui.components.MediaAgentDropdown
 import com.smassistant.app.ui.components.ImagePreview
 import com.smassistant.app.ui.components.ImageStrip
+import com.smassistant.app.ui.components.MediaActions
 import com.smassistant.app.ui.components.PostDialogs
 import com.smassistant.app.ui.components.PostInLinkedInButton
 import com.smassistant.app.ui.components.PromptCard
@@ -90,8 +91,8 @@ fun ImageScreen(onSetUpAgent: () -> Unit, onSetUpLinkedIn: () -> Unit, onBackToH
 }
 
 /**
- * One generation: the strip, then Post in LinkedIn for the selected images (IM-4, IM-5).
- * The preview posts the image it shows. Content & Image also posts its text through [onPost].
+ * One generation: the strip, then Post in LinkedIn for the selected images (IM-4, IM-5),
+ * then Share and Save to Gallery for the same selection. The preview acts on the image it shows. Content & Image also posts its text through [onPost].
  */
 @Composable
 fun ImageResult(
@@ -123,6 +124,10 @@ fun ImageResult(
             enabled = canPostWithoutImages || selected.isNotEmpty(),
             busy = posting,
         )
+        MediaActions(
+            files = { images.filterIndexed { index, _ -> index in selected } },
+            enabled = selected.isNotEmpty(),
+        )
     }
     previewIndex?.let { start ->
         ImagePreview(images, start, onDismiss = { previewIndex = null }) { current ->
@@ -133,6 +138,7 @@ fun ImageResult(
                 },
                 busy = posting,
             )
+            MediaActions(files = { listOf(images[current]) })
             BackToHomeButton(onClick = {
                 previewIndex = null
                 onBackToHome()
