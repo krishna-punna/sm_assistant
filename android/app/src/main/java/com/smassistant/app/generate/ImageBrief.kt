@@ -26,6 +26,8 @@ data class ImageBrief(
     val style: ImageStyle = ImageStyle(),
     val painted: Boolean = false,
     val series: ImageTemplate? = null,
+    /** The format was picked by the user (or Image Style), so the app never switches it (docs/design/single-image-carousel.md). */
+    val fixedFormat: Boolean = false,
 ) {
     /** The template filled with the content and the style inputs, then the series rules when there are any. */
     fun filled(): String {

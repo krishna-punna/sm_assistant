@@ -35,6 +35,9 @@ class InfographicRenderer(private val measurer: TextMeasurer = ApproxTextMeasure
      * on a wider page with more columns, up to [MAX_WIDEN] times the format's width, so the text is
      * drawn smaller instead; content too long even for that is centred on a page widened to the ratio.
      */
+    /** Whether [spec] fits its format's ratio at the format's own width, with text at full size (no widening). */
+    fun fits(spec: InfographicSpec): Boolean = renderAt(spec, spec.format.width.toFloat(), padSides = false).second
+
     fun render(spec: InfographicSpec): RenderedInfographic {
         val base = spec.format.width.toFloat()
         var width = base

@@ -73,3 +73,4 @@ image_style:
   series: false
   format: auto
   mode: both
+  layout: auto

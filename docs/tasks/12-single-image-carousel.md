@@ -8,7 +8,7 @@ Status: approved 2026-10-31. One PR per implementation task, in order.
 | ID | Task | Depends on | Status |
 |----|------|-----------|--------|
 | SC-I1 | One image per request: `IMAGES_PER_REQUEST = 1`; the image screens show one result with Regenerate; Both mode gives the drawn image. | — | done |
-| SC-I2 | Fit check: `InfographicRenderer.fits(spec)`; an unpicked portrait or square that doesn't fit is drawn as 3:2 landscape when that fits. Layout setting (Auto, Single image, Carousel) in Image Style and app.yml. | SC-I1 | todo |
+| SC-I2 | Fit check: `InfographicRenderer.fits(spec)`; an unpicked portrait or square that doesn't fit is drawn as 3:2 landscape when that fits. Layout setting (Auto, Single image, Carousel) in Image Style and app.yml. | SC-I1 | done |
 | SC-I3 | `Carousel` model, `CarouselWriter` and `prompts/carousel.md` (cover, 3–8 pages, summary, one palette, page budgets); carousel checks. | SC-I2 | todo |
 | SC-I4 | Drawing a carousel: page number and "Swipe" on the cover, each page through the pipeline and the review; Generate Image returns the pages when content doesn't fit one image (or Layout is Carousel); files `carousel-<id>-pNN.png`. | SC-I3 | todo |
 | SC-I5 | Image screens and Content & Image show a carousel as a swipeable pager with "Page N of M"; Post in LinkedIn posts all pages. | SC-I4 | todo |
