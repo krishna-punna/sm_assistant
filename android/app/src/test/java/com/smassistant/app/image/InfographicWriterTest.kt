@@ -112,6 +112,14 @@ class InfographicWriterTest {
     }
 
     @Test
+    fun `infographic prompt lets the AI decide the card count and asks for feed-width readability (AC-3)`() {
+        val text = File("src/main/assets/prompts/image/infographic.md").readText()
+        assertFalse(Regex("""\d+ to \d+ sections""").containsMatchIn(text))
+        assertTrue(text.contains("You decide how many sections"))
+        assertTrue(text.contains("550 px wide on any device"))
+    }
+
+    @Test
     fun `a style guide asks for the closest palette`() = runTest {
         val reply = ApiResult.Ok("""{"title": "Kafka Retries", "sections": [{"heading": "Why", "items": ["at least once"]},
               {"heading": "Backoff", "items": ["double the wait"]}, {"heading": "Dead letters", "items": ["park poison messages"]}]}""")
