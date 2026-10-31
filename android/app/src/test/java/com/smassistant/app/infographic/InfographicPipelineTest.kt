@@ -1,6 +1,8 @@
 package com.smassistant.app.infographic
 
 import com.smassistant.app.agents.ImageAgent
+import com.smassistant.app.data.ImageFormat
+import com.smassistant.app.media.nearestImageFormat
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
 import java.io.File
@@ -43,6 +45,24 @@ class InfographicPipelineTest {
         // The hero painted, the failed one and the one over the limit keep their placeholders.
         assertTrue(illustrations[0] != null)
         assertEquals(listOf(null, null), illustrations.drop(1))
+    }
+
+    @Test
+    fun `every illustration is asked for at the image size closest to its slot`() = runTest {
+        val asked = mutableListOf<ImageFormat?>()
+        val agent = object : ImageAgent {
+            override suspend fun generate(prompt: String, count: Int) = generate(prompt, count, null)
+            override suspend fun generate(prompt: String, count: Int, format: ImageFormat?): ApiResult<List<File>> {
+                synchronized(asked) { asked += format }
+                return ApiResult.Ok(listOf(File("${asked.size}.png")))
+            }
+        }
+
+        pipeline.draw(spec, agent)
+
+        val slots = composed!!.first.slots.take(2)
+        assertEquals(slots.map { nearestImageFormat(it.width, it.height) }.sorted(), asked.filterNotNull().sorted())
+        assertEquals(2, asked.size)
     }
 
     @Test

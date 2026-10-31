@@ -14,6 +14,7 @@ import com.smassistant.app.data.ImageFormat
 import com.smassistant.app.data.ImageLayout
 import com.smassistant.app.data.ImageMode
 import com.smassistant.app.data.ImageStyle
+import com.smassistant.app.media.SizeGuard
 import com.smassistant.app.net.ApiError
 import com.smassistant.app.net.ApiResult
 import java.io.File
@@ -237,6 +238,26 @@ class GenerateImagesTest {
 
         assertEquals(Outcome.Ok(listOf(File("big-a.png"))), outcome)
         assertEquals(ImageFormat.LANDSCAPE, asked)
+    }
+
+    @Test
+    fun `without a text agent Auto asks for portrait and every image goes through the size guard`() = runTest {
+        var asked: ImageFormat? = null
+        val painter = object : ImageAgent {
+            override suspend fun generate(prompt: String, count: Int) = generate(prompt, count, null)
+            override suspend fun generate(prompt: String, count: Int, format: ImageFormat?): ApiResult<List<File>> {
+                asked = format
+                return ApiResult.Ok(listOf(File("a.png")))
+            }
+        }
+        var ratios = emptyList<Pair<Int, Int>>()
+        val guard = SizeGuard { file, allowed -> ratios = allowed; File("fit-${file.name}") }
+
+        val outcome = GenerateImagesUseCase("{{prompt}}", { painter }, 1, sizeGuard = guard).generate(ImageRequest("x"))
+
+        assertEquals(ImageFormat.PORTRAIT, asked)
+        assertEquals(Outcome.Ok(listOf(File("fit-a.png"))), outcome)
+        assertEquals(listOf(2 to 3, 1 to 1, 3 to 2), ratios)
     }
 
     @Test

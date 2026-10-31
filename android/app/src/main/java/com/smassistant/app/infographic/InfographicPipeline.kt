@@ -1,6 +1,8 @@
 package com.smassistant.app.infographic
 
 import com.smassistant.app.agents.ImageAgent
+import com.smassistant.app.data.ImageFormat
+import com.smassistant.app.media.nearestImageFormat
 import com.smassistant.app.net.ApiResult
 import java.io.File
 import kotlinx.coroutines.async
@@ -67,7 +69,7 @@ class InfographicPipeline(
             emptyList()
         } else {
             coroutineScope {
-                slots.map { slot -> async { illustrate(illustrator, illustrationPrompt(slot.prompt, spec.palette)) } }.awaitAll()
+                slots.map { slot -> async { illustrate(illustrator, illustrationPrompt(slot.prompt, spec.palette), nearestImageFormat(slot.width, slot.height)) } }.awaitAll()
             }
         }
         val pictures = slots.map { it.prompt }.zip(painted).toMap()
@@ -78,10 +80,10 @@ class InfographicPipeline(
         }
     }
 
-    /** One illustration, asked for once more when the first one comes back unusable. */
-    private suspend fun illustrate(illustrator: ImageAgent, prompt: String): File? {
+    /** One illustration at the image size closest to its slot's shape, asked for once more when the first one comes back unusable. */
+    private suspend fun illustrate(illustrator: ImageAgent, prompt: String, format: ImageFormat): File? {
         repeat(2) {
-            val file = when (val result = illustrator.generate(prompt, 1)) {
+            val file = when (val result = illustrator.generate(prompt, 1, format)) {
                 is ApiResult.Ok -> result.value.firstOrNull()
                 is ApiResult.Failed -> return null
             }
