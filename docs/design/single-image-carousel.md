@@ -5,6 +5,10 @@ Requirements: [17](../requirements/17-single-image-or-carousel.md). Tasks: [docs
 Krishna approved without picking the open choices, so the recommended ones are used: 1:1 carousel pages,
 PDF document posts with a multi-image fallback, and app-drawn images.
 
+> **Replaced in part (2026-10-31, [18](../requirements/18-separate-image-and-video.md) SV-5):** Layout Auto no longer
+> switches to landscape or splits into a carousel. Content too long for one poster is written again, shorter, and the
+> carousel is made only when Layout is Carousel.
+
 ## Today
 
 Each request makes 4 images (`IMAGES_PER_REQUEST = 4`): images 1 and 3 drawn by the app, 2 and 4

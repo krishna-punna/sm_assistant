@@ -177,9 +177,9 @@ enum class ImageMode(val key: String) {
 }
 
 /**
- * Whether a request's content is made into one image or a carousel (docs/design/single-image-carousel.md):
- * Auto splits content that doesn't fit one image (portrait, then landscape) into a carousel, Single
- * always makes one image (smaller text when it is long), Carousel always makes a carousel.
+ * Whether a request's content is made into one image or a carousel (docs/requirements/18, SV-5):
+ * Auto makes one poster and has content that doesn't fit written shorter, Single always makes one
+ * image (smaller text when it is long), Carousel always makes a carousel.
  */
 enum class ImageLayout(val key: String) {
     AUTO("auto"),
