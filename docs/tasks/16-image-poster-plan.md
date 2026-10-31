@@ -20,8 +20,8 @@ Decisions:
 | ID | Task | Status |
 |----|------|--------|
 | AC-1 | Readability rule: `InfographicRenderer.measure` reports fits, cards, needed and available height, and the feed text size; portrait and landscape posters of 12+ narrow cards may take one more column (the fewest columns that fit win). | PR #142 |
-| AC-2 | Card cap 16 (`Limits.SECTIONS`), cards over it logged instead of dropped silently. The spec checks report dropped cards, so the writer merges them. | PR (this) |
-| AC-3 | `infographic.md` without fixed card ranges, with the feed-width readability rule. | todo |
+| AC-2 | Card cap 16 (`Limits.SECTIONS`), cards over it logged instead of dropped silently. The spec checks report dropped cards, so the writer merges them. | PR #143 |
+| AC-3 | `infographic.md` without fixed card ranges, with the feed-width readability rule. | PR (this) |
 | AC-4 | Retry with measured numbers instead of "at most 11 sections"; a poster series when the retry still doesn't fit. | todo |
 | AC-5 | Remove the image carousel (Layout = Carousel, `carousel.md`, `CarouselWriter`, PDF posting); keep the multi-image post. | todo |
 | AC-6 | Painted series: `split_image_prompt.md` replaces `condense_image_prompt.md`; per-agent prompt budgets in app.yml. | todo |
